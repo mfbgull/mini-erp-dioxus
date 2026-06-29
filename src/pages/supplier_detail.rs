@@ -178,7 +178,7 @@ pub fn SupplierDetailPage(id: String) -> Element {
                 rsx! {
                     div { class: "supplier-detail-header",
                         div { class: "supplier-detail-title-group",
-                            Button { class: Some("supplier-detail-back".to_string()), variant: ButtonVariant::Ghost, onclick: move |_| { navigator.push("/crm/suppliers"); }, "← Back to Suppliers" }
+                            Button { class: Some("supplier-detail-back".to_string()), variant: ButtonVariant::Ghost, onclick: move |_| { navigator.push("/suppliers"); }, "← Back to Suppliers" }
                             div { class: "supplier-detail-title-row",
                                 h1 { "{supplier.supplier_name}" }
                                 span { class: "supplier-detail-code", "{supplier.supplier_code}" }
@@ -318,7 +318,7 @@ pub fn SupplierDetailPage(id: String) -> Element {
                         close_on_escape: true,
                         footer: rsx! {
                             Button { variant: ButtonVariant::Secondary, onclick: move |_| show_delete_modal.set(false), "Cancel" }
-                            Button { variant: ButtonVariant::Danger, onclick: { let mut t = toast.clone(); move |_| { show_delete_modal.set(false); t.success("Deleted", "Supplier has been deleted."); navigator.push("/crm/suppliers"); } }, "Delete Supplier" }
+                            Button { variant: ButtonVariant::Danger, onclick: { let mut t = toast.clone(); move |_| { show_delete_modal.set(false); t.success("Deleted", "Supplier has been deleted."); navigator.push("/suppliers"); } }, "Delete Supplier" }
                         },
                         div {
                             p { style: "margin: 0 0 8px 0; color: var(--text-primary); font-size: 14px; font-weight: 500;", "Delete {supplier.supplier_name}?" }

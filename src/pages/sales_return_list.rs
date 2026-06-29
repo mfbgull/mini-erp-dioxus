@@ -1,14 +1,13 @@
 //! Sales Return List Page — DataGrid-backed list for sales returns with status
 //! badges, summary bar, toolbar, and row click navigation.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
 };
 use dioxus::prelude::*;
-use crate::utils::sleep;
 use std::collections::HashSet;
-use std::time::Duration;
 
 // ============================================================================
 // Data Model
@@ -26,25 +25,7 @@ pub struct SalesReturn {
     pub reason: String,
 }
 
-// ============================================================================
-// Sample Data
-// ============================================================================
 
-async fn fetch_returns() -> Vec<SalesReturn> {
-    sleep(Duration::from_millis(500)).await;
-    sample_returns_data()
-}
-
-fn sample_returns_data() -> Vec<SalesReturn> {
-    vec![
-        SalesReturn { id: 1, return_no: "SR-2026-0001".to_string(), customer_name: "Alpha Traders".to_string(), return_date: "2026-06-20".to_string(), invoice_ref: "INV-2026-0038".to_string(), status: "Draft".to_string(), total_amount: 12_500.00, reason: "Damaged goods — 10 units of Widget Alpha".to_string() },
-        SalesReturn { id: 2, return_no: "SR-2026-0002".to_string(), customer_name: "Gamma Supplies".to_string(), return_date: "2026-06-18".to_string(), invoice_ref: "INV-2026-0027".to_string(), status: "Approved".to_string(), total_amount: 8_450.00, reason: "Wrong item shipped — received LED panels instead of switches".to_string() },
-        SalesReturn { id: 3, return_no: "SR-2026-0003".to_string(), customer_name: "Delta Corp".to_string(), return_date: "2026-06-15".to_string(), invoice_ref: "INV-2026-0019".to_string(), status: "Processed".to_string(), total_amount: 34_200.00, reason: "Defective Hydraulic Pump — seal failure".to_string() },
-        SalesReturn { id: 4, return_no: "SR-2026-0004".to_string(), customer_name: "Epsilon LLC".to_string(), return_date: "2026-06-10".to_string(), invoice_ref: "INV-2026-0015".to_string(), status: "Rejected".to_string(), total_amount: 5_600.00, reason: "Return request outside return window (45 days)".to_string() },
-        SalesReturn { id: 5, return_no: "SR-2026-0005".to_string(), customer_name: "Eta Manufacturing".to_string(), return_date: "2026-06-05".to_string(), invoice_ref: "INV-2026-0008".to_string(), status: "Approved".to_string(), total_amount: 22_800.00, reason: "Quality not as per sample — Steel rods substandard".to_string() },
-        SalesReturn { id: 6, return_no: "SR-2026-0006".to_string(), customer_name: "Theta Retail".to_string(), return_date: "2026-06-01".to_string(), invoice_ref: "INV-2026-0005".to_string(), status: "Draft".to_string(), total_amount: 3_150.00, reason: "Excess quantity shipped — returning 25 boxes".to_string() },
-    ]
-}
 
 // ============================================================================
 // Summary
@@ -85,15 +66,11 @@ fn compute_summary(returns: &[SalesReturn]) -> ReturnSummary {
 #[component]
 pub fn SalesReturnListPage() -> Element {
     let navigator = use_navigator();
-    let refresh_counter = use_signal(|| 0u32);
-    let returns_resource = use_resource(move || async move {
-        let _ = *refresh_counter.read();
-        fetch_returns().await
-    });
+    // ponytail: no sales returns list endpoint — add when server exposes one
+    let returns: Vec<SalesReturn> = vec![];
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
-    let is_loading = returns_resource.read().is_none();
-    let returns = returns_resource.read().cloned().unwrap_or_default();
+    let is_loading = false;
     let summary = compute_summary(&returns);
 
     let columns: Vec<ColumnDef<SalesReturn>> = vec![
@@ -140,10 +117,8 @@ pub fn SalesReturnListPage() -> Element {
         let nav = navigator.clone();
         move |_| { nav.push("/sales/returns/new"); } };
 
-    let on_refresh = {
-        let mut cnt = refresh_counter.clone();
-        move |_| cnt += 1
-    };
+    // ponytail: no-op — no data to refresh yet
+    let on_refresh = move |_| {};
 
     rsx! {
         div { class: "page",

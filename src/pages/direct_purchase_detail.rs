@@ -83,12 +83,13 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
     let navigator = use_navigator();
     let id_display = id.clone();
 
+    let api = use_auth().api;
     let resource = use_resource(move || {
+        let api = api.clone();
         let pid = id.clone();
         async move {
             let parsed_id = pid.parse::<i64>().ok()?;
-            let client = use_auth().api;
-            let result = client.read().get_direct_purchase(parsed_id).await;
+            let result = api.read().clone().get_direct_purchase(parsed_id).await;
             match result {
                 Ok(m) => {
                     let line_item = LineItem {

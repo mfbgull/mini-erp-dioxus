@@ -5,8 +5,7 @@ use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
 use dioxus::prelude::*;
-use crate::utils::sleep;
-use std::time::Duration;
+use crate::auth::use_auth;
 
 // ============================================================================
 // Constants & CSS
@@ -100,48 +99,7 @@ struct SalesOrderDetail {
     items: Vec<SoLineItem>,
 }
 
-fn mock_order_detail(id: i64) -> Option<SalesOrderDetail> {
-    let data = vec![
-        SalesOrderDetail {
-            id: 1,
-            order_no: "SO-2026-0001".to_string(),
-            customer_name: "Alpha Traders".to_string(),
-            customer_code: "CUST-001".to_string(),
-            order_date: "2026-06-01".to_string(),
-            delivery_date: "2026-06-15".to_string(),
-            status: "Confirmed".to_string(),
-            subtotal: 125_400.00,
-            discount_percent: 5.0,
-            discount_amount: 6_270.00,
-            tax_rate: 16.0,
-            tax_amount: 19_060.80,
-            total: 138_190.80,
-            notes: "Delivery requested before 10 AM.".to_string(),
-            items: vec![
-                SoLineItem { line_no: 1, item_code: "ITM-0001".to_string(), item_name: "Premium Widget Alpha".to_string(), quantity: 50.0, unit_price: 1500.0, net_amount: 71_250.00 },
-                SoLineItem { line_no: 2, item_code: "ITM-0003".to_string(), item_name: "Steel Rod 12mm x 6m".to_string(), quantity: 100.0, unit_price: 350.0, net_amount: 35_000.00 },
-                SoLineItem { line_no: 3, item_code: "ITM-0005".to_string(), item_name: "Rubber Gasket Set".to_string(), quantity: 200.0, unit_price: 95.0, net_amount: 19_000.00 },
-            ],
-        },
-    ];
-    data.into_iter().find(|o| o.id == id).or_else(|| Some(SalesOrderDetail {
-        id,
-        order_no: format!("SO-2026-{:04}", id),
-        customer_name: "Sample Customer".to_string(),
-        customer_code: format!("CUST-{:03}", id),
-        order_date: "2026-06-01".to_string(),
-        delivery_date: "2026-06-15".to_string(),
-        status: "Draft".to_string(),
-        subtotal: 30_000.00,
-        discount_percent: 0.0,
-        discount_amount: 0.0,
-        tax_rate: 16.0,
-        tax_amount: 4_800.00,
-        total: 34_800.00,
-        notes: String::new(),
-        items: vec![SoLineItem { line_no: 1, item_code: "ITM-0001".to_string(), item_name: "Sample Item".to_string(), quantity: 10.0, unit_price: 3000.0, net_amount: 30_000.00 }],
-    }))
-}
+
 
 fn sostatus_class(status: &str) -> &'static str {
     match status {
@@ -166,11 +124,38 @@ pub fn SalesOrderDetailPage(id: String) -> Element {
     let id_display = id.clone();
 
     let resource = use_resource(move || {
-        let fetch_id = id.clone();
+        let pid = id.clone();
+        let api = use_auth().api;
         async move {
-            sleep(Duration::from_millis(500)).await;
-            let parsed = fetch_id.parse::<i64>().unwrap_or(0);
-            mock_order_detail(parsed)
+            let parsed = pid.parse::<i64>().ok()?;
+            let client = api.with(|c| c.clone());
+            let result = client.get_sales_order(parsed).await.ok()?;
+            let order: crate::models::SalesOrder = serde_json::from_value(result.get("order")?.clone()).ok()?;
+            let items: Vec<crate::models::SalesOrderItem> = serde_json::from_value(result.get("items")?.clone()).ok()?;
+            Some(SalesOrderDetail {
+                id: order.id,
+                order_no: order.so_no,
+                customer_name: order.customer_name.unwrap_or_default(),
+                customer_code: String::new(), // ponytail: not returned by server
+                order_date: order.so_date.clone(),
+                delivery_date: String::new(), // ponytail: not returned by server
+                status: order.status,
+                subtotal: order.total_amount,  // ponytail: server only has total_amount
+                discount_percent: 0.0,
+                discount_amount: 0.0,
+                tax_rate: 0.0,
+                tax_amount: 0.0,
+                total: order.total_amount,
+                notes: order.notes.unwrap_or_default(),
+                items: items.into_iter().enumerate().map(|(i, item)| SoLineItem {
+                    line_no: (i + 1) as i32,
+                    item_code: item.item_code.unwrap_or_default(),
+                    item_name: item.item_name.unwrap_or_default(),
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    net_amount: item.amount,
+                }).collect(),
+            })
         }
     });
 

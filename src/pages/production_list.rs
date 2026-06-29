@@ -1,5 +1,6 @@
 //! Production Order List Page — DataGrid-backed list view for production orders.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
@@ -20,100 +21,32 @@ pub struct ProductionOrderItem {
     pub status: String,
 }
 
-async fn fetch_production_orders() -> Vec<ProductionOrderItem> {
-    crate::utils::sleep(std::time::Duration::from_millis(500)).await;
-    sample_production_orders()
-}
-
-fn sample_production_orders() -> Vec<ProductionOrderItem> {
-    vec![
-        ProductionOrderItem {
-            id: 1,
-            prd_no: "PRD-2026-0007".to_string(),
-            item_name: "Premium Widget Alpha".to_string(),
-            item_code: "ITM-0001".to_string(),
-            planned_qty: 500,
-            completed_qty: 500,
-            start_date: "2026-06-10".to_string(),
-            end_date: "2026-06-20".to_string(),
-            status: "Completed".to_string(),
-        },
-        ProductionOrderItem {
-            id: 2,
-            prd_no: "PRD-2026-0006".to_string(),
-            item_name: "Steel Bracket XR-200".to_string(),
-            item_code: "ITM-0004".to_string(),
-            planned_qty: 200,
-            completed_qty: 185,
-            start_date: "2026-06-12".to_string(),
-            end_date: "2026-06-22".to_string(),
-            status: "Completed".to_string(),
-        },
-        ProductionOrderItem {
-            id: 3,
-            prd_no: "PRD-2026-0008".to_string(),
-            item_name: "Rubber Gasket Set".to_string(),
-            item_code: "ITM-0005".to_string(),
-            planned_qty: 1000,
-            completed_qty: 620,
-            start_date: "2026-06-15".to_string(),
-            end_date: "2026-06-30".to_string(),
-            status: "In Progress".to_string(),
-        },
-        ProductionOrderItem {
-            id: 4,
-            prd_no: "PRD-2026-0009".to_string(),
-            item_name: "Assembly Kit Type-B".to_string(),
-            item_code: "ITM-0008".to_string(),
-            planned_qty: 300,
-            completed_qty: 0,
-            start_date: "2026-06-28".to_string(),
-            end_date: "2026-07-10".to_string(),
-            status: "Planned".to_string(),
-        },
-        ProductionOrderItem {
-            id: 5,
-            prd_no: "PRD-2026-0010".to_string(),
-            item_name: "Control Panel CX-12".to_string(),
-            item_code: "ITM-0012".to_string(),
-            planned_qty: 50,
-            completed_qty: 0,
-            start_date: "2026-07-01".to_string(),
-            end_date: "2026-07-15".to_string(),
-            status: "Planned".to_string(),
-        },
-        ProductionOrderItem {
-            id: 6,
-            prd_no: "PRD-2026-0011".to_string(),
-            item_name: "Hydraulic Pump HP-45".to_string(),
-            item_code: "ITM-0015".to_string(),
-            planned_qty: 25,
-            completed_qty: 25,
-            start_date: "2026-06-20".to_string(),
-            end_date: "2026-06-25".to_string(),
-            status: "Completed".to_string(),
-        },
-        ProductionOrderItem {
-            id: 7,
-            prd_no: "PRD-2026-0005".to_string(),
-            item_name: "Premium Widget Alpha".to_string(),
-            item_code: "ITM-0001".to_string(),
-            planned_qty: 400,
-            completed_qty: 120,
-            start_date: "2026-06-05".to_string(),
-            end_date: "2026-06-18".to_string(),
-            status: "Cancelled".to_string(),
-        },
-    ]
-}
-
 #[component]
 pub fn ProductionListPage() -> Element {
     let navigator = use_navigator();
+    let api = use_auth().api;
     let refresh_counter = use_signal(|| 0u32);
-    let orders_resource = use_resource(move || async move {
-        let _ = *refresh_counter.read();
-        fetch_production_orders().await
+    let orders_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *refresh_counter.read();
+            let client = api.with(|c| c.clone());
+            client.list_production_orders().await
+                .map(|server_orders| {
+                    server_orders.into_iter().map(|o| ProductionOrderItem {
+                        id: o.id,
+                        prd_no: o.production_no,
+                        item_name: o.output_item_name.unwrap_or_default(),
+                        item_code: o.output_item_code.unwrap_or_default(),
+                        planned_qty: o.output_quantity as i32,
+                        completed_qty: 0, // ponytail: not in list endpoint
+                        start_date: o.created_at.clone(),
+                        end_date: o.created_at, // ponytail: not in list endpoint
+                        status: o.status,
+                    }).collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        }
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 

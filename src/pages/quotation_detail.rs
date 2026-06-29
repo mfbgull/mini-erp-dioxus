@@ -1,12 +1,11 @@
 //! Quotation Detail Page — View a single quotation with header, KPI cards,
 //! line items, action bar, status change, and conversion to invoice.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
 use dioxus::prelude::*;
-use crate::utils::sleep;
-use std::time::Duration;
 
 // ============================================================================
 // Constants & CSS
@@ -101,70 +100,7 @@ struct QuotationDetail {
     items: Vec<QdetailLineItem>,
 }
 
-fn mock_quotation_detail(id: i64) -> Option<QuotationDetail> {
-    let data = vec![
-        QuotationDetail {
-            id: 1,
-            quotation_no: "QOT-2026-0001".to_string(),
-            customer_name: "Alpha Traders".to_string(),
-            customer_code: "CUST-001".to_string(),
-            date: "2026-06-01".to_string(),
-            valid_until: "2026-07-01".to_string(),
-            status: "Draft".to_string(),
-            subtotal: 159_250.00,
-            discount_percent: 5.0,
-            discount_amount: 7_962.50,
-            tax_rate: 16.0,
-            tax_amount: 24_206.00,
-            total: 156_000.00,
-            notes: "Quotation valid for 30 days.".to_string(),
-            items: vec![
-                QdetailLineItem { line_no: 1, item_code: "ITM-0001".to_string(), item_name: "Premium Widget Alpha".to_string(), quantity: 50.0, unit_price: 1500.0, discount: 5.0, tax_rate: 16.0, net_amount: 71_250.00 },
-                QdetailLineItem { line_no: 2, item_code: "ITM-0003".to_string(), item_name: "Steel Rod 12mm x 6m".to_string(), quantity: 200.0, unit_price: 350.0, discount: 0.0, tax_rate: 16.0, net_amount: 70_000.00 },
-                QdetailLineItem { line_no: 3, item_code: "ITM-0005".to_string(), item_name: "Rubber Gasket Set".to_string(), quantity: 100.0, unit_price: 180.0, discount: 0.0, tax_rate: 16.0, net_amount: 18_000.00 },
-            ],
-        },
-        QuotationDetail {
-            id: 3,
-            quotation_no: "QOT-2026-0003".to_string(),
-            customer_name: "Gamma Supplies".to_string(),
-            customer_code: "CUST-003".to_string(),
-            date: "2026-06-10".to_string(),
-            valid_until: "2026-07-10".to_string(),
-            status: "Accepted".to_string(),
-            subtotal: 234_500.00,
-            discount_percent: 10.0,
-            discount_amount: 23_450.00,
-            tax_rate: 16.0,
-            tax_amount: 33_768.00,
-            total: 244_818.00,
-            notes: "Accepted by customer. Ready for invoicing.".to_string(),
-            items: vec![
-                QdetailLineItem { line_no: 1, item_code: "ITM-0004".to_string(), item_name: "Hydraulic Pump HPD-200".to_string(), quantity: 10.0, unit_price: 12500.0, discount: 5.0, tax_rate: 16.0, net_amount: 118_750.00 },
-                QdetailLineItem { line_no: 2, item_code: "ITM-0006".to_string(), item_name: "Copper Wire 2.5mm (100m)".to_string(), quantity: 500.0, unit_price: 45.0, discount: 0.0, tax_rate: 16.0, net_amount: 22_500.00 },
-                QdetailLineItem { line_no: 3, item_code: "ITM-0007".to_string(), item_name: "LED Panel Light 24W".to_string(), quantity: 200.0, unit_price: 185.0, discount: 0.0, tax_rate: 16.0, net_amount: 37_000.00 },
-                QdetailLineItem { line_no: 4, item_code: "ITM-0008".to_string(), item_name: "Packaging Box 40x30x20cm".to_string(), quantity: 1000.0, unit_price: 1.2, discount: 0.0, tax_rate: 16.0, net_amount: 1_200.00 },
-            ],
-        },
-    ];
-    data.into_iter().find(|q| q.id == id).or_else(|| Some(QuotationDetail {
-        id,
-        quotation_no: format!("QOT-2026-{:04}", id),
-        customer_name: "Sample Customer".to_string(),
-        customer_code: format!("CUST-{:03}", id),
-        date: "2026-06-01".to_string(),
-        valid_until: "2026-07-01".to_string(),
-        status: "Draft".to_string(),
-        subtotal: 25_000.00,
-        discount_percent: 0.0,
-        discount_amount: 0.0,
-        tax_rate: 16.0,
-        tax_amount: 4_000.00,
-        total: 29_000.00,
-        notes: String::new(),
-        items: vec![QdetailLineItem { line_no: 1, item_code: "ITM-0001".to_string(), item_name: "Sample Item".to_string(), quantity: 10.0, unit_price: 2500.0, discount: 0.0, tax_rate: 16.0, net_amount: 25_000.00 }],
-    }))
-}
+
 
 fn qstatus_class(status: &str) -> &'static str {
     match status {
@@ -177,6 +113,35 @@ fn qstatus_class(status: &str) -> &'static str {
     }
 }
 
+fn to_quotation_detail(q: crate::models::Quotation, items: Vec<crate::models::QuotationItem>) -> QuotationDetail {
+    QuotationDetail {
+        id: q.id,
+        quotation_no: q.quotation_no,
+        customer_name: q.customer_name.unwrap_or_default(),
+        customer_code: String::new(),
+        date: q.quotation_date,
+        valid_until: q.expiry_date,
+        status: q.status,
+        subtotal: 0.0,
+        discount_percent: 0.0,
+        discount_amount: 0.0,
+        tax_rate: 0.0,
+        tax_amount: 0.0,
+        total: q.total_amount,
+        notes: q.notes.unwrap_or_default(),
+        items: items.into_iter().enumerate().map(|(i, li)| QdetailLineItem {
+            line_no: (i + 1) as i32,
+            item_code: li.item_code.unwrap_or_default(),
+            item_name: li.item_name.unwrap_or_default(),
+            quantity: li.quantity,
+            unit_price: li.unit_price,
+            discount: li.discount,
+            tax_rate: li.tax,
+            net_amount: li.amount,
+        }).collect(),
+    }
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -185,14 +150,20 @@ fn qstatus_class(status: &str) -> &'static str {
 pub fn QuotationDetailPage(id: String) -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
-    let id_display = id.clone();
 
+    let auth = use_auth();
     let resource = use_resource(move || {
         let fetch_id = id.clone();
         async move {
-            sleep(Duration::from_millis(500)).await;
-            let parsed = fetch_id.parse::<i64>().unwrap_or(0);
-            mock_quotation_detail(parsed)
+            let parsed = fetch_id.parse::<i64>().ok()?;
+            let api = auth.api.read();
+            let client = api.clone();
+            drop(api);
+            let resp = client.get_quotation(parsed).await.ok()?;
+            let data = resp.get("data")?;
+            let q: crate::models::Quotation = serde_json::from_value(data.get("quotation")?.clone()).ok()?;
+            let items: Vec<crate::models::QuotationItem> = serde_json::from_value(data.get("items")?.clone()).ok()?;
+            Some(to_quotation_detail(q, items))
         }
     });
 

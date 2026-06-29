@@ -1,14 +1,13 @@
 //! Quotation List Page — DataGrid-backed list for quotations with status badges,
 //! summary bar, toolbar, and row click navigation.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
 };
 use dioxus::prelude::*;
-use crate::utils::sleep;
 use std::collections::HashSet;
-use std::time::Duration;
 
 // ============================================================================
 // Data Model
@@ -26,27 +25,7 @@ pub struct Quotation {
     pub item_count: i32,
 }
 
-// ============================================================================
-// Sample Data
-// ============================================================================
 
-async fn fetch_quotations() -> Vec<Quotation> {
-    sleep(Duration::from_millis(800)).await;
-    sample_quotations_data()
-}
-
-fn sample_quotations_data() -> Vec<Quotation> {
-    vec![
-        Quotation { id: 1, quotation_no: "QOT-2026-0001".to_string(), customer_name: "Alpha Traders".to_string(), date: "2026-06-01".to_string(), valid_until: "2026-07-01".to_string(), status: "Draft".to_string(), total_amount: 125_400.00, item_count: 4 },
-        Quotation { id: 2, quotation_no: "QOT-2026-0002".to_string(), customer_name: "Beta Industries".to_string(), date: "2026-06-05".to_string(), valid_until: "2026-07-05".to_string(), status: "Sent".to_string(), total_amount: 67_890.50, item_count: 2 },
-        Quotation { id: 3, quotation_no: "QOT-2026-0003".to_string(), customer_name: "Gamma Supplies".to_string(), date: "2026-06-10".to_string(), valid_until: "2026-07-10".to_string(), status: "Accepted".to_string(), total_amount: 234_500.00, item_count: 8 },
-        Quotation { id: 4, quotation_no: "QOT-2026-0004".to_string(), customer_name: "Delta Corp".to_string(), date: "2026-06-12".to_string(), valid_until: "2026-07-12".to_string(), status: "Rejected".to_string(), total_amount: 45_600.00, item_count: 3 },
-        Quotation { id: 5, quotation_no: "QOT-2026-0005".to_string(), customer_name: "Epsilon LLC".to_string(), date: "2026-06-15".to_string(), valid_until: "2026-07-15".to_string(), status: "Expired".to_string(), total_amount: 98_765.00, item_count: 6 },
-        Quotation { id: 6, quotation_no: "QOT-2026-0006".to_string(), customer_name: "Zeta Enterprises".to_string(), date: "2026-06-18".to_string(), valid_until: "2026-07-18".to_string(), status: "Sent".to_string(), total_amount: 12_450.00, item_count: 1 },
-        Quotation { id: 7, quotation_no: "QOT-2026-0007".to_string(), customer_name: "Eta Manufacturing".to_string(), date: "2026-06-20".to_string(), valid_until: "2026-07-20".to_string(), status: "Draft".to_string(), total_amount: 312_450.00, item_count: 15 },
-        Quotation { id: 8, quotation_no: "QOT-2026-0008".to_string(), customer_name: "Theta Retail".to_string(), date: "2026-06-22".to_string(), valid_until: "2026-07-22".to_string(), status: "Accepted".to_string(), total_amount: 56_780.00, item_count: 3 },
-    ]
-}
 
 // ============================================================================
 // Summary
@@ -92,11 +71,24 @@ fn compute_summary(quotes: &[Quotation]) -> QuotationSummary {
 
 #[component]
 pub fn QuotationListPage() -> Element {
+    let auth = use_auth();
     let navigator = use_navigator();
     let refresh_counter = use_signal(|| 0u32);
     let quotations_resource = use_resource(move || async move {
         let _ = *refresh_counter.read();
-        fetch_quotations().await
+        let api = auth.api.read();
+        let client = api.clone();
+        drop(api);
+        client.list_quotations().await.unwrap_or_default().into_iter().map(|q| Quotation {
+            id: q.id,
+            quotation_no: q.quotation_no,
+            customer_name: q.customer_name.unwrap_or_default(),
+            date: q.quotation_date,
+            valid_until: q.expiry_date,
+            status: q.status,
+            total_amount: q.total_amount,
+            item_count: 0,
+        }).collect::<Vec<_>>()
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 

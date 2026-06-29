@@ -1,3 +1,4 @@
+use crate::auth::use_auth;
 use dioxus::prelude::*;
 use super::print_shared::{PRINT_CSS, DEFAULT_COMPANY, trigger_print};
 
@@ -33,27 +34,31 @@ struct QPrintData {
     items: Vec<QPrintLineItem>,
 }
 
-fn mock_print_data() -> QPrintData {
+
+
+fn to_print_data(q: crate::models::Quotation, items: Vec<crate::models::QuotationItem>) -> QPrintData {
     QPrintData {
-        quotation_no: "QOT-2026-0001".to_string(),
-        date: "2026-06-22".to_string(),
-        valid_until: "2026-07-22".to_string(),
-        customer_name: "Alpha Traders".to_string(),
-        customer_code: "CUST-001".to_string(),
-        customer_address: "42 Model Town, Lahore, Punjab 54000".to_string(),
-        subtotal: 159_250.00,
-        discount_percent: 5.0,
-        discount_amount: 7_962.50,
-        tax_rate: 16.0,
-        tax_amount: 24_206.00,
-        total: 156_000.00,
-        notes: "This quotation is valid for 30 days from the date of issue. Prices may change after the validity period.".to_string(),
-        terms: "1. This quotation is valid for 30 days.\n2. Prices are exclusive of delivery charges unless stated otherwise.\n3. Payment terms: 50% advance, 50% on delivery.\n4. Subject to availability of stock at the time of order confirmation.".to_string(),
-        items: vec![
-            QPrintLineItem { item_code: "ITM-0001".to_string(), item_name: "Premium Widget Alpha".to_string(), quantity: 50.0, unit_price: 1500.0, net_amount: 71_250.00 },
-            QPrintLineItem { item_code: "ITM-0003".to_string(), item_name: "Steel Rod 12mm x 6m".to_string(), quantity: 200.0, unit_price: 350.0, net_amount: 70_000.00 },
-            QPrintLineItem { item_code: "ITM-0005".to_string(), item_name: "Rubber Gasket Set".to_string(), quantity: 100.0, unit_price: 180.0, net_amount: 18_000.00 },
-        ],
+        quotation_no: q.quotation_no,
+        date: q.quotation_date,
+        valid_until: q.expiry_date,
+        customer_name: q.customer_name.unwrap_or_default(),
+        customer_code: String::new(),
+        customer_address: String::new(),
+        subtotal: 0.0,
+        discount_percent: 0.0,
+        discount_amount: 0.0,
+        tax_rate: 0.0,
+        tax_amount: 0.0,
+        total: q.total_amount,
+        notes: q.notes.unwrap_or_default(),
+        terms: String::new(),
+        items: items.into_iter().map(|li| QPrintLineItem {
+            item_code: li.item_code.unwrap_or_default(),
+            item_name: li.item_name.unwrap_or_default(),
+            quantity: li.quantity,
+            unit_price: li.unit_price,
+            net_amount: li.amount,
+        }).collect(),
     }
 }
 
@@ -64,7 +69,30 @@ fn mock_print_data() -> QPrintData {
 #[component]
 pub fn QuotationPrintPage(id: String) -> Element {
     let navigator = use_navigator();
-    let data = mock_print_data();
+    let auth = use_auth();
+    let resource = use_resource(move || {
+        let fetch_id = id.clone();
+        async move {
+            let parsed = fetch_id.parse::<i64>().ok()?;
+            let api = auth.api.read();
+            let client = api.clone();
+            drop(api);
+            let resp = client.get_quotation(parsed).await.ok()?;
+            let data = resp.get("data")?;
+            let q: crate::models::Quotation = serde_json::from_value(data.get("quotation")?.clone()).ok()?;
+            let items: Vec<crate::models::QuotationItem> = serde_json::from_value(data.get("items")?.clone()).ok()?;
+            Some(to_print_data(q, items))
+        }
+    });
+
+    let pd: QPrintData = match resource.read().as_ref().cloned().flatten() {
+        Some(d) => d,
+        None => return rsx! {
+            div { class: "page", style: "display: flex; align-items: center; justify-content: center; min-height: 60vh; color: var(--text-secondary);",
+                span { "Loading…" }
+            }
+        },
+    };
 
     rsx! {
         style { "{PRINT_CSS}" }
@@ -72,7 +100,6 @@ pub fn QuotationPrintPage(id: String) -> Element {
 
         div { class: "print-page",
 
-            // Back + Print buttons
             div { class: "print-no-print", style: "margin-bottom: 16px; display: flex; gap: 8px;",
                 button {
                     r#type: "button",
@@ -88,7 +115,6 @@ pub fn QuotationPrintPage(id: String) -> Element {
                 }
             }
 
-            // Company header
             div { class: "print-header",
                 div { class: "print-company",
                     h1 { "{DEFAULT_COMPANY.name}" }
@@ -102,23 +128,21 @@ pub fn QuotationPrintPage(id: String) -> Element {
                 }
             }
 
-            // Info rows
             div { class: "print-info-row",
                 div { class: "print-info-block",
                     h3 { "Bill To" }
-                    p { style: "font-weight: 600;", "{data.customer_name}" }
-                    p { "Code: {data.customer_code}" }
-                    p { "{data.customer_address}" }
+                    p { style: "font-weight: 600;", "{pd.customer_name}" }
+                    p { "Code: {pd.customer_code}" }
+                    p { "{pd.customer_address}" }
                 }
                 div { class: "print-info-block",
                     h3 { "Quotation Details" }
-                    p { "Quote #:  {data.quotation_no}" }
-                    p { "Date:  {data.date}" }
-                    p { "Valid Until:  {data.valid_until}" }
+                    p { "Quote #:  {pd.quotation_no}" }
+                    p { "Date:  {pd.date}" }
+                    p { "Valid Until:  {pd.valid_until}" }
                 }
             }
 
-            // Line items
             table { class: "print-table",
                 thead { tr {
                     th { "#" } th { "Item Code" } th { "Description" }
@@ -127,7 +151,7 @@ pub fn QuotationPrintPage(id: String) -> Element {
                     th { class: "text-right", "Amount" }
                 }}
                 tbody {
-                    {data.items.iter().enumerate().map(|(i, li)| {
+                    {pd.items.iter().enumerate().map(|(i, li)| {
                         rsx! {
                             tr {
                                 td { "{i + 1}" }
@@ -142,44 +166,39 @@ pub fn QuotationPrintPage(id: String) -> Element {
                 }
             }
 
-            // Totals
             div { class: "print-totals",
                 table {
                     tbody {
-                        tr { td { "Subtotal" } td { class: "text-right", "PKR {data.subtotal:.2}" } }
-                        tr { td { "Discount ({data.discount_percent}%)" } td { class: "text-right", "PKR {data.discount_amount:.2}" } }
-                        tr { td { "Tax ({data.tax_rate}%)" } td { class: "text-right", "PKR {data.tax_amount:.2}" } }
-                        tr { class: "total-row", td { "Total" } td { class: "text-right", "PKR {data.total:.2}" } }
+                        tr { td { "Subtotal" } td { class: "text-right", "PKR {pd.subtotal:.2}" } }
+                        tr { td { "Discount ({pd.discount_percent}%)" } td { class: "text-right", "PKR {pd.discount_amount:.2}" } }
+                        tr { td { "Tax ({pd.tax_rate}%)" } td { class: "text-right", "PKR {pd.tax_amount:.2}" } }
+                        tr { class: "total-row", td { "Total" } td { class: "text-right", "PKR {pd.total:.2}" } }
                     }
                 }
             }
 
-            // Notes
-            if !data.notes.is_empty() {
+            if !pd.notes.is_empty() {
                 div { class: "print-notes",
                     p { style: "margin: 0 0 4px 0; font-weight: 600;", "Notes:" }
-                    p { style: "margin: 0;", "{data.notes}" }
+                    p { style: "margin: 0;", "{pd.notes}" }
                 }
             }
 
-            // Terms & Conditions
-            if !data.terms.is_empty() {
+            if !pd.terms.is_empty() {
                 div { class: "print-terms",
                     h4 { "Terms & Conditions" }
-                    {data.terms.split('\n').map(|line| {
+                    {pd.terms.split('\n').map(|line| {
                         rsx! { p { style: "margin: 2px 0;", "{line}" } }
                     })}
                 }
             }
 
-            // Authorized signature
             div { class: "print-signature",
                 div { class: "print-signature-box",
                     div { class: "print-signature-line", "Authorized Signature" }
                 }
             }
 
-            // Footer
             div { class: "print-footer",
                 p { style: "margin: 0 0 4px 0;", "Thank you for considering MiniERP for your requirements." }
                 p { style: "margin: 0;", "This is a computer-generated quotation. No signature required." }

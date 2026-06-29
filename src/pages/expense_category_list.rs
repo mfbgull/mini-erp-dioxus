@@ -1,5 +1,6 @@
 //! Expense Category List Page — DataGrid-backed list view for expense categories.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellClassRule, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType,
     PaginationMode, RowHeight, SelectionMode, TextAlign,
@@ -17,29 +18,31 @@ pub struct ExpenseCategory {
     pub is_active: bool,
 }
 
-async fn fetch_categories() -> Vec<ExpenseCategory> {
-    crate::utils::sleep(std::time::Duration::from_millis(400)).await;
-    sample_categories()
-}
 
-fn sample_categories() -> Vec<ExpenseCategory> {
-    vec![
-        ExpenseCategory { id: 1, category_name: "Travel".to_string(), description: "Business travel and transportation".to_string(), budget_amount: 300_000.00, spent_amount: 63_500.00, is_active: true },
-        ExpenseCategory { id: 2, category_name: "Office Supplies".to_string(), description: "Stationery, furniture, and office consumables".to_string(), budget_amount: 150_000.00, spent_amount: 83_500.00, is_active: true },
-        ExpenseCategory { id: 3, category_name: "Utilities".to_string(), description: "Electricity, water, gas, internet, phone".to_string(), budget_amount: 500_000.00, spent_amount: 128_200.00, is_active: true },
-        ExpenseCategory { id: 4, category_name: "Maintenance".to_string(), description: "Repairs and facility maintenance".to_string(), budget_amount: 200_000.00, spent_amount: 22_000.00, is_active: true },
-        ExpenseCategory { id: 5, category_name: "Salary".to_string(), description: "Staff salaries and wages".to_string(), budget_amount: 3_000_000.00, spent_amount: 450_000.00, is_active: true },
-        ExpenseCategory { id: 6, category_name: "Marketing".to_string(), description: "Advertising and promotional activities".to_string(), budget_amount: 250_000.00, spent_amount: 145_000.00, is_active: true },
-        ExpenseCategory { id: 7, category_name: "Rent".to_string(), description: "Office rent and lease payments".to_string(), budget_amount: 400_000.00, spent_amount: 200_000.00, is_active: true },
-        ExpenseCategory { id: 8, category_name: "IT & Software".to_string(), description: "Software subscriptions and IT services".to_string(), budget_amount: 180_000.00, spent_amount: 95_000.00, is_active: false },
-    ]
-}
 
 #[component]
 pub fn ExpenseCategoryListPage() -> Element {
     let navigator = use_navigator();
     let counter = use_signal(|| 0u32);
-    let resource = use_resource(move || async move { let _ = *counter.read(); fetch_categories().await });
+    let api = use_auth().api;
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *counter.read();
+            let result = api.read().clone().list_expense_categories().await;
+            match result {
+                Ok(list) => list.into_iter().map(|c| ExpenseCategory {
+                    id: c.id,
+                    category_name: c.category_name,
+                    description: String::new(),
+                    budget_amount: 0.0,
+                    spent_amount: 0.0,
+                    is_active: c.is_active,
+                }).collect(),
+                Err(_) => vec![],
+            }
+        }
+    });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
     let is_loading = resource.read().is_none();

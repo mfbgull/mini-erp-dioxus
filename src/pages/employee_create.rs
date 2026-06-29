@@ -1,12 +1,13 @@
 //! Employee Create Page — Form to create a new employee record.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
     SearchableSelect, SelectOption, use_toast,
 };
+use crate::models::EmployeeForm;
 use dioxus::prelude::*;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 const PAGE_CSS: &str = r##"
 .emp-create-page { max-width: 800px; margin: 0 auto; }
@@ -26,12 +27,6 @@ const PAGE_CSS: &str = r##"
 @media (max-width: 768px) { .emp-form-row { flex-direction: column; } .emp-form-row > * { min-width: 100%; } .emp-action-bar { flex-direction: column; } }
 "##;
 
-static NEXT_EMP_ID: AtomicU32 = AtomicU32::new(16);
-
-fn generate_emp_code() -> String {
-    let seq = NEXT_EMP_ID.fetch_add(1, Ordering::Relaxed);
-    format!("EMP-{:04}", seq)
-}
 
 fn department_options() -> Vec<SelectOption> {
     vec![
@@ -69,7 +64,7 @@ pub fn EmployeeCreatePage() -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
 
-    let emp_code = use_signal(|| generate_emp_code());
+    let emp_code = use_signal(String::new);
     let full_name = use_signal(String::new);
     let email = use_signal(String::new);
     let phone = use_signal(String::new);
@@ -79,6 +74,7 @@ pub fn EmployeeCreatePage() -> Element {
     let join_date = use_signal(|| String::new());
     let mut is_active = use_signal(|| true);
 
+    let api = use_auth().api;
     let is_saving = use_signal(|| false);
     let mut is_dirty = use_signal(|| false);
     let mut show_discard_modal = use_signal(|| false);
@@ -114,19 +110,58 @@ pub fn EmployeeCreatePage() -> Element {
         let mut toast = toast.clone();
         let mut nav = navigator.clone();
         let mut name = full_name.clone();
-        let mut code = emp_code.clone();
-        let mut validate = validate.clone();
+        let mut eml = email.clone();
+        let mut ph = phone.clone();
+        let mut dept = department.clone();
+        let mut desig = designation.clone();
+        let mut etype = employment_type.clone();
         let mut dirty = is_dirty.clone();
+        let api = api.clone();
+        let mut validate = validate.clone();
         move |_| {
             if !validate() { return; }
             saving.set(true);
-            let n = name.read().clone(); let c = code.read().clone();
-            let mut toast = toast.clone(); let nav = nav.clone();
+            let n = name.read().clone();
+            let eml_v = eml.read().clone();
+            let ph_v = ph.read().clone();
+            let dept_v = dept.read().clone();
+            let desig_v = desig.read().clone();
+            let mut toast = toast.clone();
+            let nav = nav.clone();
+            let api = api.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-                toast.success("Employee Created", &format!("{} ({}) has been created.", n, c));
-                saving.set(false); dirty.set(false);
-                nav.push("/crm/employees");
+                let first = n.split_whitespace().next().unwrap_or("").to_string();
+                let last: String = n.split_whitespace().skip(1).collect::<Vec<_>>().join(" ");
+                let form = EmployeeForm {
+                    employee_code: String::new(),
+                    first_name: first,
+                    last_name: if last.is_empty() { n.clone() } else { last },
+                    email: if eml_v.is_empty() { None } else { Some(eml_v) },
+                    phone: if ph_v.is_empty() { None } else { Some(ph_v) },
+                    cnic_no: None,
+                    address: None,
+                    city: None,
+                    department: Some(dept_v),
+                    designation: Some(desig_v),
+                    salary: None,
+                    bank_name: None,
+                    bank_account_no: None,
+                    emergency_contact_name: None,
+                    emergency_contact_phone: None,
+                };
+                match api.read().create_employee(&form).await {
+                    Ok(emp) => {
+                        toast.success("Employee Created", &format!("{} ({}) has been created.", n, emp.employee_code));
+                        saving.set(false); dirty.set(false);
+                        nav.push("/crm/employees");
+                    }
+                    Err(e) => {
+                        toast.error("Error", &format!("Failed to create employee: {}", e));
+                        saving.set(false);
+                    }
+                }
             });
         }
     };
@@ -135,31 +170,72 @@ pub fn EmployeeCreatePage() -> Element {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
         let mut name = full_name.clone();
+        let mut eml = email.clone();
+        let mut ph = phone.clone();
+        let mut dept = department.clone();
+        let mut desig = designation.clone();
+        let mut etype = employment_type.clone();
+        let mut join = join_date.clone();
+        let mut active = is_active.clone();
         let mut code = emp_code.clone();
-        let mut validate = validate.clone();
-        let mut i_code = emp_code.clone();
-        let mut i_name = full_name.clone();
-        let mut i_email = email.clone();
-        let mut i_phone = phone.clone();
-        let mut i_dept = department.clone();
-        let mut i_desig = designation.clone();
-        let mut i_type = employment_type.clone();
-        let mut i_join = join_date.clone();
-        let mut i_active = is_active.clone();
         let mut dirty = is_dirty.clone();
+        let api = api.clone();
+        let mut validate = validate.clone();
         move |_| {
             if !validate() { return; }
             saving.set(true);
-            let n = name.read().clone(); let c = code.read().clone();
+            let n = name.read().clone();
+            let eml_v = eml.read().clone();
+            let ph_v = ph.read().clone();
+            let dept_v = dept.read().clone();
+            let desig_v = desig.read().clone();
             let mut toast = toast.clone();
+            let api = api.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
+            let mut name = name.clone();
+            let mut eml = eml.clone();
+            let mut ph = ph.clone();
+            let mut dept = dept.clone();
+            let mut desig = desig.clone();
+            let mut etype = etype.clone();
+            let mut join = join.clone();
+            let mut active = active.clone();
+            let mut code = code.clone();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-                toast.success("Employee Created", &format!("{} ({}) created. Creating another…", n, c));
-                i_code.set(generate_emp_code());
-                i_name.set(String::new()); i_email.set(String::new()); i_phone.set(String::new());
-                i_dept.set(String::new()); i_desig.set(String::new());
-                i_type.set("Permanent".to_string()); i_join.set(String::new()); i_active.set(true);
-                saving.set(false); dirty.set(false);
+                let first = n.split_whitespace().next().unwrap_or("").to_string();
+                let last: String = n.split_whitespace().skip(1).collect::<Vec<_>>().join(" ");
+                let form = EmployeeForm {
+                    employee_code: String::new(),
+                    first_name: first,
+                    last_name: if last.is_empty() { n.clone() } else { last },
+                    email: if eml_v.is_empty() { None } else { Some(eml_v) },
+                    phone: if ph_v.is_empty() { None } else { Some(ph_v) },
+                    cnic_no: None,
+                    address: None,
+                    city: None,
+                    department: Some(dept_v),
+                    designation: Some(desig_v),
+                    salary: None,
+                    bank_name: None,
+                    bank_account_no: None,
+                    emergency_contact_name: None,
+                    emergency_contact_phone: None,
+                };
+                match api.read().create_employee(&form).await {
+                    Ok(emp) => {
+                        toast.success("Employee Created", &format!("{} ({}) created. Creating another…", n, emp.employee_code));
+                        code.set(String::new());
+                        name.set(String::new()); eml.set(String::new()); ph.set(String::new());
+                        dept.set(String::new()); desig.set(String::new());
+                        etype.set("Permanent".to_string()); join.set(String::new()); active.set(true);
+                        saving.set(false); dirty.set(false);
+                    }
+                    Err(e) => {
+                        toast.error("Error", &format!("Failed to create employee: {}", e));
+                        saving.set(false);
+                    }
+                }
             });
         }
     };

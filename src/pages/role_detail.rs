@@ -1,6 +1,7 @@
 //! Role Detail Page — Detail view for a system role with permission matrix
 //! and user list.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
@@ -162,14 +163,22 @@ pub fn RoleDetailPage(id: String) -> Element {
     let navigator = use_navigator();
 
     // ── Async fetch ──
+    let api = use_auth().api;
     let id_clone = id.clone();
     let role_resource = use_resource(move || {
+        let api = api.clone();
         let id_fetch = id_clone.clone();
         async move {
-            crate::utils::sleep(std::time::Duration::from_millis(500)).await;
-            let roles = crate::pages::role_list::sample_roles_data();
-            let parsed = id_fetch.parse::<i64>().unwrap_or(0);
-            roles.into_iter().find(|r| r.id == parsed)
+            let client = api.with(|c| c.clone());
+            let parsed = id_fetch.parse::<i64>().ok()?;
+            client.get_role(parsed).await.ok().map(|r| Role {
+                id: r.id,
+                role_name: r.role_name,
+                description: r.description,
+                user_count: 0, // ponytail: not in API
+                is_system: r.is_system_role,
+                created_at: String::new(), // ponytail: not in API
+            })
         }
     });
 

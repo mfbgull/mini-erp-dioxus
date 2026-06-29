@@ -6,9 +6,8 @@ use crate::components::data_grid::{
     RowHeight, SelectionMode, TextAlign,
 };
 use dioxus::prelude::*;
-use crate::utils::sleep;
 use std::collections::HashSet;
-use std::time::Duration;
+use crate::auth::use_auth;
 
 // ============================================================================
 // Data Model
@@ -30,23 +29,7 @@ pub struct SalesOrder {
 // Sample Data
 // ============================================================================
 
-async fn fetch_orders() -> Vec<SalesOrder> {
-    sleep(Duration::from_millis(800)).await;
-    sample_orders_data()
-}
 
-fn sample_orders_data() -> Vec<SalesOrder> {
-    vec![
-        SalesOrder { id: 1, order_no: "SO-2026-0001".to_string(), customer_name: "Alpha Traders".to_string(), order_date: "2026-06-01".to_string(), delivery_date: "2026-06-15".to_string(), status: "Draft".to_string(), total_amount: 125_400.00, item_count: 4 },
-        SalesOrder { id: 2, order_no: "SO-2026-0002".to_string(), customer_name: "Beta Industries".to_string(), order_date: "2026-06-05".to_string(), delivery_date: "2026-06-20".to_string(), status: "Confirmed".to_string(), total_amount: 67_890.50, item_count: 2 },
-        SalesOrder { id: 3, order_no: "SO-2026-0003".to_string(), customer_name: "Gamma Supplies".to_string(), order_date: "2026-06-10".to_string(), delivery_date: "2026-06-25".to_string(), status: "Processing".to_string(), total_amount: 234_500.00, item_count: 8 },
-        SalesOrder { id: 4, order_no: "SO-2026-0004".to_string(), customer_name: "Delta Corp".to_string(), order_date: "2026-06-12".to_string(), delivery_date: "2026-06-28".to_string(), status: "Shipped".to_string(), total_amount: 98_765.00, item_count: 6 },
-        SalesOrder { id: 5, order_no: "SO-2026-0005".to_string(), customer_name: "Epsilon LLC".to_string(), order_date: "2026-06-15".to_string(), delivery_date: "2026-07-05".to_string(), status: "Delivered".to_string(), total_amount: 312_450.00, item_count: 15 },
-        SalesOrder { id: 6, order_no: "SO-2026-0006".to_string(), customer_name: "Zeta Enterprises".to_string(), order_date: "2026-06-18".to_string(), delivery_date: "2026-07-03".to_string(), status: "Cancelled".to_string(), total_amount: 12_450.00, item_count: 1 },
-        SalesOrder { id: 7, order_no: "SO-2026-0007".to_string(), customer_name: "Eta Manufacturing".to_string(), order_date: "2026-06-20".to_string(), delivery_date: "2026-07-10".to_string(), status: "Confirmed".to_string(), total_amount: 56_780.00, item_count: 3 },
-        SalesOrder { id: 8, order_no: "SO-2026-0008".to_string(), customer_name: "Theta Retail".to_string(), order_date: "2026-06-22".to_string(), delivery_date: "2026-07-12".to_string(), status: "Draft".to_string(), total_amount: 178_900.00, item_count: 10 },
-    ]
-}
 
 // ============================================================================
 // Summary
@@ -90,10 +73,27 @@ fn compute_summary(orders: &[SalesOrder]) -> OrderSummary {
 #[component]
 pub fn SalesOrderListPage() -> Element {
     let navigator = use_navigator();
+    let api = use_auth().api;
     let refresh_counter = use_signal(|| 0u32);
-    let orders_resource = use_resource(move || async move {
-        let _ = *refresh_counter.read();
-        fetch_orders().await
+    let orders_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *refresh_counter.read();
+            let client = api.with(|c| c.clone());
+            match client.list_sales_orders().await {
+                Ok(server_orders) => server_orders.into_iter().map(|so| SalesOrder {
+                    id: so.id,
+                    order_no: so.so_no,
+                    customer_name: so.customer_name.unwrap_or_default(),
+                    order_date: so.so_date,
+                    delivery_date: String::new(), // ponytail: not returned by server
+                    status: so.status,
+                    total_amount: so.total_amount,
+                    item_count: 0, // ponytail: not returned by server
+                }).collect(),
+                Err(_) => vec![],
+            }
+        }
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 

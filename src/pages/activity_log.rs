@@ -1,5 +1,6 @@
 //! Activity Log Page — DataGrid-backed audit trail with module and action filters.
 
+use crate::auth::use_auth;
 use crate::components::common::{Button, ButtonVariant, DateRangePicker, use_toast};
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
@@ -27,35 +28,6 @@ pub struct ActivityEntry {
 // Sample Data
 // ============================================================================
 
-async fn fetch_activity() -> Vec<ActivityEntry> {
-    crate::utils::sleep(std::time::Duration::from_millis(700)).await;
-    sample_activity_data()
-}
-
-pub fn sample_activity_data() -> Vec<ActivityEntry> {
-    vec![
-        ActivityEntry { id: 1, timestamp: "2026-06-27 10:32:00".to_string(), user: "ahmad.khan".to_string(), action: "Create".to_string(), module: "Sales".to_string(), description: "Created invoice INV-2026-0045 for Alpha Traders".to_string(), ip_address: "192.168.1.101".to_string() },
-        ActivityEntry { id: 2, timestamp: "2026-06-27 10:15:00".to_string(), user: "fatima.ali".to_string(), action: "Update".to_string(), module: "Sales".to_string(), description: "Modified quotation QTN-2026-0023 for Beta Industries".to_string(), ip_address: "192.168.1.102".to_string() },
-        ActivityEntry { id: 3, timestamp: "2026-06-27 09:45:00".to_string(), user: "usman.siddiqui".to_string(), action: "Create".to_string(), module: "Inventory".to_string(), description: "Created stock movement IN from supplier PO-034".to_string(), ip_address: "192.168.1.103".to_string() },
-        ActivityEntry { id: 4, timestamp: "2026-06-27 09:30:00".to_string(), user: "admin".to_string(), action: "Login".to_string(), module: "System".to_string(), description: "User logged in from office workstation".to_string(), ip_address: "192.168.1.100".to_string() },
-        ActivityEntry { id: 5, timestamp: "2026-06-27 08:55:00".to_string(), user: "sana.raza".to_string(), action: "Create".to_string(), module: "Accounting".to_string(), description: "Recorded payment INV-2026-0038 — PKR 125,400.00".to_string(), ip_address: "192.168.1.104".to_string() },
-        ActivityEntry { id: 6, timestamp: "2026-06-26 17:20:00".to_string(), user: "ahmad.khan".to_string(), action: "Delete".to_string(), module: "Inventory".to_string(), description: "Deleted expired physical count PC-2026-0003".to_string(), ip_address: "192.168.1.101".to_string() },
-        ActivityEntry { id: 7, timestamp: "2026-06-26 16:45:00".to_string(), user: "fatima.ali".to_string(), action: "Update".to_string(), module: "Sales".to_string(), description: "Marked invoice INV-2026-0040 as Paid".to_string(), ip_address: "192.168.1.102".to_string() },
-        ActivityEntry { id: 8, timestamp: "2026-06-26 16:00:00".to_string(), user: "admin".to_string(), action: "Create".to_string(), module: "Settings".to_string(), description: "Added new user raheel.butt with Sales role".to_string(), ip_address: "192.168.1.100".to_string() },
-        ActivityEntry { id: 9, timestamp: "2026-06-26 14:30:00".to_string(), user: "tariq.mehmood".to_string(), action: "Update".to_string(), module: "Manufacturing".to_string(), description: "Completed production order PROD-2026-0012".to_string(), ip_address: "192.168.1.105".to_string() },
-        ActivityEntry { id: 10, timestamp: "2026-06-26 11:10:00".to_string(), user: "zainab.akhtar".to_string(), action: "Login".to_string(), module: "System".to_string(), description: "User logged in remotely".to_string(), ip_address: "203.0.113.45".to_string() },
-        ActivityEntry { id: 11, timestamp: "2026-06-26 10:05:00".to_string(), user: "usman.siddiqui".to_string(), action: "Create".to_string(), module: "Purchasing".to_string(), description: "Created purchase order PO-2026-0035 for Raw Materials".to_string(), ip_address: "192.168.1.103".to_string() },
-        ActivityEntry { id: 12, timestamp: "2026-06-25 15:30:00".to_string(), user: "sana.raza".to_string(), action: "Update".to_string(), module: "Accounting".to_string(), description: "Adjusted journal entry for depreciation".to_string(), ip_address: "192.168.1.104".to_string() },
-        ActivityEntry { id: 13, timestamp: "2026-06-25 14:00:00".to_string(), user: "ahmad.khan".to_string(), action: "Delete".to_string(), module: "Sales".to_string(), description: "Cancelled and deleted quote QTN-2026-0019".to_string(), ip_address: "192.168.1.101".to_string() },
-        ActivityEntry { id: 14, timestamp: "2026-06-25 11:20:00".to_string(), user: "kamran.khan".to_string(), action: "Create".to_string(), module: "Accounting".to_string(), description: "Created expense entry EX-2026-0021 — Office Supplies".to_string(), ip_address: "192.168.1.106".to_string() },
-        ActivityEntry { id: 15, timestamp: "2026-06-25 09:00:00".to_string(), user: "admin".to_string(), action: "Login".to_string(), module: "System".to_string(), description: "User logged in from console".to_string(), ip_address: "127.0.0.1".to_string() },
-        ActivityEntry { id: 16, timestamp: "2026-06-24 16:50:00".to_string(), user: "fatima.ali".to_string(), action: "Create".to_string(), module: "Sales".to_string(), description: "Created sales order SO-2026-0022 for Gamma Supplies".to_string(), ip_address: "192.168.1.102".to_string() },
-        ActivityEntry { id: 17, timestamp: "2026-06-24 15:10:00".to_string(), user: "usman.siddiqui".to_string(), action: "Update".to_string(), module: "Inventory".to_string(), description: "Adjusted stock level — ITM-0005 (Rubber Gasket Set)".to_string(), ip_address: "192.168.1.103".to_string() },
-        ActivityEntry { id: 18, timestamp: "2026-06-24 13:25:00".to_string(), user: "hira.pervaiz".to_string(), action: "Create".to_string(), module: "Reports".to_string(), description: "Generated monthly sales report for May 2026".to_string(), ip_address: "192.168.1.107".to_string() },
-        ActivityEntry { id: 19, timestamp: "2026-06-24 10:00:00".to_string(), user: "noor.sheikh".to_string(), action: "Login".to_string(), module: "System".to_string(), description: "User logged in after password reset".to_string(), ip_address: "192.168.1.108".to_string() },
-        ActivityEntry { id: 20, timestamp: "2026-06-23 17:30:00".to_string(), user: "ahmad.khan".to_string(), action: "Update".to_string(), module: "Purchasing".to_string(), description: "Approved purchase order PO-2026-0033".to_string(), ip_address: "192.168.1.101".to_string() },
-    ]
-}
 
 // ============================================================================
 // Component
@@ -66,10 +38,27 @@ pub fn ActivityLogPage() -> Element {
     let _toast = use_toast();
 
     // ── Async data ──
+    let api = use_auth().api;
     let refresh_counter = use_signal(|| 0u32);
-    let activity_resource = use_resource(move || async move {
-        let _ = *refresh_counter.read();
-        fetch_activity().await
+    let activity_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *refresh_counter.read();
+            let client = api.with(|c| c.clone());
+            client.list_activity_logs().await
+                .map(|logs| {
+                    logs.into_iter().map(|l| ActivityEntry {
+                        id: l.id,
+                        timestamp: l.created_at,
+                        user: l.username.unwrap_or_default(),
+                        action: l.action,
+                        module: l.entity_type,
+                        description: l.metadata.unwrap_or_default(),
+                        ip_address: l.ip_address.unwrap_or_default(),
+                    }).collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        }
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 

@@ -1,5 +1,6 @@
 //! BOM List Page — DataGrid-backed list view for Bills of Materials.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
@@ -20,89 +21,32 @@ pub struct BomItem {
     pub last_updated: String,
 }
 
-async fn fetch_boms() -> Vec<BomItem> {
-    crate::utils::sleep(std::time::Duration::from_millis(500)).await;
-    sample_boms()
-}
-
-fn sample_boms() -> Vec<BomItem> {
-    vec![
-        BomItem {
-            id: 1,
-            bom_code: "BOM-0001".to_string(),
-            item_name: "Premium Widget Alpha".to_string(),
-            item_code: "ITM-0001".to_string(),
-            total_quantity: 1.0,
-            total_cost: 2850.0,
-            status: "Active".to_string(),
-            version: "v1.2".to_string(),
-            last_updated: "2026-06-20".to_string(),
-        },
-        BomItem {
-            id: 2,
-            bom_code: "BOM-0002".to_string(),
-            item_name: "Steel Bracket XR-200".to_string(),
-            item_code: "ITM-0004".to_string(),
-            total_quantity: 1.0,
-            total_cost: 1240.0,
-            status: "Active".to_string(),
-            version: "v1.0".to_string(),
-            last_updated: "2026-06-18".to_string(),
-        },
-        BomItem {
-            id: 3,
-            bom_code: "BOM-0003".to_string(),
-            item_name: "Rubber Gasket Set".to_string(),
-            item_code: "ITM-0005".to_string(),
-            total_quantity: 1.0,
-            total_cost: 320.0,
-            status: "Draft".to_string(),
-            version: "v0.9".to_string(),
-            last_updated: "2026-06-22".to_string(),
-        },
-        BomItem {
-            id: 4,
-            bom_code: "BOM-0004".to_string(),
-            item_name: "Assembly Kit Type-B".to_string(),
-            item_code: "ITM-0008".to_string(),
-            total_quantity: 1.0,
-            total_cost: 5670.0,
-            status: "Active".to_string(),
-            version: "v2.1".to_string(),
-            last_updated: "2026-06-15".to_string(),
-        },
-        BomItem {
-            id: 5,
-            bom_code: "BOM-0005".to_string(),
-            item_name: "Control Panel CX-12".to_string(),
-            item_code: "ITM-0012".to_string(),
-            total_quantity: 1.0,
-            total_cost: 12300.0,
-            status: "Inactive".to_string(),
-            version: "v1.0".to_string(),
-            last_updated: "2026-05-30".to_string(),
-        },
-        BomItem {
-            id: 6,
-            bom_code: "BOM-0006".to_string(),
-            item_name: "Hydraulic Pump HP-45".to_string(),
-            item_code: "ITM-0015".to_string(),
-            total_quantity: 1.0,
-            total_cost: 8900.0,
-            status: "Active".to_string(),
-            version: "v1.3".to_string(),
-            last_updated: "2026-06-25".to_string(),
-        },
-    ]
-}
-
 #[component]
 pub fn BomListPage() -> Element {
     let navigator = use_navigator();
+    let api = use_auth().api;
     let refresh_counter = use_signal(|| 0u32);
-    let boms_resource = use_resource(move || async move {
-        let _ = *refresh_counter.read();
-        fetch_boms().await
+    let boms_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *refresh_counter.read();
+            let client = api.with(|c| c.clone());
+            client.list_boms().await
+                .map(|server_boms| {
+                    server_boms.into_iter().map(|b| BomItem {
+                        id: b.id,
+                        bom_code: b.bom_no,
+                        item_name: b.finished_item_name.unwrap_or_default(),
+                        item_code: b.finished_item_code.unwrap_or_default(),
+                        total_quantity: b.quantity,
+                        total_cost: 0.0, // ponytail: not in list endpoint
+                        status: if b.is_active { "Active".to_string() } else { "Inactive".to_string() },
+                        version: "1.0".to_string(), // ponytail: not in list endpoint
+                        last_updated: b.updated_at,
+                    }).collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        }
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 

@@ -48,20 +48,6 @@ pub struct SeasonalEvent {
     pub notes: String,
 }
 
-fn sample_events() -> Vec<SeasonalEvent> {
-    vec![
-        SeasonalEvent { id: 1, event_name: "Ramadan".to_string(), start_date: "2026-02-18".to_string(), end_date: "2026-03-20".to_string(), impact_factor: 25.0, recurring: true, category: "Religious".to_string(), notes: "Increased demand for food & beverages".to_string() },
-        SeasonalEvent { id: 2, event_name: "Eid al-Fitr".to_string(), start_date: "2026-03-21".to_string(), end_date: "2026-03-25".to_string(), impact_factor: 35.0, recurring: true, category: "Religious".to_string(), notes: "Peak demand for clothing, gifts, food".to_string() },
-        SeasonalEvent { id: 3, event_name: "Eid al-Adha".to_string(), start_date: "2026-05-27".to_string(), end_date: "2026-05-31".to_string(), impact_factor: 30.0, recurring: true, category: "Religious".to_string(), notes: "Demand surge for livestock, meat, supplies".to_string() },
-        SeasonalEvent { id: 4, event_name: "Summer Peak".to_string(), start_date: "2026-06-01".to_string(), end_date: "2026-08-31".to_string(), impact_factor: 20.0, recurring: true, category: "Weather".to_string(), notes: "Increased demand for cooling, beverages".to_string() },
-        SeasonalEvent { id: 5, event_name: "Winter Season".to_string(), start_date: "2026-11-15".to_string(), end_date: "2027-02-15".to_string(), impact_factor: 18.0, recurring: true, category: "Weather".to_string(), notes: "Demand for heating, winter clothing".to_string() },
-        SeasonalEvent { id: 6, event_name: "Back to School".to_string(), start_date: "2026-08-15".to_string(), end_date: "2026-09-15".to_string(), impact_factor: 28.0, recurring: true, category: "Educational".to_string(), notes: "Stationery, bags, uniforms demand spike".to_string() },
-        SeasonalEvent { id: 7, event_name: "Independence Day".to_string(), start_date: "2026-08-14".to_string(), end_date: "2026-08-14".to_string(), impact_factor: 15.0, recurring: true, category: "National".to_string(), notes: "Flags, decorations, merchandise".to_string() },
-        SeasonalEvent { id: 8, event_name: "Black Friday Sale".to_string(), start_date: "2026-11-27".to_string(), end_date: "2026-11-27".to_string(), impact_factor: 45.0, recurring: true, category: "Commercial".to_string(), notes: "Major discount-driven demand spike".to_string() },
-        SeasonalEvent { id: 9, event_name: "Year-End Clearance".to_string(), start_date: "2026-12-15".to_string(), end_date: "2026-12-31".to_string(), impact_factor: 22.0, recurring: true, category: "Commercial".to_string(), notes: "Inventory clearance sale".to_string() },
-    ]
-}
-
 // ============================================================================
 // Component
 // ============================================================================
@@ -83,7 +69,8 @@ fn empty_event() -> SeasonalEvent {
 pub fn SeasonalEventsPage() -> Element {
     let toast = use_toast();
     let _navigator = use_navigator();
-    let events = use_signal(|| sample_events());
+    // ponytail: no seasonal events endpoint — add when server exposes one
+    let events: Signal<Vec<SeasonalEvent>> = use_signal(Vec::new);
     let selected_ids = use_signal(|| HashSet::<usize>::new());
     let mut show_add_modal = use_signal(|| false);
     let mut form_event = use_signal(|| empty_event());

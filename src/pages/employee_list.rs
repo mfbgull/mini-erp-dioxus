@@ -1,5 +1,6 @@
 //! Employee List Page — DataGrid-backed list view for employee management.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
@@ -21,29 +22,30 @@ pub struct Employee {
     pub join_date: String,
 }
 
-async fn fetch_employees() -> Vec<Employee> {
-    crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-    sample_employees_data()
-}
-
-pub fn sample_employees_data() -> Vec<Employee> {
-    vec![
-        Employee { id: 1, employee_code: "EMP-0001".to_string(), full_name: "Ahmad Raza".to_string(), email: "ahmad.raza@mierp.pk".to_string(), phone: "+92 300 111 0001".to_string(), department: "Sales".to_string(), designation: "Sales Manager".to_string(), employment_type: "Permanent".to_string(), status: "Active".to_string(), join_date: "2020-03-15".to_string() },
-        Employee { id: 2, employee_code: "EMP-0002".to_string(), full_name: "Fatima Khan".to_string(), email: "fatima.khan@mierp.pk".to_string(), phone: "+92 300 111 0002".to_string(), department: "Finance".to_string(), designation: "Chief Accountant".to_string(), employment_type: "Permanent".to_string(), status: "Active".to_string(), join_date: "2019-07-01".to_string() },
-        Employee { id: 3, employee_code: "EMP-0003".to_string(), full_name: "Usman Ali".to_string(), email: "usman.ali@mierp.pk".to_string(), phone: "+92 300 111 0003".to_string(), department: "Purchasing".to_string(), designation: "Procurement Officer".to_string(), employment_type: "Permanent".to_string(), status: "Active".to_string(), join_date: "2021-01-10".to_string() },
-        Employee { id: 4, employee_code: "EMP-0004".to_string(), full_name: "Sana Tariq".to_string(), email: "sana.tariq@mierp.pk".to_string(), phone: "+92 300 111 0004".to_string(), department: "Manufacturing".to_string(), designation: "Production Supervisor".to_string(), employment_type: "Permanent".to_string(), status: "Active".to_string(), join_date: "2018-11-20".to_string() },
-        Employee { id: 5, employee_code: "EMP-0005".to_string(), full_name: "Bilal Ahmed".to_string(), email: "bilal.ahmed@mierp.pk".to_string(), phone: "+92 300 111 0005".to_string(), department: "Warehouse".to_string(), designation: "Warehouse Manager".to_string(), employment_type: "Permanent".to_string(), status: "Active".to_string(), join_date: "2020-06-05".to_string() },
-        Employee { id: 6, employee_code: "EMP-0006".to_string(), full_name: "Hira Javed".to_string(), email: "hira.javed@mierp.pk".to_string(), phone: "+92 300 111 0006".to_string(), department: "Admin".to_string(), designation: "HR Assistant".to_string(), employment_type: "Contract".to_string(), status: "Active".to_string(), join_date: "2022-04-12".to_string() },
-        Employee { id: 7, employee_code: "EMP-0007".to_string(), full_name: "Kamran Hassan".to_string(), email: "kamran.hassan@mierp.pk".to_string(), phone: "+92 300 111 0007".to_string(), department: "Sales".to_string(), designation: "Sales Representative".to_string(), employment_type: "Permanent".to_string(), status: "Active".to_string(), join_date: "2021-09-01".to_string() },
-        Employee { id: 8, employee_code: "EMP-0008".to_string(), full_name: "Nadia Shah".to_string(), email: "nadia.shah@mierp.pk".to_string(), phone: "+92 300 111 0008".to_string(), department: "Finance".to_string(), designation: "Accounts Clerk".to_string(), employment_type: "Contract".to_string(), status: "Inactive".to_string(), join_date: "2023-02-15".to_string() },
-        Employee { id: 9, employee_code: "EMP-0009".to_string(), full_name: "Omar Farooq".to_string(), email: "omar.farooq@mierp.pk".to_string(), phone: "+92 300 111 0009".to_string(), department: "Manufacturing".to_string(), designation: "Machine Operator".to_string(), employment_type: "Permanent".to_string(), status: "Active".to_string(), join_date: "2017-05-20".to_string() },
-        Employee { id: 10, employee_code: "EMP-0010".to_string(), full_name: "Zainab Bibi".to_string(), email: "zainab.bibi@mierp.pk".to_string(), phone: "+92 300 111 0010".to_string(), department: "Admin".to_string(), designation: "Office Assistant".to_string(), employment_type: "Intern".to_string(), status: "Active".to_string(), join_date: "2025-06-01".to_string() },
-        Employee { id: 11, employee_code: "EMP-0011".to_string(), full_name: "Tariq Mahmood".to_string(), email: "tariq.mahmood@mierp.pk".to_string(), phone: "+92 300 111 0011".to_string(), department: "Purchasing".to_string(), designation: "Buyer".to_string(), employment_type: "Permanent".to_string(), status: "Active".to_string(), join_date: "2019-12-01".to_string() },
-        Employee { id: 12, employee_code: "EMP-0012".to_string(), full_name: "Rashid Minhas".to_string(), email: "rashid.minhas@mierp.pk".to_string(), phone: "+92 300 111 0012".to_string(), department: "Warehouse".to_string(), designation: "Store Keeper".to_string(), employment_type: "Contract".to_string(), status: "Inactive".to_string(), join_date: "2023-08-15".to_string() },
-        Employee { id: 13, employee_code: "EMP-0013".to_string(), full_name: "Asma Yousuf".to_string(), email: "asma.yousuf@mierp.pk".to_string(), phone: "+92 300 111 0013".to_string(), department: "Manufacturing".to_string(), designation: "Quality Inspector".to_string(), employment_type: "Permanent".to_string(), status: "Active".to_string(), join_date: "2020-10-10".to_string() },
-        Employee { id: 14, employee_code: "EMP-0014".to_string(), full_name: "Fawad Ahmed".to_string(), email: "fawad.ahmed@mierp.pk".to_string(), phone: "+92 300 111 0014".to_string(), department: "Sales".to_string(), designation: "Sales Trainee".to_string(), employment_type: "Intern".to_string(), status: "Active".to_string(), join_date: "2026-01-05".to_string() },
-        Employee { id: 15, employee_code: "EMP-0015".to_string(), full_name: "Ghulam Mustafa".to_string(), email: "ghulam.mustafa@mierp.pk".to_string(), phone: "+92 300 111 0015".to_string(), department: "Finance".to_string(), designation: "Tax Specialist".to_string(), employment_type: "Contract".to_string(), status: "Active".to_string(), join_date: "2024-03-01".to_string() },
-    ]
+async fn fetch_employees(client: &crate::api::ApiClient) -> Vec<Employee> {
+    match client.list_employees().await {
+        Ok(server_emps) => server_emps
+            .into_iter()
+            .map(|e| Employee {
+                id: e.id,
+                employee_code: e.employee_code,
+                full_name: format!("{} {}", e.first_name, e.last_name),
+                email: e.email,
+                phone: e.phone,
+                department: e.department,
+                designation: e.designation,
+                // ponytail: employment_type not in server model
+                employment_type: "Permanent".to_string(),
+                status: if e.is_active {
+                    "Active".to_string()
+                } else {
+                    "Inactive".to_string()
+                },
+                join_date: e.created_at,
+            })
+            .collect(),
+        Err(_) => vec![],
+    }
 }
 
 struct EmployeeSummary {
@@ -75,10 +77,15 @@ fn compute_summary(employees: &[Employee]) -> EmployeeSummary {
 #[component]
 pub fn EmployeeListPage() -> Element {
     let navigator = use_navigator();
+    let api = use_auth().api;
     let refresh_counter = use_signal(|| 0u32);
-    let resource = use_resource(move || async move {
-        let _ = *refresh_counter.read();
-        fetch_employees().await
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *refresh_counter.read();
+            let client = api.with(|c| c.clone());
+            fetch_employees(&client).await
+        }
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 

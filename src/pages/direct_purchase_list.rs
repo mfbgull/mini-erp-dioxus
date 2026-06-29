@@ -25,21 +25,24 @@ pub struct DirectPurchase {
 pub fn DirectPurchaseListPage() -> Element {
     let navigator = use_navigator();
     let refresh_counter = use_signal(|| 0u32);
-    let resource = use_resource(move || async move {
-        let _ = *refresh_counter.read();
-        let client = use_auth().api;
-        let result = client.read().list_direct_purchases().await;
-        match result {
-            Ok(models) => models.into_iter().map(|m| DirectPurchase {
-                id: m.id,
-                dp_no: m.purchase_no,
-                supplier_name: m.supplier_name,
-                date: m.purchase_date,
-                status: "Completed".to_string(), // ponytail: server doesn't have status for direct purchases
-                total_amount: m.total_cost,
-                item_count: 0, // server model lacks item_count
-            }).collect(),
-            Err(_) => vec![],
+    let api = use_auth().api;
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *refresh_counter.read();
+            let result = api.read().clone().list_direct_purchases().await;
+            match result {
+                Ok(models) => models.into_iter().map(|m| DirectPurchase {
+                    id: m.id,
+                    dp_no: m.purchase_no,
+                    supplier_name: m.supplier_name,
+                    date: m.purchase_date,
+                    status: "Completed".to_string(), // ponytail: server doesn't have status for direct purchases
+                    total_amount: m.total_cost,
+                    item_count: 0, // server model lacks item_count
+                }).collect(),
+                Err(_) => vec![],
+            }
         }
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());

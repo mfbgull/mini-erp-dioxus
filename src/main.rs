@@ -152,6 +152,8 @@ enum Route {
         // ── Suppliers ──
         #[route("/suppliers")]
         SupplierListPage {},
+        #[route("/suppliers/new")]
+        SupplierCreatePage {},
         #[route("/suppliers/:id")]
         SupplierDetailPage { id: String },
 
@@ -649,6 +651,11 @@ fn CustomerDetailPage(id: String) -> Element {
 #[component]
 fn SupplierListPage() -> Element {
     pages::supplier_list::SupplierListPage()
+}
+
+#[component]
+fn SupplierCreatePage() -> Element {
+    pages::supplier_create::SupplierCreatePage()
 }
 
 #[component]

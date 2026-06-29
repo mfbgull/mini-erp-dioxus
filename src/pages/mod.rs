@@ -84,6 +84,7 @@ pub mod manufacturing_dashboard;
 pub mod production_create;
 pub mod production_detail;
 pub mod production_list;
+pub mod supplier_create;
 pub mod supplier_detail;
 pub mod supplier_list;
 pub mod warehouse_create;

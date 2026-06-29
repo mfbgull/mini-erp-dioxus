@@ -1,5 +1,6 @@
 //! Role List Page — DataGrid-backed list view for system roles/permissions.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
@@ -25,23 +26,6 @@ pub struct Role {
 // Sample Data
 // ============================================================================
 
-async fn fetch_roles() -> Vec<Role> {
-    crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-    sample_roles_data()
-}
-
-pub fn sample_roles_data() -> Vec<Role> {
-    vec![
-        Role { id: 1, role_name: "Admin".to_string(), description: "Full system access with all permissions.".to_string(), user_count: 2, is_system: true, created_at: "2025-01-01".to_string() },
-        Role { id: 2, role_name: "Manager".to_string(), description: "Can manage operations, approve orders, view reports.".to_string(), user_count: 2, is_system: true, created_at: "2025-01-01".to_string() },
-        Role { id: 3, role_name: "Sales".to_string(), description: "Create and manage quotations, sales orders, and invoices.".to_string(), user_count: 3, is_system: true, created_at: "2025-01-01".to_string() },
-        Role { id: 4, role_name: "Accounts".to_string(), description: "Manage invoices, payments, expenses, and financial reports.".to_string(), user_count: 2, is_system: false, created_at: "2025-03-15".to_string() },
-        Role { id: 5, role_name: "Inventory".to_string(), description: "Manage stock movements, physical counts, and warehouse.".to_string(), user_count: 2, is_system: true, created_at: "2025-01-01".to_string() },
-        Role { id: 6, role_name: "Production".to_string(), description: "Manage BOMs, production orders, and manufacturing.".to_string(), user_count: 1, is_system: false, created_at: "2025-06-01".to_string() },
-        Role { id: 7, role_name: "Purchasing".to_string(), description: "Create and manage purchase orders and direct purchases.".to_string(), user_count: 0, is_system: false, created_at: "2025-07-10".to_string() },
-        Role { id: 8, role_name: "Viewer".to_string(), description: "Read-only access to dashboards and reports.".to_string(), user_count: 0, is_system: false, created_at: "2025-09-20".to_string() },
-    ]
-}
 
 // ============================================================================
 // Summary
@@ -70,10 +54,26 @@ fn compute_summary(roles: &[Role]) -> RoleSummary {
 pub fn RoleListPage() -> Element {
     let navigator = use_navigator();
 
+    let api = use_auth().api;
     let refresh_counter = use_signal(|| 0u32);
-    let roles_resource = use_resource(move || async move {
-        let _ = *refresh_counter.read();
-        fetch_roles().await
+    let roles_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *refresh_counter.read();
+            let client = api.with(|c| c.clone());
+            client.list_roles().await
+                .map(|server_roles| {
+                    server_roles.into_iter().map(|r| Role {
+                        id: r.id,
+                        role_name: r.role_name,
+                        description: r.description,
+                        user_count: 0, // ponytail: not in API
+                        is_system: r.is_system_role,
+                        created_at: String::new(), // ponytail: not in API
+                    }).collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        }
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 

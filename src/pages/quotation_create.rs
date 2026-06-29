@@ -7,12 +7,15 @@ use crate::calculations::{
     formatting,
     Discount, DiscountScope, DiscountType, InvoiceMetrics,
 };
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
     SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
 };
+use crate::models::{Customer, Item, QuotationForm, QuotationItemForm};
 use chrono::NaiveDate;
 use dioxus::prelude::*;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 // ============================================================================
@@ -109,47 +112,7 @@ impl LineItem {
     }
 }
 
-// ============================================================================
-// Sample Data
-// ============================================================================
 
-fn customer_options() -> Vec<SelectOption> {
-    vec![
-        SelectOption { value: "CUST-001".to_string(), label: "Alpha Traders".to_string() },
-        SelectOption { value: "CUST-002".to_string(), label: "Beta Industries".to_string() },
-        SelectOption { value: "CUST-003".to_string(), label: "Gamma Supplies".to_string() },
-        SelectOption { value: "CUST-004".to_string(), label: "Delta Corp".to_string() },
-        SelectOption { value: "CUST-005".to_string(), label: "Epsilon LLC".to_string() },
-        SelectOption { value: "CUST-006".to_string(), label: "Zeta Enterprises".to_string() },
-        SelectOption { value: "CUST-007".to_string(), label: "Eta Manufacturing".to_string() },
-        SelectOption { value: "CUST-008".to_string(), label: "Theta Retail".to_string() },
-    ]
-}
-
-fn item_options() -> Vec<SelectOption> {
-    vec![
-        SelectOption { value: "ITM-0001".to_string(), label: "Premium Widget Alpha".to_string() },
-        SelectOption { value: "ITM-0002".to_string(), label: "Industrial Bolt M12".to_string() },
-        SelectOption { value: "ITM-0003".to_string(), label: "Steel Rod 12mm x 6m".to_string() },
-        SelectOption { value: "ITM-0004".to_string(), label: "Hydraulic Pump HPD-200".to_string() },
-        SelectOption { value: "ITM-0005".to_string(), label: "Rubber Gasket Set".to_string() },
-        SelectOption { value: "ITM-0006".to_string(), label: "Copper Wire 2.5mm (100m)".to_string() },
-        SelectOption { value: "ITM-0007".to_string(), label: "LED Panel Light 24W".to_string() },
-        SelectOption { value: "ITM-0008".to_string(), label: "Packaging Box 40x30x20cm".to_string() },
-    ]
-}
-
-fn item_price(code: &str) -> f64 {
-    match code {
-        "ITM-0001" => 29.99,   "ITM-0002" => 0.45,   "ITM-0003" => 15.75,
-        "ITM-0004" => 1250.00, "ITM-0005" => 8.99,   "ITM-0006" => 45.00,
-        "ITM-0007" => 18.50,   "ITM-0008" => 1.20,   _ => 0.0,
-    }
-}
-
-fn item_name(code: &str) -> String {
-    item_options().into_iter().find(|o| o.value == code).map(|o| o.label).unwrap_or_default()
-}
 
 // ============================================================================
 // Component
@@ -178,6 +141,51 @@ pub fn QuotationCreatePage() -> Element {
     let mut is_dirty = use_signal(|| false);
     let show_discard_modal = use_signal(|| false);
 
+    // ── API-loaded data ──
+    let customer_map = use_signal(HashMap::<String, Customer>::new);
+    let item_map = use_signal(HashMap::<String, Item>::new);
+    let customer_options = use_signal(Vec::<SelectOption>::new);
+    let item_options_signal = use_signal(Vec::<SelectOption>::new);
+
+    // ── Load customers and items from API ──
+    let auth_api = use_auth().api;
+    let mut cust_map = customer_map.clone();
+    let mut cust_opts = customer_options.clone();
+    let mut it_map = item_map.clone();
+    let mut it_opts = item_options_signal.clone();
+    use_effect(move || {
+        let client = auth_api.with(|c| c.clone());
+        spawn(async move {
+            if let Ok(customers) = client.list_customers().await {
+                let mut map = HashMap::new();
+                let mut opts = Vec::new();
+                for c in &customers {
+                    opts.push(SelectOption {
+                        value: c.customer_code.clone(),
+                        label: format!("{} ({})", c.customer_name, c.customer_code),
+                    });
+                    map.insert(c.customer_code.clone(), c.clone());
+                }
+                cust_map.set(map);
+                cust_opts.set(opts);
+            }
+            if let Ok(items) = client.list_items_catalog().await {
+                let mut map = HashMap::new();
+                let mut opts = Vec::new();
+                for i in items {
+                    let price = i.selling_price;
+                    opts.push(SelectOption {
+                        value: i.item_code.clone(),
+                        label: format!("{} (PKR {:.2})", i.item_name, price),
+                    });
+                    map.insert(i.item_code.clone(), i);
+                }
+                it_map.set(map);
+                it_opts.set(opts);
+            }
+        });
+    });
+
     let item_totals: Vec<f64> = items.read().iter().map(|li| li.net_amount()).collect();
     let discount_val = discount_pct.read().parse::<f64>().unwrap_or(0.0);
     let tax_rate_val = tax_rate_str.read().parse::<f64>().unwrap_or(0.0);
@@ -201,9 +209,14 @@ pub fn QuotationCreatePage() -> Element {
         let mut code = customer_code.clone();
         let mut name = customer_name.clone();
         let mut dirty = is_dirty.clone();
+        let cust_map = customer_map.clone();
         move |value: String| {
             code.set(value.clone());
-            name.set(customer_options().into_iter().find(|o| o.value == value).map(|o| o.label).unwrap_or_default());
+            let label = cust_map.read()
+                .get(&value)
+                .map(|c| c.customer_name.clone())
+                .unwrap_or_default();
+            name.set(label);
             dirty.set(true);
         }
     };
@@ -223,34 +236,73 @@ pub fn QuotationCreatePage() -> Element {
     let save_quotation = {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
-        let c_code = customer_code.clone();
+        let mut c_code = customer_code.clone();
         let c_name = customer_name.clone();
         let mut its = items.clone();
         let mut dirty = is_dirty.clone();
         let navigator = navigator.clone();
+        let inv_date = quote_date.clone();
+        let v_until = valid_until.clone();
+        let nts = notes.clone();
+        let disc_pct = discount_pct.clone();
+        let tax_str = tax_rate_str.clone();
+        let api = auth_api.clone();
+        let cust_map = customer_map.clone();
+        let it_map = item_map.clone();
 
         move |_| {
             if c_code.read().is_empty() {
                 toast.error("Validation Error", "Please select a customer.");
                 return;
             }
-            if its.read().iter().filter(|li| !li.item_code.is_empty()).count() == 0 {
+            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
+            if filled == 0 {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
 
+            let cust_id = cust_map.read().get(&c_code.read().clone()).map(|c| c.id).unwrap_or(0);
+            let form_items: Vec<QuotationItemForm> = its.read().iter()
+                .filter(|li| !li.item_code.is_empty())
+                .map(|li| {
+                    let item_id = it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0);
+                    QuotationItemForm {
+                        item_id,
+                        description: Some(li.item_name.clone()),
+                        quantity: li.quantity,
+                        unit_price: li.unit_price,
+                        discount: if li.discount_value > 0.0 { Some(li.discount_value) } else { None },
+                        tax_rate: Some(li.tax_rate),
+                    }
+                }).collect();
+
+            let form = QuotationForm {
+                customer_id: cust_id,
+                quotation_date: inv_date.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
+                expiry_date: v_until.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
+                notes: Some(nts.read().clone()),
+                items: form_items,
+            };
+
             saving.set(true);
-            let customer = c_name.read().clone();
-            let item_count = its.read().len();
             let mut toast = toast.clone();
             let nav = navigator.clone();
+            let customer = c_name.read().clone();
+            let client = api.with(|c| c.clone());
 
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                toast.success("Quotation Created", &format!("Quotation for {} with {} item(s).", customer, item_count));
-                saving.set(false);
-                dirty.set(false);
-                nav.push("/sales/quotations");
+                match client.create_quotation(&form).await {
+                    Ok(_inv) => {
+                        toast.success("Quotation Created", &format!("Quotation for {}.", customer));
+                        saving.set(false);
+                        dirty.set(false);
+                        nav.push("/sales/quotations");
+                    }
+                    Err(e) => {
+                        toast.error("Failed", &format!("Could not create quotation: {}", e));
+                        saving.set(false);
+                    }
+                }
             });
         }
     };
@@ -267,36 +319,76 @@ pub fn QuotationCreatePage() -> Element {
         let mut disc_pct = discount_pct.clone();
         let mut tax_str = tax_rate_str.clone();
         let mut dirty = is_dirty.clone();
+        let api = auth_api.clone();
+        let cust_map = customer_map.clone();
+        let it_map = item_map.clone();
 
         move |_| {
             if c_code.read().is_empty() {
                 toast.error("Validation Error", "Please select a customer.");
                 return;
             }
-            if its.read().iter().filter(|li| !li.item_code.is_empty()).count() == 0 {
+            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
+            if filled == 0 {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
 
+            let cust_id = cust_map.read().get(&c_code.read().clone()).map(|c| c.id).unwrap_or(0);
+            let form_items: Vec<QuotationItemForm> = its.read().iter()
+                .filter(|li| !li.item_code.is_empty())
+                .map(|li| {
+                    let item_id = it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0);
+                    QuotationItemForm {
+                        item_id,
+                        description: Some(li.item_name.clone()),
+                        quantity: li.quantity,
+                        unit_price: li.unit_price,
+                        discount: if li.discount_value > 0.0 { Some(li.discount_value) } else { None },
+                        tax_rate: Some(li.tax_rate),
+                    }
+                }).collect();
+
+            let form = QuotationForm {
+                customer_id: cust_id,
+                quotation_date: inv_date.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
+                expiry_date: v_until.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
+                notes: Some(nts.read().clone()),
+                items: form_items,
+            };
+
             saving.set(true);
-            let c_name = c_name.clone();
-            let item_count = its.read().len();
             let mut toast = toast.clone();
+            let client = api.with(|c| c.clone());
 
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                toast.success("Quotation Created", &format!("Quotation for {} with {} item(s). Creating another…", c_name.read(), item_count));
-                c_code.set(String::new());
-                its.write().clear();
-                for _ in 0..MIN_ITEM_ROWS { its.write().push(LineItem::default()); }
-                let t = chrono::Local::now().date_naive();
-                inv_date.set(Some(t));
-                v_until.set(Some(t + chrono::Duration::days(VALIDITY_DAYS)));
-                nts.set(String::new());
-                disc_pct.set(String::from("0"));
-                tax_str.set(format!("{}", DEFAULT_TAX_RATE));
-                saving.set(false);
-                dirty.set(false);
+                match client.create_quotation(&form).await {
+                    Ok(_inv) => {
+                        toast.success(
+                            "Quotation Created",
+                            &format!("Quotation for {}. Creating another…", c_name.read()),
+                        );
+
+                        // Reset form
+                        c_code.set(String::new());
+                        its.write().clear();
+                        for _ in 0..MIN_ITEM_ROWS {
+                            its.write().push(LineItem::default());
+                        }
+                        let t = chrono::Local::now().date_naive();
+                        inv_date.set(Some(t));
+                        v_until.set(Some(t + chrono::Duration::days(VALIDITY_DAYS)));
+                        nts.set(String::new());
+                        disc_pct.set(String::from("0"));
+                        tax_str.set(format!("{}", DEFAULT_TAX_RATE));
+                        saving.set(false);
+                        dirty.set(false);
+                    }
+                    Err(e) => {
+                        toast.error("Failed", &format!("Could not create quotation: {}", e));
+                        saving.set(false);
+                    }
+                }
             });
         }
     };
@@ -404,13 +496,14 @@ pub fn QuotationCreatePage() -> Element {
                                 let on_item_select = {
                                     let mut its = items.clone();
                                     let mut dirty = is_dirty.clone();
+                                    let it_map = item_map.clone();
                                     let id = item_data.id;
                                     move |value: String| {
                                         let mut w = its.write();
                                         if let Some(line) = w.iter_mut().find(|x| x.id == id) {
                                             line.item_code = value.clone();
-                                            line.item_name = item_name(&value);
-                                            line.unit_price = item_price(&value);
+                                            line.item_name = it_map.read().get(&value).map(|i| i.item_name.clone()).unwrap_or_default();
+                                            line.unit_price = it_map.read().get(&value).map(|i| i.selling_price).unwrap_or(0.0);
                                         }
                                         dirty.set(true);
                                     }
@@ -468,7 +561,7 @@ pub fn QuotationCreatePage() -> Element {
                                         td { class: "quotation-item-num", "{idx + 1}" }
                                         td {
                                             SearchableSelect {
-                                                options: item_options(),
+                                                options: item_options_signal(),
                                                 selected_value: (!item_data.item_code.is_empty()).then(|| item_data.item_code.clone()),
                                                 on_select: on_item_select,
                                                 placeholder: "Search item…",

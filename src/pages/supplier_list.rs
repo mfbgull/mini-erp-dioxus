@@ -71,25 +71,28 @@ fn compute_summary(suppliers: &[Supplier]) -> SupplierSummary {
 pub fn SupplierListPage() -> Element {
     let navigator = use_navigator();
     let refresh_counter = use_signal(|| 0u32);
-    let suppliers_resource = use_resource(move || async move {
-        let _ = *refresh_counter.read();
-        let client = use_auth().api;
-        let result = client.read().list_suppliers().await;
-        match result {
-            Ok(models) => models.into_iter().map(|m| Supplier {
-                id: m.id,
-                supplier_code: m.supplier_code,
-                supplier_name: m.supplier_name,
-                email: m.email,
-                phone: m.phone,
-                city: m.address.split(',').next().unwrap_or("").trim().to_string(),
-                payment_terms: "Net 30".to_string(),
-                credit_limit: 0.0,
-                current_balance: 0.0,
-                status: if m.is_active { "Active".to_string() } else { "Inactive".to_string() },
-                supplier_type: "Local".to_string(),
-            }).collect(),
-            Err(_) => vec![],
+    let api = use_auth().api;
+    let suppliers_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *refresh_counter.read();
+            let result = api.read().clone().list_suppliers().await;
+            match result {
+                Ok(models) => models.into_iter().map(|m| Supplier {
+                    id: m.id,
+                    supplier_code: m.supplier_code,
+                    supplier_name: m.supplier_name,
+                    email: m.email,
+                    phone: m.phone,
+                    city: m.address.split(',').next().unwrap_or("").trim().to_string(),
+                    payment_terms: "Net 30".to_string(),
+                    credit_limit: 0.0,
+                    current_balance: 0.0,
+                    status: if m.is_active { "Active".to_string() } else { "Inactive".to_string() },
+                    supplier_type: "Local".to_string(),
+                }).collect(),
+                Err(_) => vec![],
+            }
         }
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
@@ -154,13 +157,13 @@ pub fn SupplierListPage() -> Element {
     let on_row_click = {
         let nav = navigator.clone();
         move |(_idx, s): (usize, Supplier)| {
-            nav.push(format!("/crm/suppliers/{}", s.id));
+            nav.push(format!("/suppliers/{}", s.id));
         }
     };
 
     let on_new = {
         let nav = navigator.clone();
-        move |_| { nav.push("/crm/suppliers/new"); } };
+        move |_| { nav.push("/suppliers/new"); } };
 
     let on_refresh = {
         let mut counter = refresh_counter.clone();

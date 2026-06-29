@@ -1,5 +1,6 @@
 //! Accounting Periods Page — DataGrid-backed list view for accounting/fiscal periods.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode,
@@ -17,25 +18,7 @@ pub struct AccountingPeriod {
     pub is_active: bool,
 }
 
-async fn fetch_periods() -> Vec<AccountingPeriod> {
-    crate::utils::sleep(std::time::Duration::from_millis(400)).await;
-    sample_periods()
-}
 
-fn sample_periods() -> Vec<AccountingPeriod> {
-    vec![
-        AccountingPeriod { id: 1, period_name: "January 2026".to_string(), start_date: "2026-01-01".to_string(), end_date: "2026-01-31".to_string(), status: "Closed".to_string(), is_active: false },
-        AccountingPeriod { id: 2, period_name: "February 2026".to_string(), start_date: "2026-02-01".to_string(), end_date: "2026-02-28".to_string(), status: "Closed".to_string(), is_active: false },
-        AccountingPeriod { id: 3, period_name: "March 2026".to_string(), start_date: "2026-03-01".to_string(), end_date: "2026-03-31".to_string(), status: "Closed".to_string(), is_active: false },
-        AccountingPeriod { id: 4, period_name: "April 2026".to_string(), start_date: "2026-04-01".to_string(), end_date: "2026-04-30".to_string(), status: "Closed".to_string(), is_active: false },
-        AccountingPeriod { id: 5, period_name: "May 2026".to_string(), start_date: "2026-05-01".to_string(), end_date: "2026-05-31".to_string(), status: "Closed".to_string(), is_active: false },
-        AccountingPeriod { id: 6, period_name: "June 2026".to_string(), start_date: "2026-06-01".to_string(), end_date: "2026-06-30".to_string(), status: "Open".to_string(), is_active: true },
-        AccountingPeriod { id: 7, period_name: "July 2026".to_string(), start_date: "2026-07-01".to_string(), end_date: "2026-07-31".to_string(), status: "Open".to_string(), is_active: true },
-        AccountingPeriod { id: 8, period_name: "August 2026".to_string(), start_date: "2026-08-01".to_string(), end_date: "2026-08-31".to_string(), status: "Open".to_string(), is_active: true },
-        AccountingPeriod { id: 9, period_name: "September 2026".to_string(), start_date: "2026-09-01".to_string(), end_date: "2026-09-30".to_string(), status: "Locked".to_string(), is_active: true },
-        AccountingPeriod { id: 10, period_name: "FY 2025-2026".to_string(), start_date: "2025-07-01".to_string(), end_date: "2026-06-30".to_string(), status: "Open".to_string(), is_active: true },
-    ]
-}
 
 fn badge_class(status: &str) -> &'static str {
     match status {
@@ -50,7 +33,25 @@ fn badge_class(status: &str) -> &'static str {
 pub fn AccountingPeriodsPage() -> Element {
     let navigator = use_navigator();
     let counter = use_signal(|| 0u32);
-    let resource = use_resource(move || async move { let _ = *counter.read(); fetch_periods().await });
+    let api = use_auth().api;
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *counter.read();
+            let result = api.read().clone().list_accounting_periods().await;
+            match result {
+                Ok(list) => list.into_iter().map(|p| AccountingPeriod {
+                    id: p.id,
+                    period_name: p.period_name,
+                    start_date: p.start_date,
+                    end_date: p.end_date,
+                    status: p.status.clone(),
+                    is_active: p.status != "Closed",
+                }).collect(),
+                Err(_) => vec![],
+            }
+        }
+    });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
     let is_loading = resource.read().is_none();

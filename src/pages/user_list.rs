@@ -1,5 +1,6 @@
 //! User List Page — DataGrid-backed list view for system users.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
@@ -27,27 +28,6 @@ pub struct User {
 // Sample Data
 // ============================================================================
 
-async fn fetch_users() -> Vec<User> {
-    crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-    sample_users_data()
-}
-
-pub fn sample_users_data() -> Vec<User> {
-    vec![
-        User { id: 1, username: "admin".to_string(), full_name: "Administrator".to_string(), email: "admin@minierp.pk".to_string(), role: "Admin".to_string(), status: "Active".to_string(), last_login: "2026-06-27 08:30:00".to_string(), created_at: "2025-01-01".to_string() },
-        User { id: 2, username: "ahmad.khan".to_string(), full_name: "Ahmad Khan".to_string(), email: "ahmad.khan@minierp.pk".to_string(), role: "Manager".to_string(), status: "Active".to_string(), last_login: "2026-06-27 09:15:00".to_string(), created_at: "2025-03-10".to_string() },
-        User { id: 3, username: "fatima.ali".to_string(), full_name: "Fatima Ali".to_string(), email: "fatima.ali@minierp.pk".to_string(), role: "Sales".to_string(), status: "Active".to_string(), last_login: "2026-06-26 14:45:00".to_string(), created_at: "2025-03-15".to_string() },
-        User { id: 4, username: "usman.siddiqui".to_string(), full_name: "Usman Siddiqui".to_string(), email: "usman.siddiqui@minierp.pk".to_string(), role: "Inventory".to_string(), status: "Active".to_string(), last_login: "2026-06-25 11:20:00".to_string(), created_at: "2025-04-01".to_string() },
-        User { id: 5, username: "sana.raza".to_string(), full_name: "Sana Raza".to_string(), email: "sana.raza@minierp.pk".to_string(), role: "Accounts".to_string(), status: "Active".to_string(), last_login: "2026-06-26 16:10:00".to_string(), created_at: "2025-04-10".to_string() },
-        User { id: 6, username: "bilal.hussain".to_string(), full_name: "Bilal Hussain".to_string(), email: "bilal.hussain@minierp.pk".to_string(), role: "Sales".to_string(), status: "Inactive".to_string(), last_login: "2026-05-30 10:00:00".to_string(), created_at: "2025-05-05".to_string() },
-        User { id: 7, username: "hira.pervaiz".to_string(), full_name: "Hira Pervaiz".to_string(), email: "hira.pervaiz@minierp.pk".to_string(), role: "Manager".to_string(), status: "Active".to_string(), last_login: "2026-06-27 07:55:00".to_string(), created_at: "2025-05-20".to_string() },
-        User { id: 8, username: "tariq.mehmood".to_string(), full_name: "Tariq Mehmood".to_string(), email: "tariq.mehmood@minierp.pk".to_string(), role: "Production".to_string(), status: "Disabled".to_string(), last_login: "2026-04-15 08:30:00".to_string(), created_at: "2025-06-01".to_string() },
-        User { id: 9, username: "zainab.akhtar".to_string(), full_name: "Zainab Akhtar".to_string(), email: "zainab.akhtar@minierp.pk".to_string(), role: "Admin".to_string(), status: "Active".to_string(), last_login: "2026-06-26 18:00:00".to_string(), created_at: "2025-07-12".to_string() },
-        User { id: 10, username: "kamran.khan".to_string(), full_name: "Kamran Khan".to_string(), email: "kamran.khan@minierp.pk".to_string(), role: "Accounts".to_string(), status: "Active".to_string(), last_login: "2026-06-25 13:40:00".to_string(), created_at: "2025-08-01".to_string() },
-        User { id: 11, username: "noor.sheikh".to_string(), full_name: "Noor Sheikh".to_string(), email: "noor.sheikh@minierp.pk".to_string(), role: "Inventory".to_string(), status: "Inactive".to_string(), last_login: "2026-05-20 09:15:00".to_string(), created_at: "2025-09-05".to_string() },
-        User { id: 12, username: "raheel.butt".to_string(), full_name: "Raheel Butt".to_string(), email: "raheel.butt@minierp.pk".to_string(), role: "Sales".to_string(), status: "Active".to_string(), last_login: "2026-06-27 10:05:00".to_string(), created_at: "2025-10-01".to_string() },
-    ]
-}
 
 // ============================================================================
 // Summary
@@ -84,10 +64,28 @@ fn compute_summary(users: &[User]) -> UserSummary {
 pub fn UserListPage() -> Element {
     let navigator = use_navigator();
 
+    let api = use_auth().api;
     let refresh_counter = use_signal(|| 0u32);
-    let users_resource = use_resource(move || async move {
-        let _ = *refresh_counter.read();
-        fetch_users().await
+    let users_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *refresh_counter.read();
+            let client = api.with(|c| c.clone());
+            client.list_users().await
+                .map(|server_users| {
+                    server_users.into_iter().map(|u| User {
+                        id: u.id,
+                        username: u.username,
+                        full_name: u.full_name,
+                        email: u.email,
+                        role: u.role,
+                        status: if u.is_active { "Active".to_string() } else { "Inactive".to_string() },
+                        last_login: String::new(), // ponytail: not in list endpoint
+                        created_at: String::new(), // ponytail: not in list endpoint
+                    }).collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        }
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 

@@ -1,6 +1,7 @@
 //! User Detail Page — Detail view for a system user with KPI cards,
 //! user info, and action bar.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
@@ -49,14 +50,24 @@ pub fn UserDetailPage(id: String) -> Element {
     let navigator = use_navigator();
 
     // ── Async fetch ──
+    let api = use_auth().api;
     let id_clone = id.clone();
     let user_resource = use_resource(move || {
+        let api = api.clone();
         let id_fetch = id_clone.clone();
         async move {
-            crate::utils::sleep(std::time::Duration::from_millis(500)).await;
-            let users = crate::pages::user_list::sample_users_data();
-            let parsed = id_fetch.parse::<i64>().unwrap_or(0);
-            users.into_iter().find(|u| u.id == parsed)
+            let client = api.with(|c| c.clone());
+            let parsed = id_fetch.parse::<i64>().ok()?;
+            client.get_user(parsed).await.ok().map(|u| crate::pages::user_list::User {
+                id: u.id,
+                username: u.username,
+                full_name: u.full_name,
+                email: u.email,
+                role: u.role,
+                status: if u.is_active { "Active".to_string() } else { "Inactive".to_string() },
+                last_login: String::new(), // ponytail: not in API
+                created_at: String::new(), // ponytail: not in API
+            })
         }
     });
 

@@ -1,5 +1,6 @@
 //! Expense List Page — DataGrid-backed list view for expense tracking.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
@@ -21,25 +22,7 @@ pub struct Expense {
     pub approved_by: Option<String>,
 }
 
-async fn fetch_expenses() -> Vec<Expense> {
-    crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-    sample_expenses()
-}
 
-pub fn sample_expenses() -> Vec<Expense> {
-    vec![
-        Expense { id: 1, expense_no: "EXP-2026-0001".to_string(), category: "Travel".to_string(), description: "Sales team visit to Lahore office".to_string(), amount: 45_000.00, expense_date: "2026-06-20".to_string(), paid_to: "Ahmad Raza".to_string(), payment_method: "Cash".to_string(), status: "Approved".to_string(), approved_by: Some("Fatima Khan".to_string()) },
-        Expense { id: 2, expense_no: "EXP-2026-0002".to_string(), category: "Office Supplies".to_string(), description: "Stationery and printer cartridges".to_string(), amount: 8_500.00, expense_date: "2026-06-18".to_string(), paid_to: "Zainab Bibi".to_string(), payment_method: "Cash".to_string(), status: "Approved".to_string(), approved_by: Some("Bilal Ahmed".to_string()) },
-        Expense { id: 3, expense_no: "EXP-2026-0003".to_string(), category: "Utilities".to_string(), description: "June electricity bill".to_string(), amount: 125_000.00, expense_date: "2026-06-15".to_string(), paid_to: "IESCO".to_string(), payment_method: "Bank".to_string(), status: "Approved".to_string(), approved_by: Some("Fatima Khan".to_string()) },
-        Expense { id: 4, expense_no: "EXP-2026-0004".to_string(), category: "Maintenance".to_string(), description: "AC repair - Admin floor".to_string(), amount: 22_000.00, expense_date: "2026-06-12".to_string(), paid_to: "Cool Tech Services".to_string(), payment_method: "Cash".to_string(), status: "Approved".to_string(), approved_by: Some("Bilal Ahmed".to_string()) },
-        Expense { id: 5, expense_no: "EXP-2026-0005".to_string(), category: "Salary".to_string(), description: "Staff salaries for May 2026".to_string(), amount: 450_000.00, expense_date: "2026-06-01".to_string(), paid_to: "All Staff".to_string(), payment_method: "Bank".to_string(), status: "Reimbursed".to_string(), approved_by: Some("Fatima Khan".to_string()) },
-        Expense { id: 6, expense_no: "EXP-2026-0006".to_string(), category: "Travel".to_string(), description: "Rawalpindi client meeting - fuel".to_string(), amount: 6_500.00, expense_date: "2026-06-10".to_string(), paid_to: "Usman Ali".to_string(), payment_method: "Cash".to_string(), status: "Draft".to_string(), approved_by: None },
-        Expense { id: 7, expense_no: "EXP-2026-0007".to_string(), category: "Office Supplies".to_string(), description: "New desk chairs x 5".to_string(), amount: 75_000.00, expense_date: "2026-06-08".to_string(), paid_to: "Furniture World".to_string(), payment_method: "Credit Card".to_string(), status: "Approved".to_string(), approved_by: Some("Bilal Ahmed".to_string()) },
-        Expense { id: 8, expense_no: "EXP-2026-0008".to_string(), category: "Utilities".to_string(), description: "WSSP water bill".to_string(), amount: 3_200.00, expense_date: "2026-06-05".to_string(), paid_to: "WSSP".to_string(), payment_method: "Bank".to_string(), status: "Approved".to_string(), approved_by: Some("Fatima Khan".to_string()) },
-        Expense { id: 9, expense_no: "EXP-2026-0009".to_string(), category: "Other".to_string(), description: "Office security system upgrade".to_string(), amount: 95_000.00, expense_date: "2026-05-28".to_string(), paid_to: "SafeTech Security".to_string(), payment_method: "Credit Card".to_string(), status: "Rejected".to_string(), approved_by: Some("Fatima Khan".to_string()) },
-        Expense { id: 10, expense_no: "EXP-2026-0010".to_string(), category: "Travel".to_string(), description: "Faisalabad supplier visit".to_string(), amount: 12_000.00, expense_date: "2026-06-22".to_string(), paid_to: "Usman Ali".to_string(), payment_method: "Cash".to_string(), status: "Draft".to_string(), approved_by: None },
-    ]
-}
 
 struct ExpenseSummary {
     total: usize,
@@ -73,7 +56,29 @@ fn compute_summary(expenses: &[Expense]) -> ExpenseSummary {
 pub fn ExpenseListPage() -> Element {
     let navigator = use_navigator();
     let counter = use_signal(|| 0u32);
-    let resource = use_resource(move || async move { let _ = *counter.read(); fetch_expenses().await });
+    let api = use_auth().api;
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *counter.read();
+            let result = api.read().clone().list_expenses().await;
+            match result {
+                Ok(list) => list.into_iter().map(|e| Expense {
+                    id: e.id,
+                    expense_no: e.expense_no,
+                    category: e.category,
+                    description: e.description,
+                    amount: e.amount,
+                    expense_date: e.expense_date,
+                    paid_to: String::new(),
+                    payment_method: String::new(),
+                    status: e.status,
+                    approved_by: None,
+                }).collect(),
+                Err(_) => vec![],
+            }
+        }
+    });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
     let is_loading = resource.read().is_none();

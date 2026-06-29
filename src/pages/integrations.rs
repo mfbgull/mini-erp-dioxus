@@ -1,7 +1,7 @@
 //! Integrations Page — Dashboard of integration cards showing connection
 //! status for third-party services.
 
-use crate::components::common::{Button, ButtonVariant, use_toast};
+use crate::auth::use_auth;
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -49,54 +49,48 @@ struct Integration {
     last_sync: String,
 }
 
-fn sample_integrations() -> Vec<Integration> {
-    vec![
-        Integration {
-            id: 1,
-            title: "Email (SMTP)".to_string(),
-            description: "Send transactional emails, invoices, and notifications via SMTP server.".to_string(),
-            icon: "📧",
-            icon_class: "integration-icon-blue",
-            connected: true,
-            last_sync: "Connected — tested successfully".to_string(),
-        },
-        Integration {
-            id: 2,
-            title: "SMS Gateway".to_string(),
-            description: "Send SMS alerts for low stock, payment reminders, and system notifications.".to_string(),
-            icon: "📱",
-            icon_class: "integration-icon-green",
-            connected: false,
-            last_sync: "Not configured".to_string(),
-        },
-        Integration {
-            id: 3,
-            title: "Payment Gateway".to_string(),
-            description: "Process customer payments via credit card, bank transfer, and digital wallets.".to_string(),
-            icon: "💳",
-            icon_class: "integration-icon-purple",
-            connected: true,
-            last_sync: "Connected — API v3.2".to_string(),
-        },
-        Integration {
-            id: 4,
-            title: "Accounting Software".to_string(),
-            description: "Sync invoices, expenses, and journal entries with external accounting platforms.".to_string(),
-            icon: "📊",
-            icon_class: "integration-icon-orange",
-            connected: false,
-            last_sync: "Not configured".to_string(),
-        },
-        Integration {
-            id: 5,
-            title: "E-Commerce".to_string(),
-            description: "Sync product catalog, inventory levels, and orders with online storefronts.".to_string(),
-            icon: "🛒",
-            icon_class: "integration-icon-teal",
-            connected: false,
-            last_sync: "Not configured".to_string(),
-        },
-    ]
+fn service_title(service: &str) -> String {
+    match service {
+        "email" => "Email (SMTP)".to_string(),
+        "sms" => "SMS Gateway".to_string(),
+        "payment" => "Payment Gateway".to_string(),
+        "accounting" => "Accounting Software".to_string(),
+        "ecommerce" => "E-Commerce".to_string(),
+        _ => service.to_string(),
+    }
+}
+
+fn service_icon(service: &str) -> &'static str {
+    match service {
+        "email" => "📧",
+        "sms" => "📱",
+        "payment" => "💳",
+        "accounting" => "📊",
+        "ecommerce" => "🛒",
+        _ => "🔌",
+    }
+}
+
+fn service_icon_class(service: &str) -> &'static str {
+    match service {
+        "email" => "integration-icon-blue",
+        "sms" => "integration-icon-green",
+        "payment" => "integration-icon-purple",
+        "accounting" => "integration-icon-orange",
+        "ecommerce" => "integration-icon-teal",
+        _ => "integration-icon-blue",
+    }
+}
+
+fn service_description(service: &str) -> &'static str {
+    match service {
+        "email" => "Send transactional emails, invoices, and notifications via SMTP server.",
+        "sms" => "Send SMS alerts for low stock, payment reminders, and system notifications.",
+        "payment" => "Process customer payments via credit card, bank transfer, and digital wallets.",
+        "accounting" => "Sync invoices, expenses, and journal entries with external accounting platforms.",
+        "ecommerce" => "Sync product catalog, inventory levels, and orders with online storefronts.",
+        _ => "",
+    }
 }
 
 // ============================================================================
@@ -105,45 +99,25 @@ fn sample_integrations() -> Vec<Integration> {
 
 #[component]
 pub fn IntegrationsPage() -> Element {
-    let toast = use_toast();
-
     // ── State ──
-    let integrations = use_signal(sample_integrations);
-    let connecting_id = use_signal(|| 0i64);
-
-    // ── Handlers ──
-    let mut on_toggle = {
-        let mut ints = integrations.clone();
-        let mut conn = connecting_id.clone();
-        let mut toast = toast.clone();
-        move |id: i64| {
-            conn.set(id);
-            let mut t = toast.clone();
-            let mut int_clone = ints.clone();
-            spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                let mut items = int_clone.write();
-                if let Some(idx) = items.iter().position(|i| i.id == id) {
-                    let was_connected = items[idx].connected;
-                    items[idx].connected = !was_connected;
-                    items[idx].last_sync = if items[idx].connected {
-                        "Connected successfully".to_string()
-                    } else {
-                        "Disconnected".to_string()
-                    };
-                    let name = items[idx].title.clone();
-                    if items[idx].connected {
-                        t.success("Integration Connected", &format!("{} is now connected.", name));
-                    } else {
-                        t.info("Integration Disconnected", &format!("{} has been disconnected.", name));
-                    }
-                }
-                conn.set(0);
-            });
+    let api = use_auth().api;
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            let server_ints = client.list_integrations().await.unwrap_or_default();
+            server_ints.into_iter().enumerate().map(|(i, si)| Integration {
+                id: i as i64 + 1,
+                title: service_title(&si.service),
+                description: service_description(&si.service).to_string(),
+                icon: service_icon(&si.service),
+                icon_class: service_icon_class(&si.service),
+                connected: si.is_configured,
+                last_sync: String::new(), // ponytail: not in API
+            }).collect::<Vec<_>>()
         }
-    };
-
-    let is_connecting = |id: i64| *connecting_id.read() == id;
+    });
+    let integrations = resource.read().as_ref().cloned().unwrap_or_default();
 
     rsx! {
         style { "{PAGE_CSS}" }
@@ -158,14 +132,9 @@ pub fn IntegrationsPage() -> Element {
 
             // ── Cards Grid ──
             div { class: "integrations-grid",
-                {integrations.read().iter().map(|int| {
-                    let mut toggle = on_toggle.clone();
+                {integrations.iter().map(|int| {
                     let status_class = if int.connected { "integration-status-connected" } else { "integration-status-disconnected" };
                     let status_text = if int.connected { "● Connected" } else { "○ Disconnected" };
-                    let btn_variant = if int.connected { ButtonVariant::Secondary } else { ButtonVariant::Primary };
-                    let btn_text = if int.connected { "Disconnect" } else { "Connect" };
-                    let loading = is_connecting(int.id);
-                    let id = int.id;
 
                     rsx! {
                         div { class: "integration-card", key: "{int.id}",
@@ -179,13 +148,6 @@ pub fn IntegrationsPage() -> Element {
                             }
                             div { class: "integration-meta",
                                 span { "{int.last_sync}" }
-                                Button {
-                                    variant: btn_variant,
-                                    size: crate::components::common::ButtonSize::Sm,
-                                    onclick: move |_| toggle(id),
-                                    loading: loading,
-                                    "{btn_text}"
-                                }
                             }
                         }
                     }

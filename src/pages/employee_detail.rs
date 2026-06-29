@@ -3,6 +3,7 @@
 use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
+use crate::auth::use_auth;
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r##"
@@ -44,19 +45,43 @@ fn status_class(s: &str) -> &'static str {
     match s { "Active" => "emp-status-active", _ => "emp-status-inactive" }
 }
 
+#[derive(Clone, Debug)]
+struct DisplayEmployee {
+    full_name: String,
+    employee_code: String,
+    status: String,
+    department: String,
+    designation: String,
+    email: String,
+    phone: String,
+    employment_type: String,
+    join_date: String,
+}
+
 #[component]
 pub fn EmployeeDetailPage(id: String) -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
     let id_display = id.clone();
+    let api = use_auth().api;
 
     let resource = use_resource(move || {
+        let api = api.clone();
         let id = id.clone();
         async move {
-            crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-            let employees = crate::pages::employee_list::sample_employees_data();
-            let parsed = id.parse::<i64>().unwrap_or(0);
-            employees.into_iter().find(|e| e.id == parsed)
+            let parsed = id.parse::<i64>().ok()?;
+            let server = api.read().get_employee(parsed).await.ok()?;
+            Some(DisplayEmployee {
+                full_name: format!("{} {}", server.first_name, server.last_name),
+                employee_code: server.employee_code,
+                status: if server.is_active { "Active".to_string() } else { "Inactive".to_string() },
+                department: server.department,
+                designation: server.designation,
+                email: server.email,
+                phone: server.phone,
+                employment_type: "Permanent".to_string(),
+                join_date: server.created_at,
+            })
         }
     });
 

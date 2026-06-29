@@ -1,5 +1,6 @@
 //! Chart of Accounts Page — DataGrid-backed list view for the accounting chart of accounts.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
@@ -18,33 +19,7 @@ pub struct Account {
     pub is_active: bool,
 }
 
-async fn fetch_accounts() -> Vec<Account> {
-    crate::utils::sleep(std::time::Duration::from_millis(500)).await;
-    sample_accounts()
-}
 
-fn sample_accounts() -> Vec<Account> {
-    vec![
-        Account { id: 1, account_code: "1000".to_string(), account_name: "Cash on Hand".to_string(), account_type: "Asset".to_string(), normal_side: "Debit".to_string(), balance: 450_000.00, is_active: true },
-        Account { id: 2, account_code: "1100".to_string(), account_name: "Bank Accounts".to_string(), account_type: "Asset".to_string(), normal_side: "Debit".to_string(), balance: 2_800_000.00, is_active: true },
-        Account { id: 3, account_code: "1200".to_string(), account_name: "Accounts Receivable".to_string(), account_type: "Asset".to_string(), normal_side: "Debit".to_string(), balance: 1_200_000.00, is_active: true },
-        Account { id: 4, account_code: "1300".to_string(), account_name: "Inventory".to_string(), account_type: "Asset".to_string(), normal_side: "Debit".to_string(), balance: 650_000.00, is_active: true },
-        Account { id: 5, account_code: "1400".to_string(), account_name: "Fixed Assets".to_string(), account_type: "Asset".to_string(), normal_side: "Debit".to_string(), balance: 2_100_000.00, is_active: true },
-        Account { id: 6, account_code: "2000".to_string(), account_name: "Accounts Payable".to_string(), account_type: "Liability".to_string(), normal_side: "Credit".to_string(), balance: 1_200_000.00, is_active: true },
-        Account { id: 7, account_code: "2100".to_string(), account_name: "Accrued Expenses".to_string(), account_type: "Liability".to_string(), normal_side: "Credit".to_string(), balance: 350_000.00, is_active: true },
-        Account { id: 8, account_code: "2200".to_string(), account_name: "Short Term Loans".to_string(), account_type: "Liability".to_string(), normal_side: "Credit".to_string(), balance: 250_000.00, is_active: true },
-        Account { id: 9, account_code: "3000".to_string(), account_name: "Owner's Equity".to_string(), account_type: "Equity".to_string(), normal_side: "Credit".to_string(), balance: 3_200_000.00, is_active: true },
-        Account { id: 10, account_code: "3100".to_string(), account_name: "Retained Earnings".to_string(), account_type: "Equity".to_string(), normal_side: "Credit".to_string(), balance: 200_000.00, is_active: true },
-        Account { id: 11, account_code: "4000".to_string(), account_name: "Sales Revenue".to_string(), account_type: "Income".to_string(), normal_side: "Credit".to_string(), balance: 6_500_000.00, is_active: true },
-        Account { id: 12, account_code: "4100".to_string(), account_name: "Service Revenue".to_string(), account_type: "Income".to_string(), normal_side: "Credit".to_string(), balance: 890_000.00, is_active: true },
-        Account { id: 13, account_code: "5000".to_string(), account_name: "Cost of Goods Sold".to_string(), account_type: "Expense".to_string(), normal_side: "Debit".to_string(), balance: 4_200_000.00, is_active: true },
-        Account { id: 14, account_code: "5100".to_string(), account_name: "Rent Expense".to_string(), account_type: "Expense".to_string(), normal_side: "Debit".to_string(), balance: 240_000.00, is_active: true },
-        Account { id: 15, account_code: "5200".to_string(), account_name: "Utilities Expense".to_string(), account_type: "Expense".to_string(), normal_side: "Debit".to_string(), balance: 128_000.00, is_active: true },
-        Account { id: 16, account_code: "5300".to_string(), account_name: "Salary Expense".to_string(), account_type: "Expense".to_string(), normal_side: "Debit".to_string(), balance: 540_000.00, is_active: true },
-        Account { id: 17, account_code: "5400".to_string(), account_name: "Depreciation".to_string(), account_type: "Expense".to_string(), normal_side: "Debit".to_string(), balance: 85_000.00, is_active: true },
-        Account { id: 18, account_code: "6000".to_string(), account_name: "Other Income".to_string(), account_type: "Income".to_string(), normal_side: "Credit".to_string(), balance: 45_000.00, is_active: false },
-    ]
-}
 
 struct AccountSummary {
     total_assets: f64,
@@ -74,7 +49,26 @@ fn compute_summary(accounts: &[Account]) -> AccountSummary {
 pub fn ChartOfAccountsPage() -> Element {
     let navigator = use_navigator();
     let counter = use_signal(|| 0u32);
-    let resource = use_resource(move || async move { let _ = *counter.read(); fetch_accounts().await });
+    let api = use_auth().api;
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let _ = *counter.read();
+            let result = api.read().clone().list_account_balances().await;
+            match result {
+                Ok(list) => list.into_iter().map(|a| Account {
+                    id: a.id,
+                    account_code: a.code,
+                    account_name: a.name,
+                    account_type: a.account_type,
+                    normal_side: a.normal_balance,
+                    balance: a.balance,
+                    is_active: true,
+                }).collect(),
+                Err(_) => vec![],
+            }
+        }
+    });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
     let is_loading = resource.read().is_none();
