@@ -1,0 +1,15 @@
+target/
+*.db
+*.db-shm
+*.db-wal
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+node_modules/
+.pi/
+.claude/
+.kilocode/
+.opencode/
+.trae/

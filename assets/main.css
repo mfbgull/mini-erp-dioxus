@@ -1,0 +1,597 @@
+/* ========================================================================
+   MiniERP — Global Styles
+   ========================================================================
+   This stylesheet provides the application shell layout, sidebar, top bar,
+   page content areas, and demo page styles. The DataGrid component has its
+   own self-contained styles (via DATA_GRID_CSS in styles.rs).
+   ======================================================================== */
+
+/* -----------------------------------------------------------------------
+   CSS Custom Properties (Design Tokens)
+   ----------------------------------------------------------------------- */
+:root {
+    --sidebar-width: 260px;
+    --sidebar-bg: #1a1a2e;
+    --sidebar-text: #e0e0e0;
+    --sidebar-active: #4a90d9;
+    --topbar-height: 48px;
+    --content-bg: #f5f6fa;
+    --text-primary: #1a1a2e;
+    --text-secondary: #6c757d;
+    --border-color: #e0e0e0;
+    --accent: #4a90d9;
+    --danger: #dc3545;
+    --warning: #ffc107;
+    --success: #28a745;
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas,
+        monospace;
+    --radius: 8px;
+    --radius-sm: 4px;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* -----------------------------------------------------------------------
+   Reset & Base
+   ----------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: var(--font-family);
+    color: var(--text-primary);
+    background: var(--content-bg);
+    line-height: 1.5;
+    overflow: hidden;
+    height: 100vh;
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* -----------------------------------------------------------------------
+   App Shell Layout
+   ----------------------------------------------------------------------- */
+.app-shell {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ---- Sidebar ---- */
+.app-sidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.sidebar-logo {
+    padding: 20px 24px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #ffffff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.app-sidebar nav {
+    padding: 12px 0;
+    flex: 1;
+}
+
+.app-sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.app-sidebar li {
+    margin: 2px 0;
+}
+
+.app-sidebar li a {
+    display: flex;
+    align-items: center;
+    padding: 10px 24px;
+    color: var(--sidebar-text);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    text-decoration: none;
+    gap: 8px;
+}
+
+.app-sidebar li a:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}
+
+.app-sidebar li a.active {
+    background: rgba(74, 144, 217, 0.2);
+    color: var(--sidebar-active);
+    border-right: 3px solid var(--sidebar-active);
+}
+
+.app-sidebar hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin: 12px 24px;
+}
+
+/* ---- Content Area ---- */
+.app-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+}
+
+/* ---- Top Bar ---- */
+.app-topbar {
+    height: var(--topbar-height);
+    min-height: var(--topbar-height);
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+}
+
+/* ---- Page Content ---- */
+.app-page {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+/* -----------------------------------------------------------------------
+   Page Styles
+   ----------------------------------------------------------------------- */
+.page {
+    max-width: 1200px;
+}
+
+.page h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.page-subtitle {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 24px;
+    max-width: 600px;
+    line-height: 1.6;
+}
+
+/* -----------------------------------------------------------------------
+   Demo Page Styles
+   ----------------------------------------------------------------------- */
+.demo-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.demo-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    background: #e8f0fe;
+    color: #004085;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.demo-section {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow);
+}
+
+.demo-section h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+}
+
+.demo-section p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+/* -----------------------------------------------------------------------
+   Utility Classes
+   ----------------------------------------------------------------------- */
+.text-danger {
+    color: var(--danger) !important;
+}
+
+.text-warning {
+    color: var(--warning) !important;
+}
+
+.text-success {
+    color: var(--success) !important;
+}
+
+.fw-bold {
+    font-weight: 700 !important;
+}
+
+/* -----------------------------------------------------------------------
+   Page Header
+   ----------------------------------------------------------------------- */
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 16px;
+}
+
+.page-header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.page-header .page-subtitle {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-top: 4px;
+    max-width: 500px;
+    line-height: 1.6;
+}
+
+/* -----------------------------------------------------------------------
+   Invoice Summary Bar
+   ----------------------------------------------------------------------- */
+.invoice-summary-bar {
+    display: flex;
+    gap: 1px;
+    margin-bottom: 16px;
+    background: #e9ecef;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.summary-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 12px;
+    background: #ffffff;
+    min-width: 0;
+}
+
+.summary-item:not(:last-child) {
+    border-right: 1px solid #e9ecef;
+}
+
+.summary-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    white-space: nowrap;
+}
+
+.summary-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.summary-amount {
+    color: #1a1a2e;
+}
+
+.summary-paid {
+    color: #155724;
+}
+
+.summary-balance {
+    color: #856404;
+}
+
+.summary-warning .summary-value {
+    color: #dc3545;
+}
+
+@media (max-width: 768px) {
+    .invoice-summary-bar {
+        flex-wrap: wrap;
+        border-radius: 0;
+    }
+
+    .summary-item {
+        flex: 1 1 33%;
+        padding: 10px 8px;
+    }
+
+    .summary-value {
+        font-size: 15px;
+    }
+}
+
+/* -----------------------------------------------------------------------
+   Invoice Toolbar
+   ----------------------------------------------------------------------- */
+.invoice-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 12px;
+}
+
+.toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toolbar-right {
+    display: flex;
+    align-items: center;
+}
+
+.toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: #ffffff;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+    background: #f0f2f5;
+    border-color: #ced4da;
+}
+
+.toolbar-btn-primary {
+    background: var(--accent);
+    color: #ffffff;
+    border-color: var(--accent);
+}
+
+.toolbar-btn-primary:hover {
+    background: #357abd;
+    border-color: #357abd;
+}
+
+.toolbar-selection {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    padding: 6px 12px;
+    background: #e8f0fe;
+    border-radius: var(--radius-sm);
+    color: #004085;
+}
+
+/* -----------------------------------------------------------------------
+   Invoice List Page
+   ----------------------------------------------------------------------- */
+.invoice-list-page {
+    max-width: 1400px;
+}
+
+.invoice-list-page .page-subtitle {
+    margin-bottom: 0;
+}
+
+/* ---- Loading Badge (page header) ---- */
+.loading-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #e8f0fe;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #004085;
+    white-space: nowrap;
+    animation: fadeIn 0.3s ease;
+}
+
+.loading-badge-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #cce5ff;
+    border-top: 2px solid #4a90d9;
+    border-radius: 50%;
+    animation: dg-spin 0.8s linear infinite;
+}
+
+/* ---- Summary Skeleton ---- */
+.summary-skeleton {
+    gap: 4px;
+    padding: 16px 12px;
+}
+
+.skeleton-text {
+    background: linear-gradient(90deg, #e9ecef 25%, #f8f9fa 50%, #e9ecef 75%);
+    background-size: 200% 100%;
+    animation: dg-shimmer 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@media (max-width: 768px) {
+    .invoice-toolbar,
+    .customer-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .toolbar-left {
+        flex-wrap: wrap;
+    }
+
+    .toolbar-btn {
+        flex: 1;
+        justify-content: center;
+    }
+}
+
+/* -----------------------------------------------------------------------
+   Customer Summary Bar
+   ----------------------------------------------------------------------- */
+.customer-summary-bar {
+    display: flex;
+    gap: 1px;
+    margin-bottom: 16px;
+    background: #e9ecef;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.summary-ok .summary-value {
+    color: var(--success);
+}
+
+@media (max-width: 768px) {
+    .customer-summary-bar {
+        flex-wrap: wrap;
+        border-radius: 0;
+    }
+
+    .customer-summary-bar .summary-item {
+        flex: 1 1 33%;
+        padding: 10px 8px;
+    }
+
+    .customer-summary-bar .summary-value {
+        font-size: 15px;
+    }
+}
+
+/* -----------------------------------------------------------------------
+   Customer Toolbar
+   ----------------------------------------------------------------------- */
+.customer-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 12px;
+}
+
+@media (max-width: 768px) {
+    .customer-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* -----------------------------------------------------------------------
+   Customer List Page
+   ----------------------------------------------------------------------- */
+.customer-list-page {
+    max-width: 1400px;
+}
+
+.customer-list-page .page-subtitle {
+    margin-bottom: 0;
+}
+
+/* -----------------------------------------------------------------------
+   Login Page
+   ----------------------------------------------------------------------- */
+.login-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: var(--content-bg);
+    gap: 16px;
+}
+
+.login-page h1 {
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.login-page p {
+    color: var(--text-secondary);
+}
+
+/* -----------------------------------------------------------------------
+   Responsive: Mobile (≤768px)
+   ----------------------------------------------------------------------- */
+@media (max-width: 768px) {
+    .app-sidebar {
+        display: none; /* Hidden on mobile; use hamburger menu */
+    }
+
+    .app-page {
+        padding: 16px;
+    }
+
+    .demo-section {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+}

@@ -1,0 +1,17 @@
+pub mod db;
+pub mod auth_routes;
+pub mod inventory_routes;
+pub mod customer_routes;
+pub mod invoice_routes;
+pub mod payment_routes;
+pub mod sales_routes;
+pub mod purchase_routes;
+pub mod manufacturing_routes;
+pub mod accounting_routes;
+pub mod admin_routes;
+pub mod dashboard_routes;
+pub mod report_routes;
+pub mod forecast_routes;
+pub mod pos_routes;
+pub mod mobile_routes;
+pub mod routes;

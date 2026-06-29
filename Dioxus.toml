@@ -1,0 +1,75 @@
+[application]
+# App name (used for the binary and platform package names)
+name = "mini-erp"
+
+# Default platform when running `dx serve` or `dx build`
+default_platform = "web"
+
+# Description shown in platform-native metadata
+description = "Full-featured ERP for small businesses"
+
+# ============================================================================
+# [web] — Web / WASM target configuration
+# ============================================================================
+[web]
+# Base URL path for the app (use "/" for root or "/app" for sub-path)
+base_path = "/"
+
+# WASM binary name (defaults to the crate name)
+wasm_name = "mini_erp"
+
+# Resource URLs prefix for CDN deployment
+# resources_url = "https://cdn.example.com/assets"
+
+# Enable Cross-Origin-Embedder-Policy / Cross-Origin-Opener-Policy headers
+# Required for SharedArrayBuffer and advanced WASM features
+# cross_origin_isolation = false
+
+[web.watch]
+# Directories to watch for hot-reload changes
+include = ["src", "assets"]
+
+# File extensions to watch
+extensions = ["rs", "css", "html", "svg", "png", "jpg", "ico"]
+
+# ============================================================================
+# [desktop] — Desktop target (native WebView, replaces Electron)
+# ============================================================================
+[desktop]
+# Window title
+title = "MiniERP"
+
+# Window dimensions
+width = 1280
+height = 800
+resizable = true
+decorations = true
+
+# Whether to show the window immediately (false = hidden until ready)
+show = true
+
+# ============================================================================
+# [server] — Fullstack server configuration (for future use)
+# ============================================================================
+# [server]
+# host = "0.0.0.0"
+# port = 8080
+
+# ============================================================================
+# [bundle] — Platform package bundling (icons, metadata)
+# ============================================================================
+[bundle]
+# Resources to include in the platform bundle (images, configs, etc.)
+resources = ["assets/*"]
+
+# Linux desktop entry metadata
+[linux]
+icon = ["assets/icons/icon.png"]
+
+# macOS bundle metadata
+[macos]
+icon = ["assets/icons/icon.icns"]
+
+# Windows metadata
+[windows]
+icon = ["assets/icons/icon.ico"]
