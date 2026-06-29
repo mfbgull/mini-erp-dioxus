@@ -1330,6 +1330,28 @@ impl ApiClient {
         Ok(items)
     }
 
+    /// POST /api/expenses
+    pub async fn create_expense(&self, form: &ExpenseForm) -> Result<serde_json::Value, String> {
+        let url = format!("{}/api/expenses", base_url());
+        let resp = self
+            .inner
+            .post(&url)
+            .headers(self.headers())
+            .json(form)
+            .send()
+            .await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            let msg = body["error"].as_str().unwrap_or("Request failed");
+            return Err(msg.to_string());
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].clone())
+    }
+
     /// GET /api/expenses/categories
     pub async fn list_expense_categories(&self) -> Result<Vec<ExpenseCategory>, String> {
         let url = format!("{}/api/expenses/categories", base_url());

@@ -1,9 +1,11 @@
 //! Expense Create Page — Form to create a new expense record.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonVariant, FormInput, InputType, Modal, ModalSize,
     SearchableSelect, SelectOption, use_toast,
 };
+use crate::models::ExpenseForm;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -90,18 +92,37 @@ pub fn ExpenseCreatePage() -> Element {
         let mut cat = category.clone();
         let mut desc = description.clone();
         let mut amt = amount.clone();
+        let mut dt = expense_date.clone();
         let mut validate = validate.clone();
         let mut dirty = is_dirty.clone();
+        let api = use_auth().api;
         move |_| {
             if !validate() { return; }
             saving.set(true);
             let c = cat.read().clone(); let d = desc.read().clone(); let a = amt.read().clone();
+            let dt_val = dt.read().clone();
             let mut toast = toast.clone(); let nav = nav.clone();
+            let api = api.clone();
+            let mut saving = saving.clone(); let mut dirty = dirty.clone();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-                toast.success("Expense Created", &format!("{} of PKR {} created.", c, a));
-                saving.set(false); dirty.set(false);
-                nav.push("/expenses");
+                let client = api.read().clone();
+                let form = ExpenseForm {
+                    category: c.clone(),
+                    description: d.clone(),
+                    amount: a.parse::<f64>().unwrap_or(0.0),
+                    expense_date: dt_val,
+                };
+                match client.create_expense(&form).await {
+                    Ok(_) => {
+                        toast.success("Expense Created", &format!("{} of PKR {} created.", c, a));
+                        dirty.set(false);
+                        nav.push("/expenses");
+                    }
+                    Err(e) => {
+                        toast.error("Error", &e);
+                        saving.set(false);
+                    }
+                }
             });
         }
     };
@@ -121,17 +142,39 @@ pub fn ExpenseCreatePage() -> Element {
         let mut i_method = payment_method.clone();
         let mut i_notes = notes.clone();
         let mut dirty = is_dirty.clone();
+        let api = use_auth().api;
         move |_| {
             if !validate() { return; }
             saving.set(true);
             let c = cat.read().clone(); let d = desc.read().clone(); let a = amt.read().clone();
+            let dt_val = i_date.read().clone();
             let mut toast = toast.clone();
+            let api = api.clone();
+            let mut saving = saving.clone(); let mut dirty = dirty.clone();
+            let mut i_cat = i_cat.clone(); let mut i_desc = i_desc.clone();
+            let mut i_amt = i_amt.clone(); let mut i_date = i_date.clone();
+            let mut i_paid = i_paid.clone(); let mut i_method = i_method.clone();
+            let mut i_notes = i_notes.clone();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-                toast.success("Expense Created", &format!("{} of PKR {} created. Creating another…", c, a));
-                i_cat.set(String::new()); i_desc.set(String::new()); i_amt.set(String::new());
-                i_date.set(String::new()); i_paid.set(String::new()); i_method.set("Cash".to_string()); i_notes.set(String::new());
-                saving.set(false); dirty.set(false);
+                let client = api.read().clone();
+                let form = ExpenseForm {
+                    category: c.clone(),
+                    description: d.clone(),
+                    amount: a.parse::<f64>().unwrap_or(0.0),
+                    expense_date: dt_val,
+                };
+                match client.create_expense(&form).await {
+                    Ok(_) => {
+                        toast.success("Expense Created", &format!("{} of PKR {} created. Creating another…", c, a));
+                        i_cat.set(String::new()); i_desc.set(String::new()); i_amt.set(String::new());
+                        i_date.set(String::new()); i_paid.set(String::new()); i_method.set("Cash".to_string()); i_notes.set(String::new());
+                        dirty.set(false); saving.set(false);
+                    }
+                    Err(e) => {
+                        toast.error("Error", &e);
+                        saving.set(false);
+                    }
+                }
             });
         }
     };
