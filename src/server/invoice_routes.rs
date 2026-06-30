@@ -207,6 +207,27 @@ async fn update_invoice(State(_state): State<AppState>, Path(id): Path<i64>, Jso
     );
     match result {
         Ok(rows) if rows > 0 => {
+            // Delete removed payments and recalculate paid_amount
+            if let Some(ref deleted_ids) = form.deleted_payment_ids {
+                for pid in deleted_ids {
+                    db.execute("DELETE FROM payment_allocations WHERE payment_id = ?1", [*pid]).ok();
+                    db.execute("DELETE FROM payments WHERE id = ?1", [*pid]).ok();
+                }
+            }
+            // Recalculate paid_amount from remaining payments
+            let paid_amount: f64 = db.query_row(
+                "SELECT COALESCE(SUM(amount), 0) FROM payments WHERE invoice_id = ?1", [id],
+                |row| row.get(0),
+            ).unwrap_or(0.0);
+            let balance_amount = total_amount - paid_amount;
+            let status = if paid_amount <= 0.0 { "Unpaid" }
+                else if paid_amount >= total_amount { "Paid" }
+                else { "Partially Paid" };
+            db.execute(
+                "UPDATE invoices SET paid_amount=?1, balance_amount=?2, status=?3 WHERE id=?4",
+                rusqlite::params![paid_amount, balance_amount, status, id],
+            ).ok();
+
             db.execute("DELETE FROM invoice_items WHERE invoice_id = ?1", [id]).ok();
             for item in &form.items {
                 let amount = item.quantity * item.unit_price;

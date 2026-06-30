@@ -15,4 +15,4 @@
 
 ## 4. Verify
 
-- [ ] 4.1 Run `cargo check` to confirm no compile errors
+- [x] 4.1 Run `cargo check` to confirm no compile errors

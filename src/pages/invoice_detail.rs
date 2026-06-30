@@ -5,6 +5,7 @@ use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
+use crate::components::invoice::{InvoicePaymentPanel, PaymentInfo};
 use crate::models as models;
 use dioxus::prelude::*;
 
@@ -89,6 +90,7 @@ struct InvoiceLineItem {
 struct InvoiceDetail {
     id: i64,
     invoice_no: String,
+    customer_id: i64,
     customer_name: String,
     customer_code: String,
     invoice_date: String,
@@ -140,6 +142,7 @@ pub fn InvoiceDetailPage(id: String) -> Element {
             Some(InvoiceDetail {
                 id: inv.id,
                 invoice_no: inv.invoice_no,
+                customer_id: inv.customer_id,
                 customer_name: inv.customer_name.clone().unwrap_or_default(),
                 customer_code: String::new(), // ponytail: not returned by detail endpoint, add if needed
                 invoice_date: inv.invoice_date.clone(),
@@ -169,6 +172,9 @@ pub fn InvoiceDetailPage(id: String) -> Element {
     let is_loading = invoice_resource.read().is_none();
     let inv_opt = invoice_resource.read().as_ref().cloned().flatten();
     let mut show_delete_modal = use_signal(|| false);
+    let mut show_payment_modal = use_signal(|| false);
+    let mut payment_info = use_signal(|| PaymentInfo::default());
+    let is_saving = use_signal(|| false);
 
     if is_loading {
         return rsx! {
@@ -198,11 +204,59 @@ pub fn InvoiceDetailPage(id: String) -> Element {
     let status_cls = status_class(&inv.status);
     let on_back = { let nav = navigator.clone(); move |_| { nav.push("/sales/invoices"); } };
     let on_print = { let nav = navigator.clone(); let i = inv.id; move |_| { nav.push(format!("/sales/invoices/{}/print", i)); } };
-    let on_edit = { let mut t = toast.clone(); move |_| { t.info("Edit Mode", "Invoice editing coming soon."); } };
-    let on_payment = { let mut t = toast.clone(); move |_| { t.info("Record Payment", "Payment recording coming soon."); } };
+    let on_edit = { let nav = navigator.clone(); let i = inv.id; move |_| { nav.push(format!("/sales/invoices/{}/edit", i)); } };
+    let on_payment = { let mut modal = show_payment_modal.clone(); let mut pay = payment_info.clone(); let total = inv.balance_amount; move |_| { pay.set(PaymentInfo { record_payment: true, amount: total, ..PaymentInfo::default() }); modal.set(true); } };
     let on_delete = { let mut m = show_delete_modal.clone(); move |_| m.set(true) };
     let confirm_delete = { let nav = navigator.clone(); let mut m = show_delete_modal.clone(); let mut t = toast.clone(); move |_| { m.set(false); t.success("Deleted", "Invoice has been deleted."); nav.push("/sales/invoices"); } };
     let cancel_delete = { let mut m = show_delete_modal.clone(); move |_| m.set(false) };
+    let cancel_payment = { let mut m = show_payment_modal.clone(); move |_| m.set(false) };
+    let submit_payment = {
+        let api = api.clone();
+        let mut toast = toast.clone();
+        let mut modal = show_payment_modal.clone();
+        let inv_id = inv.id;
+        let cust_id = inv.customer_id;
+        let inv_no = inv.invoice_no.clone();
+        let mut pay_sig = payment_info.clone();
+        let mut saving_sig = is_saving.clone();
+        let mut refresh = invoice_resource.clone();
+        move |_| {
+            let pay = pay_sig.read().clone();
+            if !pay.record_payment || pay.amount <= 0.0 {
+                toast.error("Validation Error", "Please enter a valid payment amount.");
+                return;
+            }
+            saving_sig.set(true);
+            let client = api.with(|c| c.clone());
+            let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+            let body = serde_json::json!({
+                "customer_id": cust_id,
+                "invoice_id": inv_id,
+                "payment_date": today,
+                "amount": pay.amount,
+                "payment_method": pay.method,
+                "reference": pay.reference,
+                "notes": pay.notes,
+            });
+            let mut toast2 = toast.clone();
+            let inv_no2 = inv_no.clone();
+            spawn(async move {
+                match client.create_payment(&body).await {
+                    Ok(_) => {
+                        toast2.success("Payment Recorded", &format!("Payment for {} recorded successfully.", inv_no2));
+                        modal.set(false);
+                        pay_sig.set(PaymentInfo::default());
+                        saving_sig.set(false);
+                        refresh.restart();
+                    }
+                    Err(e) => {
+                        toast2.error("Payment Failed", &e);
+                        saving_sig.set(false);
+                    }
+                }
+            });
+        }
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }
@@ -367,6 +421,24 @@ pub fn InvoiceDetailPage(id: String) -> Element {
                         div {
                             p { style: "margin: 0 0 8px 0; color: var(--text-primary); font-size: 14px; font-weight: 500;", "Delete {inv.invoice_no}?" }
                             p { style: "margin: 0; color: var(--text-secondary); font-size: 13px;", "This action cannot be undone." }
+                        }
+                    }
+
+                    // ── Payment Modal ──
+                    Modal {
+                        is_open: show_payment_modal,
+                        title: Some(format!("Record Payment — {}", inv.invoice_no)),
+                        size: ModalSize::Md,
+                        close_on_backdrop: true,
+                        close_on_escape: true,
+                        footer: rsx! {
+                            Button { variant: ButtonVariant::Secondary, onclick: cancel_payment, "Cancel" }
+                            Button { variant: ButtonVariant::Primary, loading: *is_saving.read(), onclick: submit_payment, "Record Payment" }
+                        },
+                        InvoicePaymentPanel {
+                            total: inv.balance_amount,
+                            payment: payment_info.read().clone(),
+                            on_change: move |p| { payment_info.set(p); },
                         }
                     }
 

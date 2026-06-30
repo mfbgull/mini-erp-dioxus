@@ -97,6 +97,8 @@ enum Route {
         InvoiceCreatePage {},
         #[route("/sales/invoices/:id")]
         InvoiceDetailPage { id: String },
+        #[route("/sales/invoices/:id/edit")]
+        InvoiceEditPage { id: String },
         #[route("/sales/invoices/:id/print")]
         InvoicePrintPage { id: String },
         #[route("/sales/quotations")]
@@ -593,6 +595,15 @@ fn InvoiceDetailPage(id: String) -> Element {
     rsx! {
         ProtectedRoute { permission: "invoices:read".to_string(),
             pages::invoice_detail::InvoiceDetailPage { id }
+        }
+    }
+}
+
+#[component]
+fn InvoiceEditPage(id: String) -> Element {
+    rsx! {
+        ProtectedRoute { permission: "invoices:update".to_string(),
+            pages::invoice_edit::InvoiceEditPage { id }
         }
     }
 }

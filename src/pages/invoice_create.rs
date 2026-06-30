@@ -380,9 +380,9 @@ pub fn InvoiceCreatePage() -> Element {
     let show_discard_modal = use_signal(|| false);
 
     // ── Payment state ──
-    let record_payment = use_signal(|| false);
-    let payment_amount = use_signal(String::new);
-    let payment_method = use_signal(|| "Cash".to_string());
+    let mut record_payment = use_signal(|| false);
+    let mut payment_amount = use_signal(String::new);
+    let mut payment_method = use_signal(|| "Cash".to_string());
 
     // ── API-loaded data ──
     let customer_map = use_signal(HashMap::<String, Customer>::new);
@@ -576,6 +576,7 @@ pub fn InvoiceCreatePage() -> Element {
                 record_payment: Some(*rec_pay.read()),
                 payment_amount: if *rec_pay.read() { pay_amt.read().parse::<f64>().ok() } else { None },
                 payment_method: if *rec_pay.read() { Some(pay_meth.read().clone()) } else { None },
+                deleted_payment_ids: None,
             };
 
             saving.set(true);
@@ -665,6 +666,7 @@ pub fn InvoiceCreatePage() -> Element {
                 record_payment: Some(do_record),
                 payment_amount: if do_record { pay_amt.read().parse::<f64>().ok() } else { None },
                 payment_method: if do_record { Some(pay_meth.read().clone()) } else { None },
+                deleted_payment_ids: None,
             };
 
             let item_count = its.read().iter().filter(|li| !li.item_code.is_empty()).count() as i32;
@@ -1085,18 +1087,24 @@ pub fn InvoiceCreatePage() -> Element {
                     input {
                         r#type: "checkbox",
                         checked: *record_payment.read(),
-                        onchange: move |_| {
-                            let new_val = !*record_payment.read();
-                            record_payment.set(new_val);
-                            if new_val {
-                                let total = metrics.total;
-                                payment_amount.set(format!("{:.2}", total));
-                                payment_method.set("Cash".to_string());
-                            } else {
-                                payment_amount.set(String::new());
-                                payment_method.set("Cash".to_string());
+                        onchange: {
+                            let mut rp = record_payment.clone();
+                            let mut pa = payment_amount.clone();
+                            let mut pm = payment_method.clone();
+                            let mut dirty = is_dirty.clone();
+                            let total = metrics.total;
+                            move |_| {
+                                let new_val = !*rp.read();
+                                rp.set(new_val);
+                                if new_val {
+                                    pa.set(format!("{:.2}", total));
+                                    pm.set("Cash".to_string());
+                                } else {
+                                    pa.set(String::new());
+                                    pm.set("Cash".to_string());
+                                }
+                                dirty.set(true);
                             }
-                            is_dirty.set(true);
                         },
                     }
                     span { "Record payment with this invoice" }

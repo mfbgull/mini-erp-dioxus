@@ -57,6 +57,7 @@ pub mod expense_create;
 pub mod expense_list;
 pub mod inventory_dashboard;
 pub mod invoice_create;
+pub mod invoice_edit;
 pub mod invoice_list;
 pub mod item_create;
 pub mod item_detail;

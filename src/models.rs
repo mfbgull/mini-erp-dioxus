@@ -448,6 +448,8 @@ pub struct InvoiceForm {
     pub record_payment: Option<bool>,
     pub payment_amount: Option<f64>,
     pub payment_method: Option<String>,
+    #[serde(default)]
+    pub deleted_payment_ids: Option<Vec<i64>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
