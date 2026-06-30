@@ -1,7 +1,9 @@
 //! Manufacturing Dashboard Page — Overview of manufacturing operations with KPI cards,
 //! quick actions, navigation links, and recent production runs.
 
+use crate::auth::use_auth;
 use crate::components::common::{StatCard, StatCardVariant, StatTrend, TrendDirection};
+use crate::models::{Bom, Production};
 use dioxus::prelude::*;
 
 #[derive(Clone, PartialEq)]
@@ -21,88 +23,6 @@ struct ManufacturingKpi {
     variant: StatCardVariant,
     trend: Option<StatTrend>,
     footer: Option<String>,
-}
-
-fn kpi_data() -> Vec<ManufacturingKpi> {
-    vec![
-        ManufacturingKpi {
-            title: "Active BOMs".to_string(),
-            value: "24".to_string(),
-            icon: "📋".to_string(),
-            variant: StatCardVariant::Primary,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Up,
-                label: "3 new this month".to_string(),
-            }),
-            footer: Some("Across all product lines".to_string()),
-        },
-        ManufacturingKpi {
-            title: "Production Orders".to_string(),
-            value: "8".to_string(),
-            icon: "⚙".to_string(),
-            variant: StatCardVariant::Success,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Up,
-                label: "2 active, 6 planned".to_string(),
-            }),
-            footer: Some("Next start: 28 Jun".to_string()),
-        },
-        ManufacturingKpi {
-            title: "Completed This Month".to_string(),
-            value: "12".to_string(),
-            icon: "✅".to_string(),
-            variant: StatCardVariant::Primary,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Up,
-                label: "33% vs last month".to_string(),
-            }),
-            footer: Some("Total units: 2,450".to_string()),
-        },
-        ManufacturingKpi {
-            title: "Yield Rate".to_string(),
-            value: "94.5%".to_string(),
-            icon: "🎯".to_string(),
-            variant: StatCardVariant::Success,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Up,
-                label: "0.8% improvement".to_string(),
-            }),
-            footer: Some("Target: ≥ 95%".to_string()),
-        },
-    ]
-}
-
-fn recent_runs() -> Vec<ProdRunSummary> {
-    vec![
-        ProdRunSummary {
-            prd_no: "PRD-2026-0007".to_string(),
-            item_name: "Premium Widget Alpha".to_string(),
-            planned_qty: 500,
-            completed_qty: 500,
-            status: "Completed".to_string(),
-        },
-        ProdRunSummary {
-            prd_no: "PRD-2026-0006".to_string(),
-            item_name: "Steel Bracket XR-200".to_string(),
-            planned_qty: 200,
-            completed_qty: 185,
-            status: "Completed".to_string(),
-        },
-        ProdRunSummary {
-            prd_no: "PRD-2026-0008".to_string(),
-            item_name: "Rubber Gasket Set".to_string(),
-            planned_qty: 1000,
-            completed_qty: 620,
-            status: "In Progress".to_string(),
-        },
-        ProdRunSummary {
-            prd_no: "PRD-2026-0009".to_string(),
-            item_name: "Assembly Kit Type-B".to_string(),
-            planned_qty: 300,
-            completed_qty: 0,
-            status: "Planned".to_string(),
-        },
-    ]
 }
 
 fn status_badge_class(status: &str) -> &'static str {
@@ -142,14 +62,100 @@ const PAGE_CSS: &str = r##"
 .badge-primary { background: rgba(74, 144, 217, 0.1); color: #4a90d9; }
 .badge-warning { background: rgba(255, 193, 7, 0.15); color: #d4a017; }
 .badge-danger { background: rgba(220, 53, 69, 0.1); color: #dc3545; }
+.loading-text { text-align: center; padding: 40px; color: var(--text-secondary); font-size: 13px; }
 @media (max-width: 768px) { .dashboard-columns { grid-template-columns: 1fr; } }
 "##;
 
 #[component]
 pub fn ManufacturingDashboardPage() -> Element {
-    let kpis = kpi_data();
-    let runs = recent_runs();
+    let api = use_auth().api;
     let navigator = use_navigator();
+
+    let prod_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_production_status().await.ok()
+        }
+    });
+
+    let boms_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.list_boms().await.ok().unwrap_or_default()
+        }
+    });
+
+    let orders_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.list_production_orders().await.ok().unwrap_or_default()
+        }
+    });
+
+    let is_loading = prod_resource.read().is_none();
+    let prod_data = prod_resource.read().as_ref().cloned().flatten();
+    let boms: Vec<Bom> = boms_resource.read().as_ref().cloned().unwrap_or_default();
+    let orders: Vec<Production> = orders_resource.read().as_ref().cloned().unwrap_or_default();
+
+    let active_boms = boms.len();
+    let total_orders = orders.len();
+    let active_orders = orders.iter().filter(|o| o.status == "In Progress").count();
+    let planned_orders = orders.iter().filter(|o| o.status == "Planned").count();
+    let completed_orders = orders.iter().filter(|o| o.status == "Completed").count();
+    let total_completed_qty: f64 = orders.iter().filter(|o| o.status == "Completed").map(|o| o.output_quantity).sum();
+
+    let yield_rate = prod_data
+        .as_ref()
+        .and_then(|d| d.get("yield_rate"))
+        .and_then(|v| v.as_f64())
+        .map(|v| format!("{:.1}%", v))
+        .unwrap_or_else(|| "N/A".to_string());
+
+    let kpis = vec![
+        ManufacturingKpi {
+            title: "Active BOMs".to_string(),
+            value: active_boms.to_string(),
+            icon: "📋".to_string(),
+            variant: StatCardVariant::Primary,
+            trend: None,
+            footer: Some("Across all product lines".to_string()),
+        },
+        ManufacturingKpi {
+            title: "Production Orders".to_string(),
+            value: total_orders.to_string(),
+            icon: "⚙".to_string(),
+            variant: StatCardVariant::Success,
+            trend: None,
+            footer: Some(format!("{} active, {} planned", active_orders, planned_orders)),
+        },
+        ManufacturingKpi {
+            title: "Completed This Month".to_string(),
+            value: completed_orders.to_string(),
+            icon: "✅".to_string(),
+            variant: StatCardVariant::Primary,
+            trend: None,
+            footer: Some(format!("Total units: {:.0}", total_completed_qty)),
+        },
+        ManufacturingKpi {
+            title: "Yield Rate".to_string(),
+            value: yield_rate,
+            icon: "🎯".to_string(),
+            variant: StatCardVariant::Success,
+            trend: None,
+            footer: Some("Target: ≥ 95%".to_string()),
+        },
+    ];
+
+    let runs: Vec<ProdRunSummary> = orders.iter().take(10).map(|o| ProdRunSummary {
+        prd_no: o.production_no.clone(),
+        item_name: o.output_item_name.clone().unwrap_or_default(),
+        planned_qty: o.output_quantity as i32,
+        completed_qty: 0,
+        status: o.status.clone(),
+    }).collect();
 
     rsx! {
         style { "{PAGE_CSS}" }
@@ -162,93 +168,101 @@ pub fn ManufacturingDashboardPage() -> Element {
                 }
             }
 
-            div { class: "dashboard-kpi-grid",
-                {kpis.into_iter().map(|kpi| {
-                    rsx! {
-                        StatCard {
-                            key: "{kpi.title}",
-                            title: kpi.title,
-                            value: kpi.value,
-                            icon: kpi.icon,
-                            variant: kpi.variant,
-                            trend: kpi.trend,
-                            footer: kpi.footer,
-                        }
-                    }
-                })}
-            }
-
-            div { class: "dashboard-columns",
-                div { class: "dashboard-section",
-                    div { class: "dashboard-section-header",
-                        h2 { "⚡ Quick Actions" }
-                    }
-                    div { class: "dashboard-section-body",
-                        div { class: "dashboard-actions",
-                            button {
-                                class: "toolbar-btn toolbar-btn-primary",
-                                onclick: move |_| { navigator.push("/manufacturing/boms/new"); },
-                                "＋ New BOM"
-                            }
-                            button {
-                                class: "toolbar-btn",
-                                onclick: move |_| { navigator.push("/manufacturing/production/new"); },
-                                "＋ New Production Order"
+            if is_loading {
+                div { class: "loading-text", "Loading manufacturing data…" }
+            } else {
+                div { class: "dashboard-kpi-grid",
+                    {kpis.into_iter().map(|kpi| {
+                        rsx! {
+                            StatCard {
+                                key: "{kpi.title}",
+                                title: kpi.title,
+                                value: kpi.value,
+                                icon: kpi.icon,
+                                variant: kpi.variant,
+                                trend: kpi.trend,
+                                footer: kpi.footer,
                             }
                         }
-                    }
+                    })}
                 }
 
-                div { class: "dashboard-section",
-                    div { class: "dashboard-section-header",
-                        h2 { "🔗 Navigation" }
-                    }
-                    div { class: "dashboard-section-body",
-                        div { class: "dashboard-actions",
-                            button {
-                                class: "toolbar-btn",
-                                onclick: move |_| { navigator.push("/manufacturing/boms"); },
-                                "📋 BOM List"
-                            }
-                            button {
-                                class: "toolbar-btn",
-                                onclick: move |_| { navigator.push("/manufacturing/production"); },
-                                "⚙ Production Orders"
-                            }
+                div { class: "dashboard-columns",
+                    div { class: "dashboard-section",
+                        div { class: "dashboard-section-header",
+                            h2 { "⚡ Quick Actions" }
                         }
-                    }
-                }
-            }
-
-            div { class: "dashboard-section-wide",
-                div { class: "dashboard-section-header",
-                    h2 { "📊 Recent Production Runs" }
-                }
-                table { class: "recent-table",
-                    thead {
-                        tr {
-                            th { "Production #" }
-                            th { "Item" }
-                            th { class: "text-right", "Planned Qty" }
-                            th { class: "text-right", "Completed" }
-                            th { "Status" }
-                        }
-                    }
-                    tbody {
-                        {runs.iter().map(|r| {
-                            let status_class = status_badge_class(&r.status);
-                            rsx! {
-                                tr {
-                                    td { "{r.prd_no}" }
-                                    td { "{r.item_name}" }
-                                    td { class: "text-right", "{r.planned_qty}" }
-                                    td { class: "text-right", "{r.completed_qty}" }
-                                    td {
-                                        span { class: "{status_class}", "{r.status}" }
-                                    }
+                        div { class: "dashboard-section-body",
+                            div { class: "dashboard-actions",
+                                button {
+                                    class: "toolbar-btn toolbar-btn-primary",
+                                    onclick: move |_| { navigator.push("/manufacturing/boms/new"); },
+                                    "＋ New BOM"
+                                }
+                                button {
+                                    class: "toolbar-btn",
+                                    onclick: move |_| { navigator.push("/manufacturing/production/new"); },
+                                    "＋ New Production Order"
                                 }
                             }
-                        })}
+                        }
+                    }
+
+                    div { class: "dashboard-section",
+                        div { class: "dashboard-section-header",
+                            h2 { "🔗 Navigation" }
+                        }
+                        div { class: "dashboard-section-body",
+                            div { class: "dashboard-actions",
+                                button {
+                                    class: "toolbar-btn",
+                                    onclick: move |_| { navigator.push("/manufacturing/boms"); },
+                                    "📋 BOM List"
+                                }
+                                button {
+                                    class: "toolbar-btn",
+                                    onclick: move |_| { navigator.push("/manufacturing/production"); },
+                                    "⚙ Production Orders"
+                                }
+                            }
+                        }
+                    }
+                }
+
+                div { class: "dashboard-section-wide",
+                    div { class: "dashboard-section-header",
+                        h2 { "📊 Recent Production Runs" }
+                    }
+                    if runs.is_empty() {
+                        div { class: "loading-text", "No production runs found." }
+                    } else {
+                        table { class: "recent-table",
+                            thead {
+                                tr {
+                                    th { "Production #" }
+                                    th { "Item" }
+                                    th { class: "text-right", "Planned Qty" }
+                                    th { class: "text-right", "Completed" }
+                                    th { "Status" }
+                                }
+                            }
+                            tbody {
+                                {runs.iter().map(|r| {
+                                    let status_class = status_badge_class(&r.status);
+                                    rsx! {
+                                        tr {
+                                            td { "{r.prd_no}" }
+                                            td { "{r.item_name}" }
+                                            td { class: "text-right", "{r.planned_qty}" }
+                                            td { class: "text-right", "{r.completed_qty}" }
+                                            td {
+                                                span { class: "{status_class}", "{r.status}" }
+                                            }
+                                        }
+                                    }
+                                })}
+                            }
+                        }
                     }
                 }
             }

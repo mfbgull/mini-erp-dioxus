@@ -1,6 +1,7 @@
 //! Sales Order Create Page — Form to create sales orders with customer select,
 //! delivery date, line items, discount, tax, and totals.
 
+use crate::auth::use_auth;
 use crate::calculations::{
     self,
     invoice::{calculate_item_discount, calculate_item_total, compute_invoice_metrics},
@@ -10,6 +11,7 @@ use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
     SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
 };
+use crate::models::{SalesOrderForm, SalesOrderItemForm};
 use chrono::NaiveDate;
 use dioxus::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -154,6 +156,7 @@ fn item_name(code: &str) -> String {
 pub fn SalesOrderCreatePage() -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
+    let api = use_auth().api;
 
     let items = use_signal(|| {
         let mut v: Vec<LineItem> = Vec::new();
@@ -213,29 +216,53 @@ pub fn SalesOrderCreatePage() -> Element {
         let mut toast = toast.clone();
         let c_code = customer_code.clone();
         let c_name = customer_name.clone();
+        let its = items.clone();
+        let o_date = order_date.clone();
+        let nts = notes.clone();
         let mut dirty = is_dirty.clone();
         let navigator = navigator.clone();
+        let api = api.clone();
 
         move |_| {
             if c_code.read().is_empty() {
                 toast.error("Validation Error", "Please select a customer.");
                 return;
             }
-            if items.read().iter().filter(|li| !li.item_code.is_empty()).count() == 0 {
+            if its.read().iter().filter(|li| !li.item_code.is_empty()).count() == 0 {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
             saving.set(true);
-            let customer = c_name.read().clone();
-            let ic = items.read().len();
             let mut toast = toast.clone();
             let nav = navigator.clone();
+            let api = api.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
+            let customer_id = c_code.read().parse::<i64>().unwrap_or(0);
+            let so_date = (*o_date.read()).map(|d| d.to_string()).unwrap_or_default();
+            let notes_val = nts.read().clone();
+            let order_items: Vec<SalesOrderItemForm> = its.read().iter()
+                .filter(|li| !li.item_code.is_empty())
+                .map(|li| SalesOrderItemForm {
+                    item_id: li.item_code.parse::<i64>().unwrap_or(0),
+                    description: None,
+                    quantity: li.quantity,
+                    unit_price: li.unit_price,
+                })
+                .collect();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                toast.success("Sales Order Created", &format!("Order for {} with {} item(s).", customer, ic));
-                saving.set(false);
-                dirty.set(false);
-                nav.push("/sales/orders");
+                let form = SalesOrderForm { customer_id, so_date, warehouse_id: None, notes: if notes_val.is_empty() { None } else { Some(notes_val) }, items: order_items };
+                match api.read().create_sales_order(&form).await {
+                    Ok(so) => {
+                        toast.success("Sales Order Created", &format!("SO {} created.", so.so_no));
+                        saving.set(false); dirty.set(false);
+                        nav.push("/sales/orders");
+                    }
+                    Err(e) => {
+                        toast.error("Error", &format!("Failed to create sales order: {}", e));
+                        saving.set(false);
+                    }
+                }
             });
         }
     };
@@ -251,6 +278,7 @@ pub fn SalesOrderCreatePage() -> Element {
         let mut disc_pct = discount_pct.clone();
         let mut tax_str = tax_rate_str.clone();
         let mut dirty = is_dirty.clone();
+        let api = api.clone();
 
         move |_| {
             if c_code.read().is_empty() {
@@ -263,22 +291,43 @@ pub fn SalesOrderCreatePage() -> Element {
             }
             saving.set(true);
             let mut toast = toast.clone();
-            let c_name = customer_name.clone();
-            let ic = its.read().len();
+            let api = api.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
+            let customer_id = c_code.read().parse::<i64>().unwrap_or(0);
+            let so_date = (*o_date.read()).map(|d| d.to_string()).unwrap_or_default();
+            let notes_val = nts.read().clone();
+            let order_items: Vec<SalesOrderItemForm> = its.read().iter()
+                .filter(|li| !li.item_code.is_empty())
+                .map(|li| SalesOrderItemForm {
+                    item_id: li.item_code.parse::<i64>().unwrap_or(0),
+                    description: None,
+                    quantity: li.quantity,
+                    unit_price: li.unit_price,
+                })
+                .collect();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                toast.success("Sales Order Created", &format!("Order for {} with {} item(s). Creating another…", c_name.read(), ic));
-                c_code.set(String::new());
-                its.write().clear();
-                for _ in 0..MIN_ITEM_ROWS { its.write().push(LineItem::default()); }
-                let t = chrono::Local::now().date_naive();
-                o_date.set(Some(t));
-                d_date.set(Some(t + chrono::Duration::days(LEAD_TIME_DAYS)));
-                nts.set(String::new());
-                disc_pct.set(String::from("0"));
-                tax_str.set(format!("{}", DEFAULT_TAX_RATE));
-                saving.set(false);
-                dirty.set(false);
+                let form = SalesOrderForm { customer_id, so_date, warehouse_id: None, notes: if notes_val.is_empty() { None } else { Some(notes_val) }, items: order_items };
+                match api.read().create_sales_order(&form).await {
+                    Ok(so) => {
+                        toast.success("Sales Order Created", &format!("SO {} created. Creating another…", so.so_no));
+                        c_code.set(String::new());
+                        its.write().clear();
+                        for _ in 0..MIN_ITEM_ROWS { its.write().push(LineItem::default()); }
+                        let t = chrono::Local::now().date_naive();
+                        o_date.set(Some(t));
+                        d_date.set(Some(t + chrono::Duration::days(LEAD_TIME_DAYS)));
+                        nts.set(String::new());
+                        disc_pct.set(String::from("0"));
+                        tax_str.set(format!("{}", DEFAULT_TAX_RATE));
+                        saving.set(false);
+                        dirty.set(false);
+                    }
+                    Err(e) => {
+                        toast.error("Error", &format!("Failed to create sales order: {}", e));
+                        saving.set(false);
+                    }
+                }
             });
         }
     };

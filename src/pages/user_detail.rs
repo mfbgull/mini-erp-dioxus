@@ -46,7 +46,7 @@ const PAGE_CSS: &str = r##"
 
 #[component]
 pub fn UserDetailPage(id: String) -> Element {
-    let toast = use_toast();
+    let mut toast = use_toast();
     let navigator = use_navigator();
 
     // ── Async fetch ──
@@ -85,29 +85,58 @@ pub fn UserDetailPage(id: String) -> Element {
 
     let on_edit = {
         let nav = navigator.clone();
-        let mut toast = toast.clone();
+        let u = user_opt.clone();
         move |_| {
-            toast.info("Edit User", "User editing is not yet available.");
+            if let Some(ref user) = u {
+                nav.push(format!("/users/{}/edit", user.id));
+            }
         }
     };
 
     let on_reset_password = {
+        let api = api.clone();
         let mut toast = toast.clone();
+        let u = user_opt.clone();
+        let mut show_reset_modal = use_signal(|| false);
         move |_| {
-            toast.success("Password Reset", "Password reset email has been sent to the user.");
+            if let Some(ref user) = u {
+                let api = api.clone();
+                let mut toast = toast.clone();
+                let uid = user.id;
+                spawn(async move {
+                    let client = api.read().clone();
+                    match client.reset_user_password(uid, "temp123").await {
+                        Ok(_) => toast.success("Password Reset", "Password has been reset to 'temp123'. User should change it on next login."),
+                        Err(e) => toast.error("Error", &e),
+                    }
+                });
+            }
         }
     };
 
     let on_toggle_status = {
+        let api = api.clone();
         let mut toast = toast.clone();
         let u = user_opt.clone();
         move |_| {
             if let Some(ref user) = u {
-                if user.status == "Disabled" {
-                    toast.success("User Enabled", "User account has been re-enabled.");
-                } else {
-                    toast.warning("User Disabled", "User account has been disabled.");
-                }
+                let api = api.clone();
+                let mut toast = toast.clone();
+                let uid = user.id;
+                let current = user.status.clone();
+                spawn(async move {
+                    let client = api.read().clone();
+                    match client.toggle_user_status(uid).await {
+                        Ok(_) => {
+                            if current == "Disabled" {
+                                toast.success("User Enabled", "User account has been re-enabled.");
+                            } else {
+                                toast.warning("User Disabled", "User account has been disabled.");
+                            }
+                        }
+                        Err(e) => toast.error("Error", &e),
+                    }
+                });
             }
         }
     };
@@ -118,13 +147,29 @@ pub fn UserDetailPage(id: String) -> Element {
     };
 
     let confirm_delete = {
+        let api = api.clone();
         let mut modal = show_delete_modal.clone();
         let nav = navigator.clone();
         let mut toast = toast.clone();
+        let u = user_opt.clone();
         move |_| {
             modal.set(false);
-            toast.success("User Deleted", "User has been permanently removed.");
-            nav.push("/users");
+            if let Some(ref user) = u {
+                let api = api.clone();
+                let mut toast = toast.clone();
+                let mut nav = nav.clone();
+                let uid = user.id;
+                spawn(async move {
+                    let client = api.read().clone();
+                    match client.delete_user(uid).await {
+                        Ok(_) => {
+                            toast.success("User Deleted", "User has been permanently removed.");
+                            nav.push("/users");
+                        }
+                        Err(e) => toast.error("Error", &e),
+                    }
+                });
+            }
         }
     };
 

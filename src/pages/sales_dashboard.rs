@@ -1,10 +1,9 @@
 //! Sales Dashboard Page — Overview of sales performance with KPI cards,
 //! quick actions, navigation links, and recent invoices.
 
-use crate::components::common::{StatCard, StatCardVariant, StatTrend, TrendDirection};
+use crate::auth::use_auth;
+use crate::components::common::{StatCard, StatCardVariant, StatTrend};
 use dioxus::prelude::*;
-use crate::utils::sleep;
-use std::time::Duration;
 
 // ============================================================================
 // Constants & CSS
@@ -71,94 +70,18 @@ struct RecentInvoice {
     amount: f64,
 }
 
-// ============================================================================
-// Mock Data
-// ============================================================================
-
-fn kpi_data() -> Vec<SalesKpi> {
-    vec![
-        SalesKpi {
-            title: "Total Revenue".to_string(),
-            value: "PKR 1,280,450".to_string(),
-            icon: "💰".to_string(),
-            variant: StatCardVariant::Success,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Up,
-                label: "12.4% vs last month".to_string(),
-            }),
-            footer: Some("This month to date".to_string()),
-        },
-        SalesKpi {
-            title: "Invoices".to_string(),
-            value: "48".to_string(),
-            icon: "🧾".to_string(),
-            variant: StatCardVariant::Primary,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Up,
-                label: "6 more than last month".to_string(),
-            }),
-            footer: Some("16 unpaid / 8 overdue".to_string()),
-        },
-        SalesKpi {
-            title: "Open Quotations".to_string(),
-            value: "12".to_string(),
-            icon: "📋".to_string(),
-            variant: StatCardVariant::Default,
-            trend: None,
-            footer: Some("Worth PKR 345,600".to_string()),
-        },
-        SalesKpi {
-            title: "Pending Orders".to_string(),
-            value: "8".to_string(),
-            icon: "📦".to_string(),
-            variant: StatCardVariant::Warning,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Down,
-                label: "3 fewer than last week".to_string(),
-            }),
-            footer: Some("5 confirmed / 3 processing".to_string()),
-        },
-    ]
-}
-
-fn recent_invoices_data() -> Vec<RecentInvoice> {
-    vec![
-        RecentInvoice {
-            invoice_no: "INV-2026-0045".to_string(),
-            customer: "Alpha Traders".to_string(),
-            date: "2026-06-22".to_string(),
-            status: "Unpaid".to_string(),
-            amount: 156_000.00,
-        },
-        RecentInvoice {
-            invoice_no: "INV-2026-0044".to_string(),
-            customer: "Delta Corp".to_string(),
-            date: "2026-06-21".to_string(),
-            status: "Paid".to_string(),
-            amount: 98_765.00,
-        },
-        RecentInvoice {
-            invoice_no: "INV-2026-0043".to_string(),
-            customer: "Gamma Supplies".to_string(),
-            date: "2026-06-20".to_string(),
-            status: "Partially Paid".to_string(),
-            amount: 234_500.00,
-        },
-        RecentInvoice {
-            invoice_no: "INV-2026-0042".to_string(),
-            customer: "Epsilon LLC".to_string(),
-            date: "2026-06-19".to_string(),
-            status: "Overdue".to_string(),
-            amount: 67_500.00,
-        },
-        RecentInvoice {
-            invoice_no: "INV-2026-0041".to_string(),
-            customer: "Zeta Enterprises".to_string(),
-            date: "2026-06-18".to_string(),
-            status: "Paid".to_string(),
-            amount: 12_450.00,
-        },
-    ]
+fn format_pkru(amount: f64) -> String {
+    let formatted = amount as u64;
+    let s = formatted.to_string();
+    let mut result = String::new();
+    for (i, c) in s.chars().rev().enumerate() {
+        if i > 0 && i % 3 == 0 {
+            result.push(',');
+        }
+        result.push(c);
+    }
+    let rev: String = result.chars().rev().collect();
+    format!("PKR {}", rev)
 }
 
 fn status_badge_class(status: &str) -> &'static str {
@@ -177,9 +100,82 @@ fn status_badge_class(status: &str) -> &'static str {
 
 #[component]
 pub fn SalesDashboardPage() -> Element {
-    let kpis = kpi_data();
     let navigator = use_navigator();
-    let recent = recent_invoices_data();
+    let api = use_auth().api;
+
+    let dashboard_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            let dashboard = client.get_sales_dashboard().await.unwrap_or_default();
+            let invoices = client.list_invoices().await.unwrap_or_default();
+            (dashboard, invoices)
+        }
+    });
+
+    let is_loading = dashboard_resource.read().is_none();
+    let (dashboard, invoices_list) = dashboard_resource
+        .read()
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| (serde_json::Value::Null, vec![]));
+
+    let total_revenue = dashboard["total_revenue"].as_f64().unwrap_or(0.0);
+    let total_invoices = dashboard["total_invoices"].as_i64().unwrap_or(0);
+    let draft_quotations = dashboard["draft_quotations"].as_i64().unwrap_or(0);
+    let pending_sales_orders = dashboard["pending_sales_orders"].as_i64().unwrap_or(0);
+
+    let unpaid_count = invoices_list.iter().filter(|i| matches!(i.status.as_str(), "Unpaid" | "Partially Paid")).count();
+    let overdue_count = invoices_list.iter().filter(|i| i.status == "Overdue").count();
+
+    let kpis = vec![
+        SalesKpi {
+            title: "Total Revenue".to_string(),
+            value: format_pkru(total_revenue),
+            icon: "💰".to_string(),
+            variant: StatCardVariant::Success,
+            trend: None,
+            footer: Some("All time".to_string()),
+        },
+        SalesKpi {
+            title: "Invoices".to_string(),
+            value: total_invoices.to_string(),
+            icon: "🧾".to_string(),
+            variant: StatCardVariant::Primary,
+            trend: None,
+            footer: Some(format!("{} unpaid / {} overdue", unpaid_count, overdue_count)),
+        },
+        SalesKpi {
+            title: "Draft Quotations".to_string(),
+            value: draft_quotations.to_string(),
+            icon: "📋".to_string(),
+            variant: StatCardVariant::Default,
+            trend: None,
+            footer: None,
+        },
+        SalesKpi {
+            title: "Pending Sales Orders".to_string(),
+            value: pending_sales_orders.to_string(),
+            icon: "📦".to_string(),
+            variant: StatCardVariant::Warning,
+            trend: None,
+            footer: None,
+        },
+    ];
+
+    let mut recent: Vec<RecentInvoice> = invoices_list
+        .iter()
+        .take(5)
+        .map(|inv| RecentInvoice {
+            invoice_no: inv.invoice_no.clone(),
+            customer: inv.customer_name.clone().unwrap_or_default(),
+            date: inv.invoice_date.clone(),
+            status: inv.status.clone(),
+            amount: inv.total_amount,
+        })
+        .collect();
+    recent.sort_by(|a, b| b.date.cmp(&a.date));
+    recent.truncate(5);
 
     rsx! {
         style { "{PAGE_CSS}" }
@@ -190,24 +186,36 @@ pub fn SalesDashboardPage() -> Element {
                     h1 { "Sales Dashboard" }
                     p { class: "page-subtitle", "Overview of your sales performance and pipeline." }
                 }
-                span { class: "sales-month-label", "📅 June 2026" }
+                span { class: "sales-month-label", "📅 {chrono::Utc::now().format(\"%B %Y\")}" }
             }
 
-            // KPI cards
-            div { class: "sales-kpi-grid",
-                {kpis.iter().map(|kpi| {
-                    rsx! {
+            if is_loading {
+                div { class: "sales-kpi-grid",
+                    { (0..4).map(|_| rsx! {
                         StatCard {
-                            key: "{kpi.title}",
-                            title: kpi.title.clone(),
-                            value: kpi.value.clone(),
-                            icon: kpi.icon.clone(),
-                            variant: kpi.variant,
-                            trend: kpi.trend.clone(),
-                            footer: kpi.footer.clone(),
+                            title: "Loading...".to_string(),
+                            value: "--".to_string(),
+                            icon: "⏳".to_string(),
+                            variant: StatCardVariant::Default,
                         }
-                    }
-                })}
+                    })}
+                }
+            } else {
+                div { class: "sales-kpi-grid",
+                    {kpis.iter().map(|kpi| {
+                        rsx! {
+                            StatCard {
+                                key: "{kpi.title}",
+                                title: kpi.title.clone(),
+                                value: kpi.value.clone(),
+                                icon: kpi.icon.clone(),
+                                variant: kpi.variant,
+                                trend: kpi.trend.clone(),
+                                footer: kpi.footer.clone(),
+                            }
+                        }
+                    })}
+                }
             }
 
             div { class: "sales-columns",

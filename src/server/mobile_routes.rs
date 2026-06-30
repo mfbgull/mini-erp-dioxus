@@ -21,7 +21,7 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn save_draft(State(_state): State<AppState>, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let session_id = body.get("session_id").and_then(|v| v.as_str()).unwrap_or("default");
     let customer_id = body.get("customer_id").and_then(|v| v.as_i64());
     let items_data = body.get("items_data").map(|v| v.to_string()).unwrap_or_else(|| "[]".to_string());
@@ -38,7 +38,7 @@ async fn save_draft(State(_state): State<AppState>, Json(body): Json<serde_json:
 }
 
 async fn list_drafts(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, session_id, customer_id, items_data, status, expires_at, created_at FROM invoice_drafts WHERE status = 'active' ORDER BY created_at DESC").unwrap();
     let items: Vec<serde_json::Value> = stmt.query_map([], |row| {
         Ok(json!({
@@ -52,7 +52,7 @@ async fn list_drafts(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_draft(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, session_id, customer_id, items_data, status, expires_at, created_at FROM invoice_drafts WHERE id = ?1",
         [id],
@@ -70,7 +70,7 @@ async fn get_draft(State(_state): State<AppState>, Path(id): Path<i64>) -> impl 
 }
 
 async fn update_draft(State(_state): State<AppState>, Path(id): Path<i64>, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items_data = body.get("items_data").map(|v| v.to_string()).unwrap_or_else(|| "[]".to_string());
     let customer_id = body.get("customer_id").and_then(|v| v.as_i64());
     let result = db.execute(
@@ -85,7 +85,7 @@ async fn update_draft(State(_state): State<AppState>, Path(id): Path<i64>, Json(
 }
 
 async fn delete_draft(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("DELETE FROM invoice_drafts WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Draft deleted." } }))),
@@ -96,7 +96,7 @@ async fn delete_draft(State(_state): State<AppState>, Path(id): Path<i64>) -> im
 
 async fn search_items(State(_state): State<AppState>, axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>) -> impl IntoResponse {
     let q = params.get("q").map(|s| s.as_str()).unwrap_or("");
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let like = format!("%{}%", q);
     let mut stmt = db.prepare(
         "SELECT id, item_code, item_name, selling_price, current_stock FROM items
@@ -114,7 +114,7 @@ async fn search_items(State(_state): State<AppState>, axum::extract::Query(param
 
 async fn search_customers(State(_state): State<AppState>, axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>) -> impl IntoResponse {
     let q = params.get("q").map(|s| s.as_str()).unwrap_or("");
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let like = format!("%{}%", q);
     let mut stmt = db.prepare(
         "SELECT id, customer_code, customer_name, phone, current_balance FROM customers
@@ -132,7 +132,7 @@ async fn search_customers(State(_state): State<AppState>, axum::extract::Query(p
 }
 
 async fn list_tax_rates(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, name, rate FROM tax_rates WHERE is_active = 1").unwrap();
     let items: Vec<serde_json::Value> = stmt.query_map([], |row| {
         Ok(json!({ "id": row.get::<_, i64>(0)?, "name": row.get::<_, String>(1)?, "rate": row.get::<_, f64>(2)? }))
@@ -141,7 +141,7 @@ async fn list_tax_rates(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn list_payment_terms(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, name, days FROM payment_terms WHERE is_active = 1").unwrap();
     let items: Vec<serde_json::Value> = stmt.query_map([], |row| {
         Ok(json!({ "id": row.get::<_, i64>(0)?, "name": row.get::<_, String>(1)?, "days": row.get::<_, i64>(2)? }))
@@ -150,7 +150,7 @@ async fn list_payment_terms(State(_state): State<AppState>) -> impl IntoResponse
 }
 
 async fn submit_from_mobile(State(_state): State<AppState>, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let customer_id = body.get("customer_id").and_then(|v| v.as_i64()).unwrap_or(0);
     let items = body.get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default();
     let payment_method = body.get("payment_method").and_then(|v| v.as_str()).unwrap_or("Cash");

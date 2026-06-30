@@ -1,9 +1,11 @@
 //! Direct Purchase Create Page — Form to create a direct purchase without a PO.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
     SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
 };
+use crate::models::DirectPurchaseForm;
 use dioxus::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -117,6 +119,7 @@ fn item_name(code: &str) -> String {
 pub fn DirectPurchaseCreatePage() -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
+    let api = use_auth().api;
 
     let items = use_signal(|| { let mut v = Vec::new(); for _ in 0..3 { v.push(LineItem::default()); } v });
     let supplier_code = use_signal(String::new);
@@ -174,23 +177,40 @@ pub fn DirectPurchaseCreatePage() -> Element {
         let mut toast = toast.clone();
         let mut c_code = supplier_code.clone();
         let c_name = supplier_name.clone();
+        let its = items.clone();
+        let p_date = purchase_date.clone();
+        let nts = notes.clone();
         let mut dirty = is_dirty.clone();
         let nav = navigator.clone();
+        let api = api.clone();
         move |_| {
             if c_code.read().is_empty() { toast.error("Validation Error", "Please select a supplier."); return; }
-            let filled = items.read().iter().filter(|li| !li.item_code.is_empty()).count();
+            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
             if filled == 0 { toast.error("Validation Error", "Please add at least one item."); return; }
             saving.set(true);
-            let n = c_name.read().clone();
-            let cnt = items.read().len();
             let mut toast = toast.clone();
             let nav = nav.clone();
+            let api = api.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
+            let first_item = its.read().iter().find(|li| !li.item_code.is_empty()).cloned().unwrap_or_default();
+            let supplier_name_val = c_name.read().clone();
+            let purchase_date_val = p_date.read().clone();
+            let notes_val = nts.read().clone();
+            let item_id = first_item.item_code.parse::<i64>().unwrap_or(0);
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                toast.success("Direct Purchase Created", &format!("Purchase from {} with {} item(s).", n, cnt));
-                saving.set(false);
-                dirty.set(false);
-                nav.push("/purchases/direct");
+                let form = DirectPurchaseForm { item_id, warehouse_id: 1, quantity: first_item.quantity, unit_cost: first_item.rate, supplier_name: supplier_name_val, purchase_date: purchase_date_val, notes: if notes_val.is_empty() { None } else { Some(notes_val) } };
+                match api.read().create_direct_purchase(&form).await {
+                    Ok(dp) => {
+                        toast.success("Direct Purchase Created", &format!("Purchase {} created.", dp.purchase_no));
+                        saving.set(false); dirty.set(false);
+                        nav.push("/purchases/direct");
+                    }
+                    Err(e) => {
+                        toast.error("Error", &format!("Failed to create purchase: {}", e));
+                        saving.set(false);
+                    }
+                }
             });
         }
     };
@@ -201,27 +221,44 @@ pub fn DirectPurchaseCreatePage() -> Element {
         let mut c_code = supplier_code.clone();
         let c_name = supplier_name.clone();
         let mut its = items.clone();
-        let mut dp = discount_pct.clone();
+        let p_date = purchase_date.clone();
+        let nts = notes.clone();
+        let mut disc_pct = discount_pct.clone();
         let mut tr = tax_rate_str.clone();
         let mut dirty = is_dirty.clone();
+        let api = api.clone();
         move |_| {
             if c_code.read().is_empty() { toast.error("Validation Error", "Please select a supplier."); return; }
             let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
             if filled == 0 { toast.error("Validation Error", "Please add at least one item."); return; }
             saving.set(true);
-            let n = c_name.read().clone();
-            let cnt = its.read().len();
             let mut toast = toast.clone();
+            let api = api.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
+            let first_item = its.read().iter().find(|li| !li.item_code.is_empty()).cloned().unwrap_or_default();
+            let supplier_name_val = c_name.read().clone();
+            let purchase_date_val = p_date.read().clone();
+            let notes_val = nts.read().clone();
+            let item_id = first_item.item_code.parse::<i64>().unwrap_or(0);
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                toast.success("Direct Purchase Created", &format!("Purchase from {} with {} item(s). Creating another…", n, cnt));
-                c_code.set(String::new());
-                its.write().clear();
-                for _ in 0..3 { its.write().push(LineItem::default()); }
-                dp.set(String::from("0"));
-                tr.set(String::from("16"));
-                saving.set(false);
-                dirty.set(false);
+                let form = DirectPurchaseForm { item_id, warehouse_id: 1, quantity: first_item.quantity, unit_cost: first_item.rate, supplier_name: supplier_name_val, purchase_date: purchase_date_val, notes: if notes_val.is_empty() { None } else { Some(notes_val) } };
+                match api.read().create_direct_purchase(&form).await {
+                    Ok(result) => {
+                        toast.success("Direct Purchase Created", &format!("Purchase {} created. Creating another…", result.purchase_no));
+                        c_code.set(String::new());
+                        its.write().clear();
+                        for _ in 0..3 { its.write().push(LineItem::default()); }
+                        disc_pct.set(String::from("0"));
+                        tr.set(String::from("16"));
+                        saving.set(false);
+                        dirty.set(false);
+                    }
+                    Err(e) => {
+                        toast.error("Error", &format!("Failed to create purchase: {}", e));
+                        saving.set(false);
+                    }
+                }
             });
         }
     };

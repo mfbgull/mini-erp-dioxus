@@ -1,5 +1,6 @@
 //! Forecast Accuracy Page — Model accuracy metrics and per-product accuracy breakdown.
 
+use crate::auth::use_auth;
 use crate::components::common::{StatCard, StatCardVariant, StatTrend, TrendDirection};
 use dioxus::prelude::*;
 
@@ -93,18 +94,52 @@ fn product_accuracy() -> Vec<ProductAccuracy> {
 
 #[component]
 pub fn ForecastAccuracyPage() -> Element {
-    let monthly = monthly_mape();
-    let products = product_accuracy();
+    let api = use_auth().api;
+
+    let accuracy_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_forecast_accuracy().await.ok().unwrap_or_default()
+        }
+    });
+
+    let accuracy_data = accuracy_resource.read();
+    let accuracy_items = accuracy_data.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
+
+    let products: Vec<ProductAccuracy> = accuracy_items.iter().filter_map(|item| {
+        Some(ProductAccuracy {
+            product: item["item_name"].as_str().unwrap_or("Unknown").to_string(),
+            forecast: item["mae"].as_f64().unwrap_or(0.0),
+            actual: item["mape"].as_f64().unwrap_or(0.0),
+            error: 0.0,
+            mape: item["mape"].as_f64().unwrap_or(0.0),
+        })
+    }).collect();
+
+    let monthly: Vec<AccuracyMetric> = {
+        let mut buckets: std::collections::HashMap<String, Vec<f64>> = std::collections::HashMap::new();
+        for item in accuracy_items {
+            let period = item["period"].as_str().unwrap_or("Unknown").to_string();
+            let mape = item["mape"].as_f64().unwrap_or(0.0);
+            buckets.entry(period).or_default().push(mape);
+        }
+        buckets.into_iter().map(|(period, values)| {
+            let avg = values.iter().sum::<f64>() / values.len() as f64;
+            AccuracyMetric { period, mape: avg }
+        }).collect()
+    };
+
     let max_mape = monthly.iter().map(|m| m.mape).fold(0.0_f64, f64::max);
-    let bar_count = monthly.len();
+    let bar_count = if monthly.is_empty() { 1 } else { monthly.len() };
     let bar_width_pct = 100.0 / bar_count as f64;
     let bar_gap_pct = bar_width_pct * 0.25;
     let bar_inner_pct = bar_width_pct - bar_gap_pct;
     let chart_height = 160.0;
 
-    let avg_mape: f64 = monthly.iter().map(|m| m.mape).sum::<f64>() / monthly.len() as f64;
+    let avg_mape: f64 = if monthly.is_empty() { 0.0 } else { monthly.iter().map(|m| m.mape).sum::<f64>() / monthly.len() as f64 };
     let total_abs_error: f64 = products.iter().map(|p| p.error.abs()).sum();
-    let avg_error: f64 = products.iter().map(|p| p.error).sum::<f64>() / products.len() as f64;
+    let avg_error: f64 = if products.is_empty() { 0.0 } else { products.iter().map(|p| p.error).sum::<f64>() / products.len() as f64 };
 
     rsx! {
         style { "{PAGE_CSS}" }

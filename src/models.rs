@@ -82,6 +82,9 @@ pub struct Role {
     pub description: String,
     pub is_system_role: bool,
     pub is_active: bool,
+    #[serde(default)]
+    pub user_count: i64,
+    #[serde(default)]
     pub permissions: Vec<Permission>,
 }
 
@@ -134,6 +137,7 @@ pub struct User {
     pub id: i64,
     pub username: String,
     pub email: String,
+    #[serde(default)]
     pub password_hash: String,
     pub full_name: String,
     pub role: String,

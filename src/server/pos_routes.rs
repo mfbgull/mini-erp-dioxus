@@ -26,7 +26,7 @@ async fn create_pos_sale(State(_state): State<AppState>, Json(form): Json<serde_
         return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "At least one item is required." })));
     }
 
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM invoices", [], |row| row.get(0)).unwrap_or(1);
     let invoice_no = format!("POS-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
@@ -80,7 +80,7 @@ async fn create_pos_sale(State(_state): State<AppState>, Json(form): Json<serde_
 }
 
 async fn list_pos_transactions(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT id, invoice_no, customer_id, invoice_date, total_amount, paid_amount, status
          FROM invoices WHERE source_type = 'POS' ORDER BY created_at DESC LIMIT 100"

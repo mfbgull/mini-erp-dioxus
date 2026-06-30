@@ -65,7 +65,7 @@ macro_rules! query_report {
 }
 
 async fn report_ar_aging(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let items = query_report!(db,
         "SELECT c.id, c.customer_name, c.current_balance,
@@ -81,7 +81,7 @@ async fn report_ar_aging(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn report_ar_summary(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let total_ar: f64 = db.query_row(
         "SELECT COALESCE(SUM(balance_amount), 0) FROM invoices WHERE status IN ('Unpaid','Partially Paid')",
@@ -106,7 +106,7 @@ async fn report_ar_summary(State(_state): State<AppState>) -> impl IntoResponse 
 }
 
 async fn report_customer_statements(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT cl.id, cl.customer_id, c.customer_name, cl.transaction_date, cl.type,
                 cl.reference_no, cl.debit, cl.credit, cl.balance
@@ -117,7 +117,7 @@ async fn report_customer_statements(State(_state): State<AppState>) -> impl Into
 }
 
 async fn report_top_debtors(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT id, customer_name, current_balance FROM customers
          WHERE is_active = 1 AND current_balance > 0 ORDER BY current_balance DESC LIMIT 20"
@@ -126,7 +126,7 @@ async fn report_top_debtors(State(_state): State<AppState>) -> impl IntoResponse
 }
 
 async fn report_dso(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let ar: f64 = db.query_row("SELECT COALESCE(SUM(balance_amount), 0) FROM invoices WHERE status IN ('Unpaid','Partially Paid')", [], |r| r.get(0)).unwrap_or(0.0);
     let credit_sales: f64 = db.query_row("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status != 'Cancelled'", [], |r| r.get(0)).unwrap_or(0.0);
     let dso = if credit_sales > 0.0 { (ar / credit_sales) * 30.0 } else { 0.0 };
@@ -134,7 +134,7 @@ async fn report_dso(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn report_sales_summary(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT invoice_date, COUNT(*) as invoice_count, SUM(total_amount) as total,
                 SUM(paid_amount) as paid, SUM(balance_amount) as outstanding
@@ -144,7 +144,7 @@ async fn report_sales_summary(State(_state): State<AppState>) -> impl IntoRespon
 }
 
 async fn report_sales_by_customer(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT c.id, c.customer_name, COUNT(i.id) as invoice_count, SUM(i.total_amount) as total_amount
          FROM customers c LEFT JOIN invoices i ON c.id = i.customer_id AND i.status != 'Cancelled'
@@ -154,7 +154,7 @@ async fn report_sales_by_customer(State(_state): State<AppState>) -> impl IntoRe
 }
 
 async fn report_sales_by_item(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT i.id, i.item_code, i.item_name, SUM(ii.quantity) as qty_sold, SUM(ii.amount) as total_amount
          FROM items i LEFT JOIN invoice_items ii ON i.id = ii.item_id
@@ -165,7 +165,7 @@ async fn report_sales_by_item(State(_state): State<AppState>) -> impl IntoRespon
 }
 
 async fn report_stock_level(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT i.id, i.item_code, i.item_name, i.category, i.current_stock, i.reorder_level,
                 i.standard_cost, (i.current_stock * i.standard_cost) as stock_value
@@ -175,7 +175,7 @@ async fn report_stock_level(State(_state): State<AppState>) -> impl IntoResponse
 }
 
 async fn report_low_stock(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT id, item_code, item_name, category, current_stock, reorder_level
          FROM items WHERE is_active = 1 AND current_stock <= reorder_level
@@ -185,7 +185,7 @@ async fn report_low_stock(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn report_stock_valuation(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT i.id, i.item_code, i.item_name, i.category, i.current_stock, i.standard_cost,
                 (i.current_stock * i.standard_cost) as total_value
@@ -195,7 +195,7 @@ async fn report_stock_valuation(State(_state): State<AppState>) -> impl IntoResp
 }
 
 async fn report_profit_loss(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let revenue: f64 = db.query_row("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status != 'Cancelled'", [], |r| r.get(0)).unwrap_or(0.0);
     let cogs: f64 = db.query_row("SELECT COALESCE(SUM(amount), 0) FROM invoice_items", [], |r| r.get(0)).unwrap_or(0.0) * 0.6;
     let expenses: f64 = db.query_row("SELECT COALESCE(SUM(amount), 0) FROM expenses", [], |r| r.get(0)).unwrap_or(0.0);
@@ -205,7 +205,7 @@ async fn report_profit_loss(State(_state): State<AppState>) -> impl IntoResponse
 }
 
 async fn report_cash_flow(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let cash_in: f64 = db.query_row("SELECT COALESCE(SUM(amount), 0) FROM payments", [], |r| r.get(0)).unwrap_or(0.0);
     let cash_out: f64 = db.query_row("SELECT COALESCE(SUM(total_cost), 0) FROM purchases", [], |r| r.get(0)).unwrap_or(0.0);
     let expense_out: f64 = db.query_row("SELECT COALESCE(SUM(amount), 0) FROM expenses", [], |r| r.get(0)).unwrap_or(0.0);
@@ -213,7 +213,7 @@ async fn report_cash_flow(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn report_trial_balance(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT a.code, a.name, a.type, a.normal_balance,
                 COALESCE(SUM(jl.debit), 0) as total_debit,
@@ -225,7 +225,7 @@ async fn report_trial_balance(State(_state): State<AppState>) -> impl IntoRespon
 }
 
 async fn report_general_ledger(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT jl.id, jl.journal_entry_id, a.code, a.name, jl.debit, jl.credit,
                 jl.description, jl.line_date, jl.reference_type, jl.reference_id
@@ -236,7 +236,7 @@ async fn report_general_ledger(State(_state): State<AppState>) -> impl IntoRespo
 }
 
 async fn report_balance_sheet(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT a.code, a.name, a.type,
                 COALESCE(SUM(jl.debit) - SUM(jl.credit), 0) as balance
@@ -248,7 +248,7 @@ async fn report_balance_sheet(State(_state): State<AppState>) -> impl IntoRespon
 }
 
 async fn report_income_statement(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT a.code, a.name, a.type,
                 COALESCE(SUM(jl.credit) - SUM(jl.debit), 0) as balance
@@ -260,7 +260,7 @@ async fn report_income_statement(State(_state): State<AppState>) -> impl IntoRes
 }
 
 async fn report_tax_summary(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT ii.tax_rate, COUNT(*) as item_count, SUM(ii.amount) as total_amount,
                 SUM(ii.amount * ii.tax_rate / 100) as tax_amount
@@ -272,7 +272,7 @@ async fn report_tax_summary(State(_state): State<AppState>) -> impl IntoResponse
 }
 
 async fn report_expenses(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT category, COUNT(*) as count, SUM(amount) as total
          FROM expenses GROUP BY category ORDER BY total DESC"
@@ -281,7 +281,7 @@ async fn report_expenses(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn report_purchase_summary(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT purchase_date, COUNT(*) as count, SUM(total_cost) as total
          FROM purchases GROUP BY purchase_date ORDER BY purchase_date DESC LIMIT 30"
@@ -290,7 +290,7 @@ async fn report_purchase_summary(State(_state): State<AppState>) -> impl IntoRes
 }
 
 async fn report_supplier_analysis(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT supplier_name, COUNT(*) as count, SUM(total_cost) as total
          FROM purchases GROUP BY supplier_name ORDER BY total DESC"
@@ -299,7 +299,7 @@ async fn report_supplier_analysis(State(_state): State<AppState>) -> impl IntoRe
 }
 
 async fn report_production_summary(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT i.item_name, COUNT(*) as production_count, SUM(p.output_quantity) as total_output
          FROM productions p JOIN items i ON p.output_item_id = i.id
@@ -309,7 +309,7 @@ async fn report_production_summary(State(_state): State<AppState>) -> impl IntoR
 }
 
 async fn report_inventory_movement(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT sm.id, sm.movement_no, i.item_name, w.warehouse_name, sm.movement_type,
                 sm.quantity, sm.unit_cost, sm.created_at
@@ -322,7 +322,7 @@ async fn report_inventory_movement(State(_state): State<AppState>) -> impl IntoR
 }
 
 async fn report_batch_traceability(State(_state): State<AppState>, Path(_item_id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT sb.id, sb.batch_no, i.item_name, w.warehouse_name, sb.quantity_original,
                 sb.quantity_remaining, sb.unit_cost, sb.received_date
@@ -335,7 +335,7 @@ async fn report_batch_traceability(State(_state): State<AppState>, Path(_item_id
 }
 
 async fn report_bom_usage(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let items = query_report!(db,
         "SELECT b.bom_no, b.bom_name, i.item_name as finished_item,
                 COUNT(DISTINCT wo.id) as work_order_count,
@@ -353,7 +353,7 @@ async fn report_bom_usage(State(_state): State<AppState>) -> impl IntoResponse {
 // ============================================================================
 
 async fn list_custom_reports(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, user_id, name, config, is_active, last_run_at, created_at FROM custom_reports ORDER BY name").unwrap();
     let items: Vec<CustomReport> = stmt.query_map([], |row| {
         Ok(CustomReport {
@@ -365,7 +365,7 @@ async fn list_custom_reports(State(_state): State<AppState>) -> impl IntoRespons
 }
 
 async fn create_custom_report(State(_state): State<AppState>, Json(form): Json<CustomReportForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "INSERT INTO custom_reports (user_id, name, config) VALUES (1, ?1, ?2)",
         rusqlite::params![form.name, form.config],
@@ -377,7 +377,7 @@ async fn create_custom_report(State(_state): State<AppState>, Json(form): Json<C
 }
 
 async fn update_custom_report(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<CustomReportForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE custom_reports SET name=?1, config=?2 WHERE id=?3", rusqlite::params![form.name, form.config, id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Report updated." } }))),
@@ -387,7 +387,7 @@ async fn update_custom_report(State(_state): State<AppState>, Path(id): Path<i64
 }
 
 async fn delete_custom_report(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("DELETE FROM custom_reports WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Report deleted." } }))),

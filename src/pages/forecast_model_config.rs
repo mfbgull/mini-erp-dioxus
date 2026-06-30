@@ -1,5 +1,6 @@
 //! Forecast Model Config Page — Configure ARIMA, ETS, Prophet, and Neural models.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption, use_toast,
 };
@@ -82,22 +83,49 @@ pub fn ForecastModelConfigPage() -> Element {
     let mut neural_units = use_signal(|| "64".to_string());
     let mut neural_epochs = use_signal(|| "100".to_string());
 
+    let api = use_auth().api;
     let t_save = toast.clone();
     let on_save = {
         let mut saving = is_saving.clone();
         let mut s = status.clone();
-        let name = model_name.clone();
+        let api = api.clone();
         move |_| {
             let mut t = t_save.clone();
+            let api = api.clone();
             saving.set(true);
             s.set("training".to_string());
-            let n = name.read().clone();
+            let n = model_name.read().clone();
+            let algo = algorithm.read().clone();
+            let params = serde_json::json!({
+                "model_name": n,
+                "algorithm": algo,
+                "training_start": training_start.read().clone(),
+                "training_end": training_end.read().clone(),
+                "auto_tune": *auto_tune.read(),
+                "seasonality": *seasonality.read(),
+                "params": match algo.as_str() {
+                    "arima" => serde_json::json!({"p": arima_p.read().clone(), "d": arima_d.read().clone(), "q": arima_q.read().clone()}),
+                    "ets" => serde_json::json!({"error": ets_error.read().clone(), "trend": ets_trend.read().clone(), "seasonal": ets_seasonal.read().clone()}),
+                    "prophet" => serde_json::json!({"growth": prophet_growth.read().clone(), "seasonality_mode": prophet_seasonality.read().clone()}),
+                    "neural" => serde_json::json!({"layers": neural_layers.read().clone(), "units": neural_units.read().clone(), "epochs": neural_epochs.read().clone()}),
+                    _ => serde_json::json!({}),
+                },
+            });
             let mut t2 = t.clone();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(1500)).await;
-                saving.set(false);
-                s.set("saved".to_string());
-                t2.success("Model Saved", &format!("\"{}\" configuration saved and model trained.", n));
+                let client = api.with(|c| c.clone());
+                match client.create_forecast_config(&params).await {
+                    Ok(_) => {
+                        saving.set(false);
+                        s.set("saved".to_string());
+                        t2.success("Model Saved", &format!("\"{}\" configuration saved and model trained.", n));
+                    }
+                    Err(e) => {
+                        saving.set(false);
+                        s.set("ready".to_string());
+                        t2.error("Save Failed", &e);
+                    }
+                }
             });
         }
     };
@@ -105,18 +133,37 @@ pub fn ForecastModelConfigPage() -> Element {
     let on_test = {
         let mut testing = is_testing.clone();
         let mut s = status.clone();
-        let name = model_name.clone();
+        let api = api.clone();
         move |_| {
             let mut t = toast.clone();
+            let api = api.clone();
             testing.set(true);
             s.set("training".to_string());
-            let n = name.read().clone();
+            let n = model_name.read().clone();
+            let algo = algorithm.read().clone();
+            let params = serde_json::json!({
+                "model_name": n,
+                "algorithm": algo,
+                "training_start": training_start.read().clone(),
+                "training_end": training_end.read().clone(),
+                "auto_tune": *auto_tune.read(),
+                "seasonality": *seasonality.read(),
+            });
             let mut t2 = t.clone();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(2000)).await;
-                testing.set(false);
-                s.set("ready".to_string());
-                t2.success("Test Run Complete", &format!("\"{}\" test run completed. MAPE: 11.2%", n));
+                let client = api.with(|c| c.clone());
+                match client.run_forecast(&params).await {
+                    Ok(_) => {
+                        testing.set(false);
+                        s.set("ready".to_string());
+                        t2.success("Test Run Complete", &format!("\"{}\" test run completed.", n));
+                    }
+                    Err(e) => {
+                        testing.set(false);
+                        s.set("ready".to_string());
+                        t2.error("Test Run Failed", &e);
+                    }
+                }
             });
         }
     };

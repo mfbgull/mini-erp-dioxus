@@ -22,6 +22,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/roles/permissions", get(list_all_permissions))
         .route("/api/roles/{id}", get(get_role).put(update_role).delete(delete_role))
         .route("/api/roles/{id}/permissions", get(get_role_permissions).put(update_role_permissions))
+        .route("/api/roles/{id}/users", get(list_role_users))
         // Settings
         .route("/api/settings", get(get_settings).put(update_settings))
         // Activity Logs
@@ -36,7 +37,7 @@ pub fn router() -> Router<AppState> {
 // ============================================================================
 
 async fn list_users(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT u.id, u.username, u.email, u.full_name, u.role, u.role_id, u.is_active
          FROM users u ORDER BY u.username"
@@ -52,7 +53,7 @@ async fn list_users(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_user(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, username, email, full_name, role, role_id, is_active FROM users WHERE id = ?1",
         [id],
@@ -70,7 +71,7 @@ async fn create_user(State(_state): State<AppState>, Json(form): Json<UserForm>)
     }
     let password = form.password.as_deref().unwrap_or("password123");
     let hash = bcrypt::hash(password, 12).expect("Failed to hash password");
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let exists: bool = db.query_row("SELECT COUNT(*) > 0 FROM users WHERE username = ?1", [&form.username], |row| row.get(0)).unwrap_or(false);
     if exists { return (StatusCode::CONFLICT, Json(json!({ "success": false, "error": "Username already exists." }))); }
     let role_name = db.query_row("SELECT role_name FROM roles WHERE id = ?1", [form.role_id], |row| row.get::<_, String>(0)).unwrap_or_else(|_| "user".to_string());
@@ -85,7 +86,7 @@ async fn create_user(State(_state): State<AppState>, Json(form): Json<UserForm>)
 }
 
 async fn update_user(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<UserForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let role_name = db.query_row("SELECT role_name FROM roles WHERE id = ?1", [form.role_id], |row| row.get::<_, String>(0)).unwrap_or_else(|_| "user".to_string());
     let result = if let Some(pw) = &form.password {
         let hash = bcrypt::hash(pw, 12).expect("Failed to hash password");
@@ -107,7 +108,7 @@ async fn update_user(State(_state): State<AppState>, Path(id): Path<i64>, Json(f
 }
 
 async fn delete_user(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?1 AND username != 'admin'", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "User deactivated." } }))),
@@ -119,7 +120,7 @@ async fn delete_user(State(_state): State<AppState>, Path(id): Path<i64>) -> imp
 async fn reset_password(State(_state): State<AppState>, Path(id): Path<i64>, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     let new_pw = body.get("new_password").and_then(|v| v.as_str()).unwrap_or("password123");
     let hash = bcrypt::hash(new_pw, 12).expect("Failed to hash password");
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE users SET password_hash = ?1, updated_at = datetime('now') WHERE id = ?2", rusqlite::params![hash, id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Password reset." } }))),
@@ -129,7 +130,7 @@ async fn reset_password(State(_state): State<AppState>, Path(id): Path<i64>, Jso
 }
 
 async fn toggle_user_status(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE users SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END, updated_at = datetime('now') WHERE id = ?1 AND username != 'admin'", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "User status toggled." } }))),
@@ -143,27 +144,33 @@ async fn toggle_user_status(State(_state): State<AppState>, Path(id): Path<i64>)
 // ============================================================================
 
 async fn list_roles(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
-    let mut stmt = db.prepare("SELECT id, role_name, description, is_system_role, is_active FROM roles ORDER BY role_name").unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let mut stmt = db.prepare(
+        "SELECT r.id, r.role_name, r.description, r.is_system_role, r.is_active,
+                (SELECT COUNT(*) FROM users u WHERE u.role_id = r.id OR (u.role_id IS NULL AND u.role = r.role_name)) AS user_count
+         FROM roles r ORDER BY r.role_name"
+    ).unwrap();
     let items: Vec<serde_json::Value> = stmt.query_map([], |row| {
         Ok(json!({
             "id": row.get::<_, i64>(0)?, "role_name": row.get::<_, String>(1)?,
             "description": row.get::<_, String>(2)?, "is_system_role": row.get::<_, i64>(3)? != 0,
-            "is_active": row.get::<_, i64>(4)? != 0,
+            "is_active": row.get::<_, i64>(4)? != 0, "user_count": row.get::<_, i64>(5)?,
         }))
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
 }
 
 async fn get_role(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
-        "SELECT id, role_name, description, is_system_role, is_active FROM roles WHERE id = ?1",
+        "SELECT r.id, r.role_name, r.description, r.is_system_role, r.is_active,
+                (SELECT COUNT(*) FROM users u WHERE u.role_id = r.id OR (u.role_id IS NULL AND u.role = r.role_name)) AS user_count
+         FROM roles r WHERE r.id = ?1",
         [id],
         |row| Ok(json!({
             "id": row.get::<_, i64>(0)?, "role_name": row.get::<_, String>(1)?,
             "description": row.get::<_, String>(2)?, "is_system_role": row.get::<_, i64>(3)? != 0,
-            "is_active": row.get::<_, i64>(4)? != 0,
+            "is_active": row.get::<_, i64>(4)? != 0, "user_count": row.get::<_, i64>(5)?,
         })),
     );
     match result {
@@ -173,7 +180,7 @@ async fn get_role(State(_state): State<AppState>, Path(id): Path<i64>) -> impl I
 }
 
 async fn create_role(State(_state): State<AppState>, Json(form): Json<RoleForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "INSERT INTO roles (role_name, description) VALUES (?1, ?2)",
         rusqlite::params![form.role_name, form.description.as_deref().unwrap_or("")],
@@ -185,7 +192,7 @@ async fn create_role(State(_state): State<AppState>, Json(form): Json<RoleForm>)
 }
 
 async fn update_role(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<RoleForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE roles SET role_name=?1, description=?2 WHERE id=?3",
         rusqlite::params![form.role_name, form.description.as_deref().unwrap_or(""), id]);
     match result {
@@ -196,7 +203,7 @@ async fn update_role(State(_state): State<AppState>, Path(id): Path<i64>, Json(f
 }
 
 async fn delete_role(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let is_system: bool = db.query_row("SELECT is_system_role FROM roles WHERE id = ?1", [id], |row| row.get::<_, i64>(0)).map(|v| v != 0).unwrap_or(true);
     if is_system { return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Cannot delete system role." }))); }
     db.execute("DELETE FROM role_permissions WHERE role_id = ?1", [id]).ok();
@@ -209,7 +216,7 @@ async fn delete_role(State(_state): State<AppState>, Path(id): Path<i64>) -> imp
 }
 
 async fn list_all_permissions(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, permission_name, module, action, description FROM permissions ORDER BY module, action").unwrap();
     let items: Vec<Permission> = stmt.query_map([], |row| {
         Ok(Permission { id: row.get(0)?, permission_name: row.get(1)?, module: row.get(2)?, action: row.get(3)?, description: row.get(4)? })
@@ -218,7 +225,7 @@ async fn list_all_permissions(State(_state): State<AppState>) -> impl IntoRespon
 }
 
 async fn get_role_permissions(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT p.id, p.permission_name, p.module, p.action, p.description
          FROM permissions p JOIN role_permissions rp ON p.id = rp.permission_id
@@ -231,7 +238,7 @@ async fn get_role_permissions(State(_state): State<AppState>, Path(id): Path<i64
 }
 
 async fn update_role_permissions(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<RolePermissionUpdate>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     db.execute("DELETE FROM role_permissions WHERE role_id = ?1", [id]).ok();
     for pid in &form.permission_ids {
         db.execute("INSERT INTO role_permissions (role_id, permission_id) VALUES (?1, ?2)", rusqlite::params![id, pid]).ok();
@@ -239,12 +246,30 @@ async fn update_role_permissions(State(_state): State<AppState>, Path(id): Path<
     (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Permissions updated." } })))
 }
 
+async fn list_role_users(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let mut stmt = db.prepare(
+        "SELECT u.id, u.username, u.full_name, u.email, u.role, u.role_id, u.is_active
+         FROM users u
+         WHERE u.role_id = ?1 OR (u.role_id IS NULL AND u.role = (SELECT r.role_name FROM roles r WHERE r.id = ?1))
+         ORDER BY u.username"
+    ).unwrap();
+    let items: Vec<UserProfile> = stmt.query_map([id], |row| {
+        Ok(UserProfile {
+            id: row.get(0)?, username: row.get(1)?, full_name: row.get(2)?,
+            email: row.get(3)?, role: row.get(4)?, role_id: row.get(5)?,
+            is_active: row.get::<_, i64>(6)? != 0,
+        })
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
+}
+
 // ============================================================================
 // Settings
 // ============================================================================
 
 async fn get_settings(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT key, value, description FROM settings ORDER BY key").unwrap();
     let items: Vec<Setting> = stmt.query_map([], |row| {
         Ok(Setting { key: row.get(0)?, value: row.get(1)?, description: row.get(2)? })
@@ -253,7 +278,7 @@ async fn get_settings(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn update_settings(State(_state): State<AppState>, Json(form): Json<SettingsUpdate>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     for s in &form.settings {
         db.execute(
             "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = ?2",
@@ -268,7 +293,7 @@ async fn update_settings(State(_state): State<AppState>, Json(form): Json<Settin
 // ============================================================================
 
 async fn list_activity_logs(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT al.id, al.user_id, u.username, al.action, al.entity_type, al.entity_id,
                 al.metadata, al.ip_address, al.created_at

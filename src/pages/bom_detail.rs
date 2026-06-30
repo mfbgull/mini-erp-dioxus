@@ -1,8 +1,10 @@
 //! BOM Detail Page — View a Bill of Materials with header info, components table, and actions.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
+use crate::models;
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r##"
@@ -147,47 +149,36 @@ struct BomDetail {
     components: Vec<BomComponentLine>,
 }
 
-fn fetch_bom_detail(id: &str) -> Option<BomDetail> {
-    let parsed = id.parse::<i64>().unwrap_or(0);
-    match parsed {
-        1 => Some(BomDetail {
-            id: 1,
-            bom_code: "BOM-0001".to_string(),
-            item_name: "Premium Widget Alpha".to_string(),
-            item_code: "ITM-0001".to_string(),
-            quantity_produced: 1.0,
-            total_cost: 2850.0,
-            status: "Active".to_string(),
-            version: "v1.2".to_string(),
-            last_updated: "2026-06-20".to_string(),
-            components: vec![
-                BomComponentLine { item_code: "ITM-0020".to_string(), item_name: "Steel Plate 6mm".to_string(), quantity: 2.0, uom: "sheets".to_string(), unit_cost: 450.0, scrap_pct: 5.0, sub_total: 945.0 },
-                BomComponentLine { item_code: "ITM-0021".to_string(), item_name: "Aluminum Rod 20mm".to_string(), quantity: 1.5, uom: "meters".to_string(), unit_cost: 600.0, scrap_pct: 3.0, sub_total: 927.0 },
-                BomComponentLine { item_code: "ITM-0025".to_string(), item_name: "Bolt M8 x 30mm".to_string(), quantity: 8.0, uom: "pcs".to_string(), unit_cost: 12.0, scrap_pct: 2.0, sub_total: 97.92 },
-                BomComponentLine { item_code: "ITM-0026".to_string(), item_name: "Nut M8".to_string(), quantity: 8.0, uom: "pcs".to_string(), unit_cost: 8.0, scrap_pct: 2.0, sub_total: 65.28 },
-                BomComponentLine { item_code: "ITM-0027".to_string(), item_name: "Washer M8".to_string(), quantity: 16.0, uom: "pcs".to_string(), unit_cost: 3.5, scrap_pct: 2.0, sub_total: 57.12 },
-                BomComponentLine { item_code: "ITM-0024".to_string(), item_name: "Brass Fitting Set".to_string(), quantity: 1.0, uom: "pcs".to_string(), unit_cost: 750.0, scrap_pct: 1.0, sub_total: 757.50 },
-            ],
-        }),
-        2 => Some(BomDetail {
-            id: 2,
-            bom_code: "BOM-0002".to_string(),
-            item_name: "Steel Bracket XR-200".to_string(),
-            item_code: "ITM-0004".to_string(),
-            quantity_produced: 1.0,
-            total_cost: 1240.0,
-            status: "Active".to_string(),
-            version: "v1.0".to_string(),
-            last_updated: "2026-06-18".to_string(),
-            components: vec![
-                BomComponentLine { item_code: "ITM-0020".to_string(), item_name: "Steel Plate 6mm".to_string(), quantity: 0.5, uom: "sheets".to_string(), unit_cost: 450.0, scrap_pct: 10.0, sub_total: 247.50 },
-                BomComponentLine { item_code: "ITM-0025".to_string(), item_name: "Bolt M8 x 30mm".to_string(), quantity: 4.0, uom: "pcs".to_string(), unit_cost: 12.0, scrap_pct: 2.0, sub_total: 48.96 },
-                BomComponentLine { item_code: "ITM-0026".to_string(), item_name: "Nut M8".to_string(), quantity: 4.0, uom: "pcs".to_string(), unit_cost: 8.0, scrap_pct: 2.0, sub_total: 32.64 },
-                BomComponentLine { item_code: "ITM-0022".to_string(), item_name: "Copper Wire 2.5mm".to_string(), quantity: 2.0, uom: "meters".to_string(), unit_cost: 180.0, scrap_pct: 5.0, sub_total: 378.0 },
-            ],
-        }),
-        _ => None,
-    }
+async fn fetch_bom_detail_from_api(client: &crate::api::ApiClient, id: i64) -> Option<BomDetail> {
+    let result = client.get_bom(id).await.ok()?;
+    let bom: models::Bom = serde_json::from_value(result["bom"].clone()).ok()?;
+    let items: Vec<models::BomItem> = serde_json::from_value(result["items"].clone()).ok()?;
+    let components: Vec<BomComponentLine> = items.into_iter().map(|i| {
+        let qty = i.quantity;
+        let cost = i.unit_cost;
+        BomComponentLine {
+            item_code: i.item_code.unwrap_or_default(),
+            item_name: i.item_name.unwrap_or_default(),
+            quantity: qty,
+            uom: "pcs".to_string(),
+            unit_cost: cost,
+            scrap_pct: 0.0,
+            sub_total: qty * cost,
+        }
+    }).collect();
+    let total_cost = components.iter().map(|c| c.sub_total).sum();
+    Some(BomDetail {
+        id: bom.id,
+        bom_code: bom.bom_no,
+        item_name: bom.finished_item_name.unwrap_or_default(),
+        item_code: bom.finished_item_code.unwrap_or_default(),
+        quantity_produced: bom.quantity,
+        total_cost,
+        status: if bom.is_active { "Active".to_string() } else { "Inactive".to_string() },
+        version: String::new(),
+        last_updated: bom.updated_at,
+        components,
+    })
 }
 
 fn status_badge_class(status: &str) -> &'static str {
@@ -205,11 +196,14 @@ pub fn BomDetailPage(id: String) -> Element {
     let navigator = use_navigator();
 
     let id_clone = id.clone();
+    let api = use_auth().api;
     let detail_resource = use_resource(move || {
+        let api = api.clone();
         let id_for_fetch = id_clone.clone();
         async move {
-            crate::utils::sleep(std::time::Duration::from_millis(500)).await;
-            fetch_bom_detail(&id_for_fetch)
+            let parsed_id = id_for_fetch.parse::<i64>().unwrap_or(0);
+            let client = api.read().clone();
+            fetch_bom_detail_from_api(&client, parsed_id).await
         }
     });
 

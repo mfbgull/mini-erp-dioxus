@@ -3,6 +3,7 @@
 //! Uses StaticCard components for KPIs, inline SVG for the sales chart bar
 //! visualization, and styled sections for activity feed and low-stock alerts.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonVariant, StatCard, StatCardVariant, StatTrend, TrendDirection,
 };
@@ -249,6 +250,16 @@ pub const DASHBOARD_CSS: &str = r##"
     white-space: nowrap;
 }
 
+/* ── Loading State ── */
+.dashboard-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: var(--text-secondary, #6c757d);
+    font-size: 14px;
+}
+
 /* ── Quick Actions ── */
 .dashboard-actions {
     display: flex;
@@ -258,7 +269,7 @@ pub const DASHBOARD_CSS: &str = r##"
 "##;
 
 // ============================================================================
-// Demo Data Types
+// View Types
 // ============================================================================
 
 #[derive(Clone, PartialEq)]
@@ -289,177 +300,57 @@ struct ActivityItem {
 struct LowStockItem {
     name: String,
     code: String,
-    current_stock: i32,
-    reorder_level: i32,
+    current_stock: f64,
+    reorder_level: f64,
     unit: String,
     severity: Severity,
 }
 
 #[derive(Clone, PartialEq)]
 enum Severity {
-    Critical, // stock = 0
-    Warning,  // stock <= 25% of reorder
-    Info,     // stock <= reorder level
+    Critical,
+    Warning,
+    Info,
 }
 
 // ============================================================================
-// Demo Data
+// Formatting Helpers
 // ============================================================================
 
-fn kpi_data() -> Vec<KpiData> {
-    vec![
-        KpiData {
-            title: "Total Revenue".to_string(),
-            value: "PKR 1,284,500".to_string(),
-            icon: "💰".to_string(),
-            variant: StatCardVariant::Primary,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Up,
-                label: "12.5% vs last month".to_string(),
-            }),
-            footer: Some("Last 30 days".to_string()),
-        },
-        KpiData {
-            title: "Invoices".to_string(),
-            value: "48".to_string(),
-            icon: "🧾".to_string(),
-            variant: StatCardVariant::Success,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Up,
-                label: "8 from last month".to_string(),
-            }),
-            footer: Some("12 unpaid • 36 paid".to_string()),
-        },
-        KpiData {
-            title: "Active Customers".to_string(),
-            value: "124".to_string(),
-            icon: "👥".to_string(),
-            variant: StatCardVariant::Default,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Flat,
-                label: "Same as last month".to_string(),
-            }),
-            footer: Some("3 new this month".to_string()),
-        },
-        KpiData {
-            title: "Low Stock Items".to_string(),
-            value: "7".to_string(),
-            icon: "⚠".to_string(),
-            variant: StatCardVariant::Danger,
-            trend: Some(StatTrend {
-                direction: TrendDirection::Up,
-                label: "2 more than last month".to_string(),
-            }),
-            footer: Some("2 items out of stock".to_string()),
-        },
-    ]
+fn format_pkr(amount: f64) -> String {
+    if amount >= 1_000_000.0 {
+        let m = amount / 1_000_000.0;
+        if (m - m.round()).abs() < 0.01 {
+            format!("PKR {:.0}M", m)
+        } else {
+            format!("PKR {:.1}M", m)
+        }
+    } else if amount >= 1_000.0 {
+        let thousands = amount / 1_000.0;
+        format!("PKR {:.0}K", thousands)
+    } else {
+        format!("PKR {:.0}", amount)
+    }
 }
 
-fn monthly_sales() -> Vec<MonthlySales> {
-    vec![
-        MonthlySales { month: "Jan".to_string(), amount: 185000.0 },
-        MonthlySales { month: "Feb".to_string(), amount: 220000.0 },
-        MonthlySales { month: "Mar".to_string(), amount: 195000.0 },
-        MonthlySales { month: "Apr".to_string(), amount: 278000.0 },
-        MonthlySales { month: "May".to_string(), amount: 312000.0 },
-        MonthlySales { month: "Jun".to_string(), amount: 289500.0 },
-    ]
+fn activity_icon_for(action: &str) -> (&'static str, &'static str) {
+    match action.to_lowercase().as_str() {
+        a if a.contains("create") => ("🧾", "#e8f0fe"),
+        a if a.contains("invoice") => ("🧾", "#e8f0fe"),
+        a if a.contains("payment") || a.contains("receive") => ("💰", "#f0f0ff"),
+        a if a.contains("purchase") || a.contains("receipt") => ("📥", "#e8f8f0"),
+        a if a.contains("customer") => ("👤", "#fff8e8"),
+        a if a.contains("production") || a.contains("manufacture") => ("⚙", "#f8f0ff"),
+        a if a.contains("login") => ("🔑", "#e8f8f0"),
+        _ => ("📋", "#f0f2f5"),
+    }
 }
 
-fn recent_activity() -> Vec<ActivityItem> {
-    vec![
-        ActivityItem {
-            icon: "🧾".to_string(),
-            icon_bg: "#e8f0fe".to_string(),
-            text: "Invoice <strong>INV-2026-0042</strong> was created for <strong>ABC Traders</strong> — PKR 45,000".to_string(),
-            time: "2 minutes ago".to_string(),
-        },
-        ActivityItem {
-            icon: "📥".to_string(),
-            icon_bg: "#e8f8f0".to_string(),
-            text: "Goods receipt recorded for <strong>Purchase Order PO-2026-0018</strong> — 150 units of Steel Rod".to_string(),
-            time: "15 minutes ago".to_string(),
-        },
-        ActivityItem {
-            icon: "👤".to_string(),
-            icon_bg: "#fff8e8".to_string(),
-            text: "New customer <strong>Alina Enterprises</strong> was registered".to_string(),
-            time: "1 hour ago".to_string(),
-        },
-        ActivityItem {
-            icon: "💰".to_string(),
-            icon_bg: "#f0f0ff".to_string(),
-            text: "Payment of <strong>PKR 22,500</strong> received from <strong>TechSource Ltd</strong> for Invoice INV-2026-0039".to_string(),
-            time: "2 hours ago".to_string(),
-        },
-        ActivityItem {
-            icon: "⚙".to_string(),
-            icon_bg: "#f8f0ff".to_string(),
-            text: "Production run <strong>PRD-2026-0012</strong> completed — 200 units of Premium Widget Alpha".to_string(),
-            time: "3 hours ago".to_string(),
-        },
-    ]
-}
-
-fn low_stock_items() -> Vec<LowStockItem> {
-    vec![
-        LowStockItem {
-            name: "Rubber Gasket Set".to_string(),
-            code: "ITM-0005".to_string(),
-            current_stock: 0,
-            reorder_level: 50,
-            unit: "pcs".to_string(),
-            severity: Severity::Critical,
-        },
-        LowStockItem {
-            name: "Assembly Robot Arm v3".to_string(),
-            code: "ITM-0010".to_string(),
-            current_stock: 2,
-            reorder_level: 5,
-            unit: "pcs".to_string(),
-            severity: Severity::Critical,
-        },
-        LowStockItem {
-            name: "Hydraulic Pump HPD-200".to_string(),
-            code: "ITM-0004".to_string(),
-            current_stock: 5,
-            reorder_level: 10,
-            unit: "pcs".to_string(),
-            severity: Severity::Warning,
-        },
-        LowStockItem {
-            name: "Safety Helmet (Yellow)".to_string(),
-            code: "ITM-0009".to_string(),
-            current_stock: 60,
-            reorder_level: 100,
-            unit: "pcs".to_string(),
-            severity: Severity::Warning,
-        },
-        LowStockItem {
-            name: "Copper Wire 2.5mm (100m)".to_string(),
-            code: "ITM-0006".to_string(),
-            current_stock: 25,
-            reorder_level: 50,
-            unit: "rolls".to_string(),
-            severity: Severity::Info,
-        },
-        LowStockItem {
-            name: "Steel Rod 12mm x 6m".to_string(),
-            code: "ITM-0003".to_string(),
-            current_stock: 80,
-            reorder_level: 100,
-            unit: "pcs".to_string(),
-            severity: Severity::Info,
-        },
-        LowStockItem {
-            name: "LED Panel Light 24W".to_string(),
-            code: "ITM-0007".to_string(),
-            current_stock: 200,
-            reorder_level: 250,
-            unit: "pcs".to_string(),
-            severity: Severity::Info,
-        },
-    ]
+fn relative_time(iso_str: &str) -> String {
+    if iso_str.is_empty() {
+        return "Unknown".to_string();
+    }
+    iso_str.split('T').next().unwrap_or(iso_str).to_string()
 }
 
 // ============================================================================
@@ -483,8 +374,6 @@ fn severity_label(severity: &Severity) -> &'static str {
 }
 
 fn today_formatted() -> String {
-    // Simple date formatting without chrono dependency at the page level
-    // In a real implementation, use the calculations::formatting module
     "June 26, 2026".to_string()
 }
 
@@ -492,20 +381,17 @@ fn today_formatted() -> String {
 // SVG Bar Chart Component
 // ============================================================================
 
-/// Props for the SalesChart component.
 #[derive(Clone, PartialEq, Props)]
 pub struct SalesChartProps {
     data: Vec<MonthlySales>,
 }
 
-/// Inline SVG bar chart for monthly sales.
-/// No external chart library needed — pure Dioxus + SVG.
 #[component]
 fn SalesChart(props: SalesChartProps) -> Element {
     let max_amount = props.data.iter().map(|s| s.amount).fold(0.0_f64, f64::max);
     let bar_count = props.data.len();
     let bar_width_pct = 100.0 / bar_count as f64;
-    let bar_gap_pct = bar_width_pct * 0.25; // 25% gap between bars
+    let bar_gap_pct = bar_width_pct * 0.25;
     let bar_inner_pct = bar_width_pct - bar_gap_pct;
     let chart_height = 160.0;
 
@@ -514,13 +400,11 @@ fn SalesChart(props: SalesChartProps) -> Element {
             svg {
                 view_box: "0 0 100 180",
                 preserve_aspect_ratio: "xMidYMid meet",
-                // Y-axis grid lines
                 line { x1: "0", y1: "10", x2: "100", y2: "10", stroke: "#f0f0f0", stroke_width: "0.5" }
                 line { x1: "0", y1: "50", x2: "100", y2: "50", stroke: "#f0f0f0", stroke_width: "0.5" }
                 line { x1: "0", y1: "90", x2: "100", y2: "90", stroke: "#f0f0f0", stroke_width: "0.5" }
                 line { x1: "0", y1: "130", x2: "100", y2: "130", stroke: "#f0f0f0", stroke_width: "0.5" }
 
-                // Bars
                 {props.data.into_iter().enumerate().map(|(i, s)| {
                     let bar_height = if max_amount > 0.0 {
                         (s.amount / max_amount) * chart_height
@@ -532,7 +416,6 @@ fn SalesChart(props: SalesChartProps) -> Element {
                     let label_y = 178.0;
 
                     rsx! {
-                        // Bar
                         rect {
                             key: "{i}",
                             class: "dashboard-chart-bar",
@@ -542,14 +425,12 @@ fn SalesChart(props: SalesChartProps) -> Element {
                             height: "{bar_height:.1}",
                             rx: "2",
                         }
-                        // Value label on top of bar
                         text {
                             class: "dashboard-chart-bar-value",
                             x: "{x + bar_inner_pct / 2.0:.1}",
                             y: "{y - 4.0:.1}",
                             "{s.amount:.0}"
                         }
-                        // Month label below
                         text {
                             class: "dashboard-chart-bar-label",
                             x: "{x + bar_inner_pct / 2.0:.1}",
@@ -567,142 +448,302 @@ fn SalesChart(props: SalesChartProps) -> Element {
 // Dashboard Page Component
 // ============================================================================
 
-/// Main dashboard page with KPI cards, sales chart, activity feed, and alerts.
 #[component]
 pub fn DashboardPage() -> Element {
-    let kpis = kpi_data();
-    let sales = monthly_sales();
-    let activity = recent_activity();
-    let alerts = low_stock_items();
+    let api = use_auth().api;
 
-    rsx! {
-        div { class: "dashboard",
+    let summary_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_dashboard_summary().await.unwrap_or_default()
+        }
+    });
 
-            // ── Header ──
-            div { class: "dashboard-header",
-                div {
-                    h1 { "Dashboard" }
-                    p { "Overview of your business performance" }
+    let sales_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_sales_summary().await.unwrap_or_default()
+        }
+    });
+
+    let ar_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_ar_summary().await.unwrap_or_default()
+        }
+    });
+
+    let activity_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.list_activity_logs().await.unwrap_or_default()
+        }
+    });
+
+    let items_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.list_items().await.unwrap_or_else(|_| vec![])
+        }
+    });
+
+    let any_loading = summary_resource.read().is_none()
+        || sales_resource.read().is_none()
+        || activity_resource.read().is_none();
+
+    let summary = summary_resource.read().clone().unwrap_or_default();
+    let sales_data = sales_resource.read().clone().unwrap_or_default();
+    let ar_data = ar_resource.read().clone().unwrap_or_default();
+    let activity_logs = activity_resource.read().clone().unwrap_or_default();
+    let items = items_resource.read().clone().unwrap_or_default();
+
+    let total_revenue = summary.get("total_revenue").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let _total_expenses = summary.get("total_expenses").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let total_invoices = summary.get("total_invoices").and_then(|v| v.as_i64()).unwrap_or(0);
+    let total_customers = summary.get("total_customers").and_then(|v| v.as_i64()).unwrap_or(0);
+    let low_stock_count = summary.get("low_stock_count").and_then(|v| v.as_i64()).unwrap_or(0);
+    let outstanding_ar = ar_data.get("current").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+    let unpaid_invoices = summary.get("total_invoices").and_then(|v| v.as_i64()).unwrap_or(0);
+    let today_sales = sales_data.get("today").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let this_month_sales = sales_data.get("this_month").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+    let kpis = vec![
+        KpiData {
+            title: "Total Revenue".to_string(),
+            value: format_pkr(total_revenue),
+            icon: "💰".to_string(),
+            variant: StatCardVariant::Primary,
+            trend: Some(StatTrend {
+                direction: TrendDirection::Up,
+                label: format!("PKR {:.0} today", today_sales),
+            }),
+            footer: Some("All time".to_string()),
+        },
+        KpiData {
+            title: "Invoices".to_string(),
+            value: total_invoices.to_string(),
+            icon: "🧾".to_string(),
+            variant: StatCardVariant::Success,
+            trend: None,
+            footer: Some(format!("{} unpaid", unpaid_invoices)),
+        },
+        KpiData {
+            title: "Active Customers".to_string(),
+            value: total_customers.to_string(),
+            icon: "👥".to_string(),
+            variant: StatCardVariant::Default,
+            trend: None,
+            footer: Some("Currently active".to_string()),
+        },
+        KpiData {
+            title: "Low Stock Items".to_string(),
+            value: low_stock_count.to_string(),
+            icon: "⚠".to_string(),
+            variant: StatCardVariant::Danger,
+            trend: None,
+            footer: Some(format!("Receivables: {}", format_pkr(outstanding_ar))),
+        },
+    ];
+
+    let sales_chart: Vec<MonthlySales> = vec![
+        MonthlySales { month: "Today".to_string(), amount: today_sales },
+        MonthlySales { month: "Week".to_string(), amount: sales_data.get("this_week").and_then(|v| v.as_f64()).unwrap_or(0.0) },
+        MonthlySales { month: "Month".to_string(), amount: this_month_sales },
+    ];
+
+    let activity: Vec<ActivityItem> = activity_logs.into_iter().take(5).map(|log| {
+        let (icon, bg) = activity_icon_for(&log.action);
+        let username = log.username.unwrap_or_else(|| "System".to_string());
+        let entity = log.entity_type;
+        let meta = log.metadata.unwrap_or_default();
+        let time = relative_time(&log.created_at);
+        let text = if meta.is_empty() {
+            format!("<strong>{}</strong> {} <strong>{}</strong>", username, log.action, entity)
+        } else {
+            format!("<strong>{}</strong> {} <strong>{}</strong> — {}", username, log.action, entity, meta)
+        };
+        ActivityItem {
+            icon: icon.to_string(),
+            icon_bg: bg.to_string(),
+            text,
+            time,
+        }
+    }).collect();
+
+    let alerts: Vec<LowStockItem> = items.into_iter().filter_map(|item| {
+        if item.current_stock <= item.reorder_level && item.is_active {
+            let severity = if item.current_stock == 0.0 {
+                Severity::Critical
+            } else if item.current_stock <= item.reorder_level * 0.25 {
+                Severity::Critical
+            } else if item.current_stock <= item.reorder_level {
+                Severity::Warning
+            } else {
+                return None;
+            };
+            Some(LowStockItem {
+                name: item.item_name,
+                code: item.item_code,
+                current_stock: item.current_stock,
+                reorder_level: item.reorder_level,
+                unit: item.unit_of_measure,
+                severity,
+            })
+        } else {
+            None
+        }
+    }).collect();
+
+    if any_loading {
+        rsx! {
+            div { class: "dashboard",
+                div { class: "dashboard-header",
+                    div {
+                        h1 { "Dashboard" }
+                        p { "Overview of your business performance" }
+                    }
+                    div { class: "dashboard-date", "{today_formatted()}" }
                 }
-                div { class: "dashboard-date", "{today_formatted()}" }
+                div { class: "dashboard-loading", "Loading dashboard data..." }
             }
+        }
+    } else {
+        rsx! {
+            div { class: "dashboard",
 
-            // ── KPI Cards ──
-            div { class: "dashboard-kpi-grid",
-                {kpis.into_iter().map(|kpi| {
-                    rsx! {
-                        StatCard {
-                            key: "{kpi.title}",
-                            title: kpi.title,
-                            value: kpi.value,
-                            icon: kpi.icon,
-                            variant: kpi.variant,
-                            trend: kpi.trend,
-                            footer: kpi.footer,
-                        }
+                div { class: "dashboard-header",
+                    div {
+                        h1 { "Dashboard" }
+                        p { "Overview of your business performance" }
                     }
-                })}
-            }
-
-            // ── Two-column: Chart + Low Stock ──
-            div { class: "dashboard-columns",
-
-                // Sales Chart Section
-                div { class: "dashboard-section",
-                    div { class: "dashboard-section-header",
-                        h2 { "📈 Monthly Sales (2026)" }
-                        a { href: "/reports/sales", "View Report →" }
-                    }
-                    div { class: "dashboard-section-body",
-                        SalesChart { data: sales.clone() }
-                    }
+                    div { class: "dashboard-date", "{today_formatted()}" }
                 }
 
-                // Low Stock Alerts Section
-                div { class: "dashboard-section",
-                    div { class: "dashboard-section-header",
-                        h2 { "⚠ Low Stock Alerts" }
-                        a { href: "/inventory/items", "Manage Inventory →" }
-                    }
-                    div { class: "dashboard-section-body",
-                        {alerts.into_iter().map(|item| {
-                            let dot_class = severity_class(&item.severity);
-                            let label = severity_label(&item.severity);
-                            let stock_text = if item.current_stock == 0 {
-                                "OUT OF STOCK".to_string()
-                            } else {
-                                format!("{} {}", item.current_stock, item.unit)
-                            };
-
-                            rsx! {
-                                div { key: "{item.code}", class: "dashboard-alert-item",
-                                    div { class: "dashboard-alert-dot {dot_class}" }
-                                    div { class: "dashboard-alert-info",
-                                        p { class: "dashboard-alert-name", "{item.name}" }
-                                        p { class: "dashboard-alert-detail",
-                                            "{item.code}  •  Reorder at {item.reorder_level} {item.unit}  •  {label}"
-                                        }
-                                    }
-                                    div { class: "dashboard-alert-stock", "{stock_text}" }
-                                }
-                            }
-                        })}
-                    }
-                }
-            }
-
-            // ── Recent Activity ──
-            div { class: "dashboard-section dashboard-activity",
-                div { class: "dashboard-section-header",
-                    h2 { "🕐 Recent Activity" }
-                    a { href: "/activity-log", "View All →" }
-                }
-                div { class: "dashboard-section-body",
-                    {activity.into_iter().map(|a| {
+                div { class: "dashboard-kpi-grid",
+                    {kpis.into_iter().map(|kpi| {
                         rsx! {
-                            div { key: "{a.time}", class: "dashboard-activity-item",
-                                div {
-                                    class: "dashboard-activity-icon",
-                                    style: "background: {a.icon_bg};",
-                                    "{a.icon}"
-                                }
-                                div { class: "dashboard-activity-content",
-                                    p { class: "dashboard-activity-text",
-                                        dangerous_inner_html: "{a.text}",
-                                    }
-                                    p { class: "dashboard-activity-time", "{a.time}" }
-                                }
+                            StatCard {
+                                key: "{kpi.title}",
+                                title: kpi.title,
+                                value: kpi.value,
+                                icon: kpi.icon,
+                                variant: kpi.variant,
+                                trend: kpi.trend,
+                                footer: kpi.footer,
                             }
                         }
                     })}
                 }
-            }
 
-            // ── Quick Actions ──
-            div { class: "dashboard-actions",
-                Button {
-                    variant: ButtonVariant::Primary,
-                    icon: Some("🧾".to_string()),
-                    onclick: move |_| {},
-                    "New Invoice"
+                div { class: "dashboard-columns",
+
+                    div { class: "dashboard-section",
+                        div { class: "dashboard-section-header",
+                            h2 { "📈 Sales Summary" }
+                            a { href: "/reports/sales", "View Report →" }
+                        }
+                        div { class: "dashboard-section-body",
+                            SalesChart { data: sales_chart.clone() }
+                        }
+                    }
+
+                    div { class: "dashboard-section",
+                        div { class: "dashboard-section-header",
+                            h2 { "⚠ Low Stock Alerts" }
+                            a { href: "/inventory/items", "Manage Inventory →" }
+                        }
+                        div { class: "dashboard-section-body",
+                            if alerts.is_empty() {
+                                div { class: "dashboard-loading", "No low stock alerts" }
+                            } else {
+                                {alerts.into_iter().map(|item| {
+                                    let dot_class = severity_class(&item.severity);
+                                    let label = severity_label(&item.severity);
+                                    let stock_text = if item.current_stock == 0.0 {
+                                        "OUT OF STOCK".to_string()
+                                    } else {
+                                        format!("{} {}", item.current_stock, item.unit)
+                                    };
+
+                                    rsx! {
+                                        div { key: "{item.code}", class: "dashboard-alert-item",
+                                            div { class: "dashboard-alert-dot {dot_class}" }
+                                            div { class: "dashboard-alert-info",
+                                                p { class: "dashboard-alert-name", "{item.name}" }
+                                                p { class: "dashboard-alert-detail",
+                                                    "{item.code}  •  Reorder at {item.reorder_level} {item.unit}  •  {label}"
+                                                }
+                                            }
+                                            div { class: "dashboard-alert-stock", "{stock_text}" }
+                                        }
+                                    }
+                                })}
+                            }
+                        }
+                    }
                 }
-                Button {
-                    variant: ButtonVariant::Secondary,
-                    icon: Some("📦".to_string()),
-                    onclick: move |_| {},
-                    "New Item"
+
+                div { class: "dashboard-section dashboard-activity",
+                    div { class: "dashboard-section-header",
+                        h2 { "🕐 Recent Activity" }
+                        a { href: "/activity-log", "View All →" }
+                    }
+                    div { class: "dashboard-section-body",
+                        if activity.is_empty() {
+                            div { class: "dashboard-loading", "No recent activity" }
+                        } else {
+                            {activity.into_iter().map(|a| {
+                                rsx! {
+                                    div { key: "{a.time}-{a.text}", class: "dashboard-activity-item",
+                                        div {
+                                            class: "dashboard-activity-icon",
+                                            style: "background: {a.icon_bg};",
+                                            "{a.icon}"
+                                        }
+                                        div { class: "dashboard-activity-content",
+                                            p { class: "dashboard-activity-text",
+                                                dangerous_inner_html: "{a.text}",
+                                            }
+                                            p { class: "dashboard-activity-time", "{a.time}" }
+                                        }
+                                    }
+                                }
+                            })}
+                        }
+                    }
                 }
-                Button {
-                    variant: ButtonVariant::Secondary,
-                    icon: Some("👤".to_string()),
-                    onclick: move |_| {},
-                    "New Customer"
-                }
-                Button {
-                    variant: ButtonVariant::Ghost,
-                    icon: Some("📊".to_string()),
-                    onclick: move |_| {},
-                    "View Reports"
+
+                div { class: "dashboard-actions",
+                    Button {
+                        variant: ButtonVariant::Primary,
+                        icon: Some("🧾".to_string()),
+                        onclick: move |_| {},
+                        "New Invoice"
+                    }
+                    Button {
+                        variant: ButtonVariant::Secondary,
+                        icon: Some("📦".to_string()),
+                        onclick: move |_| {},
+                        "New Item"
+                    }
+                    Button {
+                        variant: ButtonVariant::Secondary,
+                        icon: Some("👤".to_string()),
+                        onclick: move |_| {},
+                        "New Customer"
+                    }
+                    Button {
+                        variant: ButtonVariant::Ghost,
+                        icon: Some("📊".to_string()),
+                        onclick: move |_| {},
+                        "View Reports"
+                    }
                 }
             }
         }

@@ -26,7 +26,7 @@ pub fn router() -> Router<AppState> {
 // ============================================================================
 
 async fn list_boms(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT b.id, b.bom_no, b.bom_name, b.finished_item_id, i.item_name, i.item_code,
                 b.quantity, b.is_active, b.created_at, b.updated_at
@@ -45,7 +45,7 @@ async fn list_boms(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_bom(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT b.id, b.bom_no, b.bom_name, b.finished_item_id, i.item_name, i.item_code,
                 b.quantity, b.is_active, b.created_at, b.updated_at
@@ -81,7 +81,7 @@ async fn create_bom(State(_state): State<AppState>, Json(form): Json<BomForm>) -
     if form.items.is_empty() {
         return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "At least one raw material is required." })));
     }
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM boms", [], |row| row.get(0)).unwrap_or(1);
     let bom_no = format!("BOM-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let result = db.execute(
@@ -104,7 +104,7 @@ async fn create_bom(State(_state): State<AppState>, Json(form): Json<BomForm>) -
 }
 
 async fn update_bom(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<BomForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE boms SET bom_name=?1, finished_item_id=?2, quantity=?3, updated_at=datetime('now') WHERE id=?4",
         rusqlite::params![form.bom_name, form.finished_item_id, form.quantity, id],
@@ -124,7 +124,7 @@ async fn update_bom(State(_state): State<AppState>, Path(id): Path<i64>, Json(fo
 }
 
 async fn delete_bom(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     db.execute("DELETE FROM bom_items WHERE bom_id = ?1", [id]).ok();
     let result = db.execute("DELETE FROM boms WHERE id = ?1", [id]);
     match result {
@@ -135,7 +135,7 @@ async fn delete_bom(State(_state): State<AppState>, Path(id): Path<i64>) -> impl
 }
 
 async fn toggle_bom_active(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE boms SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END, updated_at = datetime('now') WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "BOM status toggled." } }))),
@@ -145,7 +145,7 @@ async fn toggle_bom_active(State(_state): State<AppState>, Path(id): Path<i64>) 
 }
 
 async fn get_bom_by_item(State(_state): State<AppState>, Path(item_id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, bom_no, bom_name, finished_item_id, quantity, is_active, created_at, updated_at
          FROM boms WHERE finished_item_id = ?1 AND is_active = 1 LIMIT 1",
@@ -168,7 +168,7 @@ async fn get_bom_by_item(State(_state): State<AppState>, Path(item_id): Path<i64
 // ============================================================================
 
 async fn list_productions(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT p.id, p.production_no, p.output_item_id, i.item_name, i.item_code,
                 p.output_quantity, p.warehouse_id, w.warehouse_name, p.bom_id,
@@ -195,7 +195,7 @@ async fn list_productions(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_production(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT p.id, p.production_no, p.output_item_id, i.item_name, i.item_code,
                 p.output_quantity, p.warehouse_id, w.warehouse_name, p.bom_id,
@@ -239,7 +239,7 @@ async fn get_production(State(_state): State<AppState>, Path(id): Path<i64>) -> 
 }
 
 async fn create_production(State(_state): State<AppState>, Json(form): Json<ProductionForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM productions", [], |row| row.get(0)).unwrap_or(1);
     let pno = format!("PRD-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let result = db.execute(
@@ -282,7 +282,7 @@ async fn create_production(State(_state): State<AppState>, Json(form): Json<Prod
 }
 
 async fn delete_production(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     db.execute("DELETE FROM production_inputs WHERE production_id = ?1", [id]).ok();
     let result = db.execute("DELETE FROM productions WHERE id = ?1", [id]);
     match result {
@@ -293,7 +293,7 @@ async fn delete_production(State(_state): State<AppState>, Path(id): Path<i64>) 
 }
 
 async fn production_summary_by_item(State(_state): State<AppState>, Path(item_id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let total: f64 = db.query_row("SELECT COALESCE(SUM(output_quantity), 0) FROM productions WHERE output_item_id = ?1", [item_id], |row| row.get(0)).unwrap_or(0.0);
     let count: i64 = db.query_row("SELECT COUNT(*) FROM productions WHERE output_item_id = ?1", [item_id], |row| row.get(0)).unwrap_or(0);
     (StatusCode::OK, Json(json!({ "success": true, "data": { "total_produced": total, "production_count": count } })))

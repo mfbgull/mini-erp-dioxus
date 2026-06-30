@@ -1,5 +1,6 @@
 //! Inventory Report Page — Stock value, warehouse breakdown, and category analysis.
 
+use crate::auth::use_auth;
 use crate::components::common::{Button, ButtonVariant, StatCard, StatCardVariant, use_toast};
 use dioxus::prelude::*;
 
@@ -56,28 +57,25 @@ struct CategoryItem {
 }
 
 // ============================================================================
-// Mock Data
+// Helpers — parse API JSON into view structs
 // ============================================================================
 
-fn warehouse_values() -> Vec<WarehouseValue> {
-    vec![
-        WarehouseValue { name: "Main Warehouse".to_string(), items: 45, value: 185_000.0 },
-        WarehouseValue { name: "Raw Materials Store".to_string(), items: 28, value: 98_500.0 },
-        WarehouseValue { name: "Equipment Storage".to_string(), items: 15, value: 320_000.0 },
-    ]
+fn parse_warehouse_values(data: &serde_json::Value) -> Vec<WarehouseValue> {
+    data.get("warehouses").and_then(|v| v.as_array()).cloned().unwrap_or_default()
+        .iter().map(|w| WarehouseValue {
+            name: w.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            items: w.get("items").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+            value: w.get("value").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        }).collect()
 }
 
-fn category_items() -> Vec<CategoryItem> {
-    vec![
-        CategoryItem { category: "Widgets".to_string(), items: 12, value: 145_000.0 },
-        CategoryItem { category: "Fasteners".to_string(), items: 8, value: 62_000.0 },
-        CategoryItem { category: "Electrical".to_string(), items: 10, value: 98_000.0 },
-        CategoryItem { category: "Raw Materials".to_string(), items: 25, value: 110_000.0 },
-        CategoryItem { category: "Consumables".to_string(), items: 40, value: 45_000.0 },
-        CategoryItem { category: "Safety".to_string(), items: 6, value: 28_500.0 },
-        CategoryItem { category: "Packaging".to_string(), items: 18, value: 15_000.0 },
-        CategoryItem { category: "Equipment".to_string(), items: 5, value: 300_000.0 },
-    ]
+fn parse_category_items(data: &serde_json::Value) -> Vec<CategoryItem> {
+    data.get("categories").and_then(|v| v.as_array()).cloned().unwrap_or_default()
+        .iter().map(|c| CategoryItem {
+            category: c.get("category").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            items: c.get("items").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
+            value: c.get("value").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        }).collect()
 }
 
 // ============================================================================
@@ -87,11 +85,45 @@ fn category_items() -> Vec<CategoryItem> {
 #[component]
 pub fn InventoryReportPage() -> Element {
     let toast = use_toast();
-    let wh_values = warehouse_values();
-    let cat_items = category_items();
+    let api = use_auth().api;
+
+    let stock_level_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_stock_level().await.unwrap_or_default()
+        }
+    });
+
+    let valuation_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_stock_valuation().await.unwrap_or_default()
+        }
+    });
+
+    let low_stock_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_low_stock_report().await.unwrap_or_default()
+        }
+    });
+
+    let loading = stock_level_resource.read().is_none()
+        || valuation_resource.read().is_none()
+        || low_stock_resource.read().is_none();
+
+    let stock_data = stock_level_resource.read().clone().unwrap_or_default();
+    let valuation_data = valuation_resource.read().clone().unwrap_or_default();
+    let low_stock_data = low_stock_resource.read().clone().unwrap_or_default();
+
+    let wh_values = parse_warehouse_values(&stock_data);
+    let cat_items = parse_category_items(&valuation_data);
     let total_items: i32 = cat_items.iter().map(|c| c.items).sum();
     let total_value: f64 = cat_items.iter().map(|c| c.value).sum();
-    let low_stock = 4;
+    let low_stock = low_stock_data.get("count").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
     let categories = cat_items.len();
 
     let on_export = {
@@ -99,120 +131,135 @@ pub fn InventoryReportPage() -> Element {
         move |_| { t.info("Export", "Inventory report will be exported as PDF."); }
     };
 
-    rsx! {
-        style { "{PAGE_CSS}" }
-        div { class: "page ir-page",
-
-            div { class: "ir-header",
-                div {
-                    h1 { "Inventory Report" }
-                    p { class: "page-subtitle", "Stock value, warehouse breakdown, and category analysis." }
-                }
-                Button { variant: ButtonVariant::Primary, icon: Some("📥".to_string()), onclick: on_export, "Export Report" }
-            }
-
-            // Filter
-            div { class: "ir-filter-bar",
-                label { "As of Date" }
-                input { r#type: "date", value: "2026-06-27" }
-                label { "Warehouse" }
-                select {
-                    option { value: "all", selected: true, "All Warehouses" }
-                    option { value: "main", "Main Warehouse" }
-                    option { value: "raw", "Raw Materials Store" }
-                }
-            }
-
-            // KPI cards
-            div { class: "ir-kpi-grid",
-                StatCard {
-                    title: "Total Items".to_string(),
-                    value: format!("{}", total_items),
-                    icon: "📦".to_string(),
-                    variant: StatCardVariant::Primary,
-                    footer: Some(format!("Across {} categories", categories)),
-                }
-                StatCard {
-                    title: "Total Stock Value".to_string(),
-                    value: format!("PKR {:.0}", total_value),
-                    icon: "💰".to_string(),
-                    variant: StatCardVariant::Success,
-                    footer: Some("At standard cost".to_string()),
-                }
-                StatCard {
-                    title: "Low Stock Items".to_string(),
-                    value: format!("{}", low_stock),
-                    icon: "⚠".to_string(),
-                    variant: StatCardVariant::Danger,
-                    footer: Some("2 critically low".to_string()),
-                }
-                StatCard {
-                    title: "Categories".to_string(),
-                    value: format!("{}", categories),
-                    icon: "🏷".to_string(),
-                    variant: StatCardVariant::Default,
-                    footer: Some("Active categories".to_string()),
-                }
-            }
-
-            // Two-column: warehouse value + category breakdown
-            div { class: "ir-columns",
-
-                // Warehouse value
-                div { class: "ir-section",
-                    div { class: "ir-section-header",
-                        h2 { "🏭 Stock Value by Warehouse" }
+    if loading {
+        rsx! {
+            style { "{PAGE_CSS}" }
+            div { class: "page ir-page",
+                div { class: "ir-header",
+                    div {
+                        h1 { "Inventory Report" }
+                        p { class: "page-subtitle", "Stock value, warehouse breakdown, and category analysis." }
                     }
-                    table { class: "ir-table",
-                        thead { tr {
-                            th { "Warehouse" } th { class: "text-right", "Items" }
-                            th { class: "text-right", "Value (PKR)" }
-                        }}
-                        tbody {
-                            {wh_values.into_iter().map(|w| {
-                                rsx! {
-                                    tr {
-                                        td { "{w.name}" }
-                                        td { class: "text-right", "{w.items}" }
-                                        td { class: "text-right", "PKR {w.value:.0}" }
-                                    }
-                                }
-                            })}
+                }
+                div { class: "ir-loading", "Loading inventory data..." }
+            }
+        }
+    } else {
+        rsx! {
+            style { "{PAGE_CSS}" }
+            div { class: "page ir-page",
+
+                div { class: "ir-header",
+                    div {
+                        h1 { "Inventory Report" }
+                        p { class: "page-subtitle", "Stock value, warehouse breakdown, and category analysis." }
+                    }
+                    Button { variant: ButtonVariant::Primary, icon: Some("📥".to_string()), onclick: on_export, "Export Report" }
+                }
+
+                // Filter
+                div { class: "ir-filter-bar",
+                    label { "As of Date" }
+                    input { r#type: "date", value: "2026-06-27" }
+                    label { "Warehouse" }
+                    select {
+                        option { value: "all", selected: true, "All Warehouses" }
+                        option { value: "main", "Main Warehouse" }
+                        option { value: "raw", "Raw Materials Store" }
+                    }
+                }
+
+                // KPI cards
+                div { class: "ir-kpi-grid",
+                    StatCard {
+                        title: "Total Items".to_string(),
+                        value: format!("{}", total_items),
+                        icon: "📦".to_string(),
+                        variant: StatCardVariant::Primary,
+                        footer: Some(format!("Across {} categories", categories)),
+                    }
+                    StatCard {
+                        title: "Total Stock Value".to_string(),
+                        value: format!("PKR {:.0}", total_value),
+                        icon: "💰".to_string(),
+                        variant: StatCardVariant::Success,
+                        footer: Some("At standard cost".to_string()),
+                    }
+                    StatCard {
+                        title: "Low Stock Items".to_string(),
+                        value: format!("{}", low_stock),
+                        icon: "⚠".to_string(),
+                        variant: StatCardVariant::Danger,
+                        footer: Some(format!("{} critically low", low_stock_data.get("critical").and_then(|v| v.as_i64()).unwrap_or(0))),
+                    }
+                    StatCard {
+                        title: "Categories".to_string(),
+                        value: format!("{}", categories),
+                        icon: "🏷".to_string(),
+                        variant: StatCardVariant::Default,
+                        footer: Some("Active categories".to_string()),
+                    }
+                }
+
+                // Two-column: warehouse value + category breakdown
+                div { class: "ir-columns",
+
+                    // Warehouse value
+                    div { class: "ir-section",
+                        div { class: "ir-section-header",
+                            h2 { "🏭 Stock Value by Warehouse" }
                         }
-                        tfoot { tr {
-                            td { "Total" }
-                            td { class: "text-right", "{total_items}" }
-                            td { class: "text-right", "PKR {total_value:.0}" }
-                        }}
-                    }
-                }
-
-                // Category breakdown
-                div { class: "ir-section",
-                    div { class: "ir-section-header",
-                        h2 { "🏷 Items by Category" }
-                    }
-                    table { class: "ir-table",
-                        thead { tr {
-                            th { "Category" } th { class: "text-right", "Items" }
-                            th { class: "text-right", "Value (PKR)" }
-                        }}
-                        tbody {
-                            {cat_items.into_iter().map(|c| {
-                                rsx! {
-                                    tr {
-                                        td { "{c.category}" }
-                                        td { class: "text-right", "{c.items}" }
-                                        td { class: "text-right", "PKR {c.value:.0}" }
+                        table { class: "ir-table",
+                            thead { tr {
+                                th { "Warehouse" } th { class: "text-right", "Items" }
+                                th { class: "text-right", "Value (PKR)" }
+                            }}
+                            tbody {
+                                {wh_values.into_iter().map(|w| {
+                                    rsx! {
+                                        tr {
+                                            td { "{w.name}" }
+                                            td { class: "text-right", "{w.items}" }
+                                            td { class: "text-right", "PKR {w.value:.0}" }
+                                        }
                                     }
-                                }
-                            })}
+                                })}
+                            }
+                            tfoot { tr {
+                                td { "Total" }
+                                td { class: "text-right", "{total_items}" }
+                                td { class: "text-right", "PKR {total_value:.0}" }
+                            }}
                         }
-                        tfoot { tr {
-                            td { "Total" }
-                            td { class: "text-right", "{total_items}" }
-                            td { class: "text-right", "PKR {total_value:.0}" }
-                        }}
+                    }
+
+                    // Category breakdown
+                    div { class: "ir-section",
+                        div { class: "ir-section-header",
+                            h2 { "🏷 Items by Category" }
+                        }
+                        table { class: "ir-table",
+                            thead { tr {
+                                th { "Category" } th { class: "text-right", "Items" }
+                                th { class: "text-right", "Value (PKR)" }
+                            }}
+                            tbody {
+                                {cat_items.into_iter().map(|c| {
+                                    rsx! {
+                                        tr {
+                                            td { "{c.category}" }
+                                            td { class: "text-right", "{c.items}" }
+                                            td { class: "text-right", "PKR {c.value:.0}" }
+                                        }
+                                    }
+                                })}
+                            }
+                            tfoot { tr {
+                                td { "Total" }
+                                td { class: "text-right", "{total_items}" }
+                                td { class: "text-right", "PKR {total_value:.0}" }
+                            }}
+                        }
                     }
                 }
             }

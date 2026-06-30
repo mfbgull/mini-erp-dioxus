@@ -1,6 +1,7 @@
 //! Settings Page — Tabbed settings form for company configuration,
 //! user preferences, and notification preferences.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType, use_toast,
 };
@@ -49,6 +50,16 @@ pub fn SettingsPage() -> Element {
     // ── Tab State ──
     let active_tab = use_signal(|| 0u32);
 
+    let api = use_auth().api;
+
+    let settings_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_settings().await.ok()
+        }
+    });
+
     // ── General Tab State ──
     let mut company_name = use_signal(|| "MiniERP Solutions (Pvt) Ltd".to_string());
     let mut tax_id = use_signal(|| "NTN-1234567-8".to_string());
@@ -70,6 +81,28 @@ pub fn SettingsPage() -> Element {
 
     // ── Saving State ──
     let is_saving = use_signal(|| false);
+    let mut settings_loaded = use_signal(|| false);
+
+    // ── Populate signals from API on mount ──
+    if !*settings_loaded.read() {
+        if let Some(data) = settings_resource.read().as_ref().and_then(|s| s.as_ref()) {
+            let s = data.clone();
+            company_name.set(s["company_name"].as_str().unwrap_or("MiniERP Solutions (Pvt) Ltd").to_string());
+            tax_id.set(s["tax_id"].as_str().unwrap_or("NTN-1234567-8").to_string());
+            address.set(s["address"].as_str().unwrap_or("123 Business Avenue, Block 6, Gulshan-e-Iqbal, Karachi").to_string());
+            email.set(s["email"].as_str().unwrap_or("info@minierp.pk").to_string());
+            phone.set(s["phone"].as_str().unwrap_or("+92 21 111 222 333").to_string());
+            currency.set(s["currency"].as_str().unwrap_or("PKR").to_string());
+            timezone.set(s["timezone"].as_str().unwrap_or("Asia/Karachi").to_string());
+            items_per_page.set(s["items_per_page"].as_str().unwrap_or("25").to_string());
+            default_tax_rate.set(s["default_tax_rate"].as_str().unwrap_or("16.0").to_string());
+            low_stock_threshold.set(s["low_stock_threshold"].as_str().unwrap_or("10").to_string());
+            date_format.set(s["date_format"].as_str().unwrap_or("dd-MMM-yyyy").to_string());
+            email_alerts.set(s["email_alerts"].as_bool().unwrap_or(true));
+            sms_alerts.set(s["sms_alerts"].as_bool().unwrap_or(false));
+            settings_loaded.set(true);
+        }
+    }
 
     // ── Tab Switch Handler ──
     let mut switch_tab = {
@@ -81,13 +114,38 @@ pub fn SettingsPage() -> Element {
     let on_save = {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
+        let api = api.clone();
         move |_| {
             saving.set(true);
             let mut t = toast.clone();
+            let api = api.clone();
+            let payload = serde_json::json!({
+                "company_name": company_name.read().clone(),
+                "tax_id": tax_id.read().clone(),
+                "address": address.read().clone(),
+                "email": email.read().clone(),
+                "phone": phone.read().clone(),
+                "currency": currency.read().clone(),
+                "timezone": timezone.read().clone(),
+                "items_per_page": items_per_page.read().clone(),
+                "default_tax_rate": default_tax_rate.read().clone(),
+                "low_stock_threshold": low_stock_threshold.read().clone(),
+                "date_format": date_format.read().clone(),
+                "email_alerts": *email_alerts.read(),
+                "sms_alerts": *sms_alerts.read(),
+            });
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-                saving.set(false);
-                t.success("Settings Saved", "Company settings have been updated successfully.");
+                let client = api.with(|c| c.clone());
+                match client.update_settings(&payload).await {
+                    Ok(_) => {
+                        saving.set(false);
+                        t.success("Settings Saved", "Company settings have been updated successfully.");
+                    }
+                    Err(e) => {
+                        saving.set(false);
+                        t.error("Save Failed", &e);
+                    }
+                }
             });
         }
     };

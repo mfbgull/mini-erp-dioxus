@@ -112,6 +112,11 @@ impl RbacContext {
     pub fn has(&self, permission: &str) -> bool {
         self.permissions.read().has(permission)
     }
+
+    pub fn set_role(&self, role: &str) {
+        let mut perms = self.permissions.clone();
+        perms.set(Permissions::new(role));
+    }
 }
 
 pub fn use_rbac() -> RbacContext {
@@ -135,5 +140,28 @@ pub fn Cannot(permission: String, children: Element) -> Element {
         children
     } else {
         rsx! {}
+    }
+}
+
+#[component]
+pub fn ProtectedRoute(permission: String, children: Element) -> Element {
+    let rbac = use_rbac();
+    let navigator = use_navigator();
+    if rbac.has(&permission) {
+        children
+    } else {
+        rsx! {
+            div { class: "page", style: "display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px;",
+                div { style: "font-size: 48px;", "🔒" }
+                h2 { style: "margin: 0; color: var(--text-primary);", "Access Denied" }
+                p { style: "color: var(--text-secondary);", "You don't have permission to access this page." }
+                p { style: "color: var(--text-secondary); font-size: 13px;", "Required: {permission}" }
+                button {
+                    class: "btn btn-primary",
+                    onclick: move |_| { let _ = navigator.push("/"); },
+                    "← Back to Dashboard"
+                }
+            }
+        }
     }
 }

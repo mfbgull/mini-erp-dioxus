@@ -1,5 +1,6 @@
 //! Financial Report Page — Profit & Loss and Balance Sheet with period comparison.
 
+use crate::auth::use_auth;
 use crate::components::common::{Button, ButtonVariant, StatCard, StatCardVariant, StatTrend, TrendDirection, use_toast};
 use dioxus::prelude::*;
 
@@ -58,54 +59,31 @@ struct PnlLine {
 }
 
 // ============================================================================
-// Mock Data
+// Helpers — parse API JSON into view structs
 // ============================================================================
 
-fn pnl_income() -> Vec<PnlLine> {
-    vec![
-        PnlLine { label: "Revenue".to_string(), amount: 0.0, is_header: true, is_total: false },
-        PnlLine { label: "Sales Revenue".to_string(), amount: 1_479_500.0, is_header: false, is_total: false },
-        PnlLine { label: "Service Revenue".to_string(), amount: 185_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Other Income".to_string(), amount: 42_500.0, is_header: false, is_total: false },
-        PnlLine { label: "Total Revenue".to_string(), amount: 1_707_000.0, is_header: false, is_total: true },
-        PnlLine { label: "Cost of Goods Sold".to_string(), amount: 0.0, is_header: true, is_total: false },
-        PnlLine { label: "Raw Materials".to_string(), amount: 520_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Direct Labor".to_string(), amount: 245_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Manufacturing Overhead".to_string(), amount: 138_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Total COGS".to_string(), amount: 903_000.0, is_header: false, is_total: true },
-        PnlLine { label: "Gross Profit".to_string(), amount: 804_000.0, is_header: false, is_total: true },
-        PnlLine { label: "Operating Expenses".to_string(), amount: 0.0, is_header: true, is_total: false },
-        PnlLine { label: "Salaries & Wages".to_string(), amount: 210_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Rent & Utilities".to_string(), amount: 72_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Marketing".to_string(), amount: 45_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Administrative".to_string(), amount: 38_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Depreciation".to_string(), amount: 25_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Total Operating Expenses".to_string(), amount: 390_000.0, is_header: false, is_total: true },
-        PnlLine { label: "Net Profit / (Loss)".to_string(), amount: 414_000.0, is_header: false, is_total: true },
-    ]
+fn parse_pnl_lines(data: &serde_json::Value) -> Vec<PnlLine> {
+    let items = data.get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    items.iter().map(|item| {
+        PnlLine {
+            label: item.get("label").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            amount: item.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
+            is_header: item.get("is_header").and_then(|v| v.as_bool()).unwrap_or(false),
+            is_total: item.get("is_total").and_then(|v| v.as_bool()).unwrap_or(false),
+        }
+    }).collect()
 }
 
-fn balance_sheet_data() -> Vec<PnlLine> {
-    vec![
-        PnlLine { label: "Assets".to_string(), amount: 0.0, is_header: true, is_total: false },
-        PnlLine { label: "Cash & Bank".to_string(), amount: 520_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Accounts Receivable".to_string(), amount: 342_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Inventory".to_string(), amount: 603_500.0, is_header: false, is_total: false },
-        PnlLine { label: "Fixed Assets (Net)".to_string(), amount: 1_200_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Prepaid Expenses".to_string(), amount: 45_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Total Assets".to_string(), amount: 2_710_500.0, is_header: false, is_total: true },
-        PnlLine { label: "Liabilities".to_string(), amount: 0.0, is_header: true, is_total: false },
-        PnlLine { label: "Accounts Payable".to_string(), amount: 285_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Short-term Loans".to_string(), amount: 150_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Accrued Expenses".to_string(), amount: 62_500.0, is_header: false, is_total: false },
-        PnlLine { label: "Tax Payable".to_string(), amount: 89_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Total Liabilities".to_string(), amount: 586_500.0, is_header: false, is_total: true },
-        PnlLine { label: "Equity".to_string(), amount: 0.0, is_header: true, is_total: false },
-        PnlLine { label: "Share Capital".to_string(), amount: 1_500_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Retained Earnings".to_string(), amount: 210_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Current Year Profit".to_string(), amount: 414_000.0, is_header: false, is_total: false },
-        PnlLine { label: "Total Equity".to_string(), amount: 2_124_000.0, is_header: false, is_total: true },
-    ]
+fn parse_balance_lines(data: &serde_json::Value) -> Vec<PnlLine> {
+    let items = data.get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    items.iter().map(|item| {
+        PnlLine {
+            label: item.get("label").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            amount: item.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
+            is_header: item.get("is_header").and_then(|v| v.as_bool()).unwrap_or(false),
+            is_total: item.get("is_total").and_then(|v| v.as_bool()).unwrap_or(false),
+        }
+    }).collect()
 }
 
 // ============================================================================
@@ -115,16 +93,42 @@ fn balance_sheet_data() -> Vec<PnlLine> {
 #[component]
 pub fn FinancialReportPage() -> Element {
     let toast = use_toast();
+    let api = use_auth().api;
     let active_tab = use_signal(|| 0usize);
     let tabs = ["Profit & Loss", "Balance Sheet"];
 
-    let income = pnl_income();
-    let balance = balance_sheet_data();
-    let net_profit = income.last().map(|l| l.amount).unwrap_or(0.0);
-    let total_revenue = 1_707_000.0;
-    let total_assets = 2_710_500.0;
-    let total_liabilities = 586_500.0;
-    let profit_margin = (net_profit / total_revenue) * 100.0;
+    let pnl_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_profit_loss().await.unwrap_or_default()
+        }
+    });
+
+    let bs_resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_balance_sheet().await.unwrap_or_default()
+        }
+    });
+
+    let loading = pnl_resource.read().is_none() || bs_resource.read().is_none();
+
+    let pnl_data = pnl_resource.read().clone().unwrap_or_default();
+    let bs_data = bs_resource.read().clone().unwrap_or_default();
+
+    let income = parse_pnl_lines(&pnl_data);
+    let balance = parse_balance_lines(&bs_data);
+
+    let net_profit = pnl_data.get("net_profit").and_then(|v| v.as_f64()).unwrap_or(
+        income.last().map(|l| l.amount).unwrap_or(0.0)
+    );
+    let total_revenue = pnl_data.get("total_revenue").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let total_assets = bs_data.get("total_assets").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let total_liabilities = bs_data.get("total_liabilities").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let total_equity = bs_data.get("total_equity").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let profit_margin = if total_revenue > 0.0 { (net_profit / total_revenue) * 100.0 } else { 0.0 };
 
     let on_export = {
         let mut t = toast.clone();
@@ -136,149 +140,164 @@ pub fn FinancialReportPage() -> Element {
         move |_| { t.info("Print", "Print dialog will open."); }
     };
 
-    rsx! {
-        style { "{PAGE_CSS}" }
-        div { class: "page fr-page",
-
-            div { class: "fr-header",
-                div {
-                    h1 { "Financial Report" }
-                    p { class: "page-subtitle", "Profit & Loss Statement and Balance Sheet." }
+    if loading {
+        rsx! {
+            style { "{PAGE_CSS}" }
+            div { class: "page fr-page",
+                div { class: "fr-header",
+                    div {
+                        h1 { "Financial Report" }
+                        p { class: "page-subtitle", "Profit & Loss Statement and Balance Sheet." }
+                    }
                 }
-                div { style: "display: flex; gap: 8px;",
-                    Button { variant: ButtonVariant::Secondary, icon: Some("🖨".to_string()), onclick: on_print, "Print" }
-                    Button { variant: ButtonVariant::Primary, icon: Some("📥".to_string()), onclick: on_export, "Export PDF" }
-                }
+                div { class: "fr-loading", "Loading financial data..." }
             }
+        }
+    } else {
+        rsx! {
+            style { "{PAGE_CSS}" }
+            div { class: "page fr-page",
 
-            // Period filter
-            div { class: "fr-filter-bar",
-                label { "Period" }
-                select {
-                    option { value: "h1-2026", selected: true, "H1 2026 (Jan — Jun)" }
-                    option { value: "q2-2026", "Q2 2026 (Apr — Jun)" }
-                    option { value: "2025", "FY 2025" }
+                div { class: "fr-header",
+                    div {
+                        h1 { "Financial Report" }
+                        p { class: "page-subtitle", "Profit & Loss Statement and Balance Sheet." }
+                    }
+                    div { style: "display: flex; gap: 8px;",
+                        Button { variant: ButtonVariant::Secondary, icon: Some("🖨".to_string()), onclick: on_print, "Print" }
+                        Button { variant: ButtonVariant::Primary, icon: Some("📥".to_string()), onclick: on_export, "Export PDF" }
+                    }
                 }
-                label { "Comparison" }
-                select {
-                    option { value: "none", selected: true, "No Comparison" }
-                    option { value: "prev", "vs Previous Period" }
-                }
-            }
 
-            // KPI cards
-            div { class: "fr-kpi-grid",
-                StatCard {
-                    title: "Net Profit".to_string(),
-                    value: format!("PKR {:.0}", net_profit),
-                    icon: "📈".to_string(),
-                    variant: if net_profit > 0.0 { StatCardVariant::Success } else { StatCardVariant::Danger },
-                    trend: Some(StatTrend { direction: TrendDirection::Up, label: "15.2% vs last period".to_string() }),
-                    footer: Some(format!("Margin: {:.1}%", profit_margin)),
+                // Period filter
+                div { class: "fr-filter-bar",
+                    label { "Period" }
+                    select {
+                        option { value: "h1-2026", selected: true, "H1 2026 (Jan — Jun)" }
+                        option { value: "q2-2026", "Q2 2026 (Apr — Jun)" }
+                        option { value: "2025", "FY 2025" }
+                    }
+                    label { "Comparison" }
+                    select {
+                        option { value: "none", selected: true, "No Comparison" }
+                        option { value: "prev", "vs Previous Period" }
+                    }
                 }
-                StatCard {
-                    title: "Total Revenue".to_string(),
-                    value: format!("PKR {:.0}", total_revenue),
-                    icon: "💰".to_string(),
-                    variant: StatCardVariant::Primary,
-                    footer: Some("H1 2026".to_string()),
-                }
-                StatCard {
-                    title: "Total Assets".to_string(),
-                    value: format!("PKR {:.0}", total_assets),
-                    icon: "🏢".to_string(),
-                    variant: StatCardVariant::Default,
-                    footer: Some("As of Jun 27, 2026".to_string()),
-                }
-                StatCard {
-                    title: "Liabilities / Equity".to_string(),
-                    value: format!("PKR {:.0} / PKR {:.0}", total_liabilities, 2_124_000.0),
-                    icon: "⚖".to_string(),
-                    variant: StatCardVariant::Warning,
-                    footer: Some(format!("Ratio: {:.2}", total_liabilities / 2_124_000.0)),
-                }
-            }
 
-            // Tabs
-            div { class: "fr-tabs",
-                {tabs.iter().enumerate().map(|(i, tab)| {
-                    let is_active = *active_tab.read() == i;
-                    let cls = if is_active { "fr-tab fr-tab-active" } else { "fr-tab" };
-                    let mut set_tab = active_tab.clone();
-                    rsx! {
-                        button { key: "{i}", class: "{cls}", r#type: "button",
-                            onclick: move |_| { set_tab.set(i); },
-                            "{tab}"
+                // KPI cards
+                div { class: "fr-kpi-grid",
+                    StatCard {
+                        title: "Net Profit".to_string(),
+                        value: format!("PKR {:.0}", net_profit),
+                        icon: "📈".to_string(),
+                        variant: if net_profit > 0.0 { StatCardVariant::Success } else { StatCardVariant::Danger },
+                        trend: Some(StatTrend { direction: TrendDirection::Up, label: "15.2% vs last period".to_string() }),
+                        footer: Some(format!("Margin: {:.1}%", profit_margin)),
+                    }
+                    StatCard {
+                        title: "Total Revenue".to_string(),
+                        value: format!("PKR {:.0}", total_revenue),
+                        icon: "💰".to_string(),
+                        variant: StatCardVariant::Primary,
+                        footer: Some("H1 2026".to_string()),
+                    }
+                    StatCard {
+                        title: "Total Assets".to_string(),
+                        value: format!("PKR {:.0}", total_assets),
+                        icon: "🏢".to_string(),
+                        variant: StatCardVariant::Default,
+                        footer: Some("As of current period".to_string()),
+                    }
+                    StatCard {
+                        title: "Liabilities / Equity".to_string(),
+                        value: format!("PKR {:.0} / PKR {:.0}", total_liabilities, total_equity),
+                        icon: "⚖".to_string(),
+                        variant: StatCardVariant::Warning,
+                        footer: Some(if total_equity > 0.0 { format!("Ratio: {:.2}", total_liabilities / total_equity) } else { "Ratio: N/A".to_string() }),
+                    }
+                }
+
+                // Tabs
+                div { class: "fr-tabs",
+                    {tabs.iter().enumerate().map(|(i, tab)| {
+                        let is_active = *active_tab.read() == i;
+                        let cls = if is_active { "fr-tab fr-tab-active" } else { "fr-tab" };
+                        let mut set_tab = active_tab.clone();
+                        rsx! {
+                            button { key: "{i}", class: "{cls}", r#type: "button",
+                                onclick: move |_| { set_tab.set(i); },
+                                "{tab}"
+                            }
+                        }
+                    })}
+                }
+
+                // P&L tab
+                if *active_tab.read() == 0 {
+                    div { class: "fr-section",
+                        div { class: "fr-section-header",
+                            h2 { "Profit & Loss Statement — H1 2026" }
+                        }
+                        table { class: "fr-table",
+                            thead { tr {
+                                th { style: "width: 60%;", "Account" }
+                                th { class: "text-right", "Amount (PKR)" }
+                            }}
+                            tbody {
+                                {income.into_iter().map(|line| {
+                                    if line.is_header {
+                                        rsx! { tr { key: "{line.label}", class: "section-header",
+                                            td { colspan: "2", "{line.label}" }
+                                        }}
+                                    } else if line.is_total {
+                                        let cls = if line.label == "Net Profit / (Loss)" { "text-success" } else { "" };
+                                        rsx! { tr { key: "{line.label}", class: "total-row",
+                                            td { "{line.label}" }
+                                            td { class: "text-right {cls}", "PKR {line.amount:.0}" }
+                                        }}
+                                    } else {
+                                        let indent = if line.label.starts_with("  ") { "padding-left: 24px;" } else { "" };
+                                        rsx! { tr { key: "{line.label}",
+                                            td { style: "{indent}", "{line.label}" }
+                                            td { class: "text-right", "PKR {line.amount:.0}" }
+                                        }}
+                                    }
+                                })}
+                            }
                         }
                     }
-                })}
-            }
-
-            // P&L tab
-            if *active_tab.read() == 0 {
-                div { class: "fr-section",
-                    div { class: "fr-section-header",
-                        h2 { "Profit & Loss Statement — H1 2026" }
-                    }
-                    table { class: "fr-table",
-                        thead { tr {
-                            th { style: "width: 60%;", "Account" }
-                            th { class: "text-right", "Amount (PKR)" }
-                        }}
-                        tbody {
-                            {income.into_iter().map(|line| {
-                                if line.is_header {
-                                    rsx! { tr { key: "{line.label}", class: "section-header",
-                                        td { colspan: "2", "{line.label}" }
-                                    }}
-                                } else if line.is_total {
-                                    let cls = if line.label == "Net Profit / (Loss)" { "text-success" } else { "" };
-                                    rsx! { tr { key: "{line.label}", class: "total-row",
-                                        td { "{line.label}" }
-                                        td { class: "text-right {cls}", "PKR {line.amount:.0}" }
-                                    }}
-                                } else {
-                                    let indent = if line.label.starts_with("  ") { "padding-left: 24px;" } else { "" };
-                                    rsx! { tr { key: "{line.label}",
-                                        td { style: "{indent}", "{line.label}" }
-                                        td { class: "text-right", "PKR {line.amount:.0}" }
-                                    }}
-                                }
-                            })}
-                        }
-                    }
                 }
-            }
 
-            // Balance Sheet tab
-            if *active_tab.read() == 1 {
-                div { class: "fr-section",
-                    div { class: "fr-section-header",
-                        h2 { "Balance Sheet — As of June 27, 2026" }
-                    }
-                    table { class: "fr-table",
-                        thead { tr {
-                            th { style: "width: 60%;", "Account" }
-                            th { class: "text-right", "Amount (PKR)" }
-                        }}
-                        tbody {
-                            {balance.into_iter().map(|line| {
-                                if line.is_header {
-                                    rsx! { tr { key: "{line.label}", class: "section-header",
-                                        td { colspan: "2", "{line.label}" }
-                                    }}
-                                } else if line.is_total {
-                                    rsx! { tr { key: "{line.label}", class: "total-row",
-                                        td { "{line.label}" }
-                                        td { class: "text-right", "PKR {line.amount:.0}" }
-                                    }}
-                                } else {
-                                    rsx! { tr { key: "{line.label}",
-                                        td { "{line.label}" }
-                                        td { class: "text-right", "PKR {line.amount:.0}" }
-                                    }}
-                                }
-                            })}
+                // Balance Sheet tab
+                if *active_tab.read() == 1 {
+                    div { class: "fr-section",
+                        div { class: "fr-section-header",
+                            h2 { "Balance Sheet — Current Period" }
+                        }
+                        table { class: "fr-table",
+                            thead { tr {
+                                th { style: "width: 60%;", "Account" }
+                                th { class: "text-right", "Amount (PKR)" }
+                            }}
+                            tbody {
+                                {balance.into_iter().map(|line| {
+                                    if line.is_header {
+                                        rsx! { tr { key: "{line.label}", class: "section-header",
+                                            td { colspan: "2", "{line.label}" }
+                                        }}
+                                    } else if line.is_total {
+                                        rsx! { tr { key: "{line.label}", class: "total-row",
+                                            td { "{line.label}" }
+                                            td { class: "text-right", "PKR {line.amount:.0}" }
+                                        }}
+                                    } else {
+                                        rsx! { tr { key: "{line.label}",
+                                            td { "{line.label}" }
+                                            td { class: "text-right", "PKR {line.amount:.0}" }
+                                        }}
+                                    }
+                                })}
+                            }
                         }
                     }
                 }

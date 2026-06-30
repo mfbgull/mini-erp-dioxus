@@ -29,7 +29,7 @@ fn open_database() -> Result<Connection> {
     conn.execute_batch(
         "PRAGMA journal_mode=WAL;
          PRAGMA synchronous=NORMAL;
-         PRAGMA busy_timeout=5000;
+         PRAGMA busy_timeout=15000;
          PRAGMA foreign_keys=ON;"
     )?;
 
@@ -117,6 +117,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         ("051_custom_reports", MIGRATION_051_CUSTOM_REPORTS),
         ("052_dashboard_layouts", MIGRATION_052_DASHBOARD_LAYOUTS),
         ("053_invoice_drafts", MIGRATION_053_INVOICE_DRAFTS),
+        ("054_activity_log", MIGRATION_054_ACTIVITY_LOG),
     ];
 
     for (name, sql) in &migrations {
@@ -1034,6 +1035,21 @@ CREATE TABLE IF NOT EXISTS invoice_drafts (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_invoice_drafts_session ON invoice_drafts(session_id);
+";
+
+const MIGRATION_054_ACTIVITY_LOG: &str = "
+CREATE TABLE IF NOT EXISTS activity_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER,
+    metadata TEXT,
+    ip_address TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_activity_log_user ON activity_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at);
 ";
 
 // ============================================================================

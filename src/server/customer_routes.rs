@@ -21,7 +21,7 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn list_customers(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT id, customer_code, customer_name, email, phone, billing_address, shipping_address,
                 payment_terms, credit_limit, credit_balance, current_balance, opening_balance,
@@ -51,7 +51,7 @@ async fn list_customers(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_customer(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, customer_code, customer_name, email, phone, billing_address, shipping_address,
                 payment_terms, credit_limit, credit_balance, current_balance, opening_balance,
@@ -86,7 +86,7 @@ async fn create_customer(State(_state): State<AppState>, Json(form): Json<Custom
     if form.customer_code.trim().is_empty() || form.customer_name.trim().is_empty() {
         return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Customer code and name are required." })));
     }
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let exists: bool = db.query_row("SELECT COUNT(*) > 0 FROM customers WHERE customer_code = ?1", [&form.customer_code], |row| row.get(0)).unwrap_or(false);
     if exists {
         return (StatusCode::CONFLICT, Json(json!({ "success": false, "error": "Customer code already exists." })));
@@ -130,7 +130,7 @@ async fn create_customer(State(_state): State<AppState>, Json(form): Json<Custom
 }
 
 async fn update_customer(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<CustomerForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE customers SET customer_code=?1, customer_name=?2, email=?3, phone=?4,
          billing_address=?5, shipping_address=?6, payment_terms=?7, credit_limit=?8, updated_at=datetime('now')
@@ -164,7 +164,7 @@ async fn update_customer(State(_state): State<AppState>, Path(id): Path<i64>, Js
 }
 
 async fn delete_customer(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE customers SET is_active = 0, updated_at = datetime('now') WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Customer deleted." } }))),
@@ -174,7 +174,7 @@ async fn delete_customer(State(_state): State<AppState>, Path(id): Path<i64>) ->
 }
 
 async fn customer_ledger(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT id, customer_id, transaction_date, type, reference_no, debit, credit, balance
          FROM customer_ledger WHERE customer_id = ?1 ORDER BY id"
@@ -196,7 +196,7 @@ async fn customer_statement(
 ) -> impl IntoResponse {
     let start = params.get("start_date").map(|s| s.as_str()).unwrap_or("2000-01-01");
     let end = params.get("end_date").map(|s| s.as_str()).unwrap_or("2099-12-31");
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT id, customer_id, transaction_date, type, reference_no, debit, credit, balance
          FROM customer_ledger WHERE customer_id = ?1 AND transaction_date BETWEEN ?2 AND ?3 ORDER BY id"
@@ -212,7 +212,7 @@ async fn customer_statement(
 }
 
 async fn customer_balance(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row("SELECT current_balance FROM customers WHERE id = ?1", [id], |row| row.get::<_, f64>(0));
     match result {
         Ok(balance) => (StatusCode::OK, Json(json!({ "success": true, "data": { "balance": balance } }))),
@@ -221,7 +221,7 @@ async fn customer_balance(State(_state): State<AppState>, Path(id): Path<i64>) -
 }
 
 async fn recalculate_balances(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let customer_ids: Vec<i64> = {
         let mut stmt = db.prepare("SELECT id FROM customers WHERE is_active = 1").unwrap();
         stmt.query_map([], |row| row.get(0)).unwrap().filter_map(|r| r.ok()).collect()

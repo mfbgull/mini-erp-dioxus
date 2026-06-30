@@ -229,6 +229,33 @@ const PAGE_CSS: &str = r##"
     color: #fff;
 }
 
+/* ── Payment Section ── */
+.invoice-payment-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.invoice-payment-toggle input[type="checkbox"] {
+    accent-color: var(--accent, #4a90d9);
+    width: 16px;
+    height: 16px;
+}
+
+.invoice-payment-fields {
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.invoice-payment-fields > * {
+    flex: 1;
+    min-width: 180px;
+}
+
 /* ── Action Bar ── */
 .invoice-action-bar {
     display: flex;
@@ -351,6 +378,11 @@ pub fn InvoiceCreatePage() -> Element {
     let is_saving = use_signal(|| false);
     let is_dirty = use_signal(|| false);
     let show_discard_modal = use_signal(|| false);
+
+    // ── Payment state ──
+    let record_payment = use_signal(|| false);
+    let payment_amount = use_signal(String::new);
+    let payment_method = use_signal(|| "Cash".to_string());
 
     // ── API-loaded data ──
     let customer_map = use_signal(HashMap::<String, Customer>::new);
@@ -498,6 +530,9 @@ pub fn InvoiceCreatePage() -> Element {
         let api = auth_api.clone();
         let cust_map = customer_map.clone();
         let it_map = item_map.clone();
+        let rec_pay = record_payment.clone();
+        let pay_amt = payment_amount.clone();
+        let pay_meth = payment_method.clone();
 
         move |_| {
             if c_code.read().is_empty() {
@@ -538,9 +573,9 @@ pub fn InvoiceCreatePage() -> Element {
                 tax_rate: Some(tax_str.read().parse::<f64>().unwrap_or(0.0)),
                 notes: Some(nts.read().clone()),
                 items: form_items,
-                record_payment: Some(false),
-                payment_amount: None,
-                payment_method: None,
+                record_payment: Some(*rec_pay.read()),
+                payment_amount: if *rec_pay.read() { pay_amt.read().parse::<f64>().ok() } else { None },
+                payment_method: if *rec_pay.read() { Some(pay_meth.read().clone()) } else { None },
             };
 
             saving.set(true);
@@ -583,6 +618,9 @@ pub fn InvoiceCreatePage() -> Element {
         let api = auth_api.clone();
         let cust_map = customer_map.clone();
         let it_map = item_map.clone();
+        let mut rec_pay = record_payment.clone();
+        let mut pay_amt = payment_amount.clone();
+        let mut pay_meth = payment_method.clone();
 
         move |_| {
             if c_code.read().is_empty() {
@@ -611,6 +649,7 @@ pub fn InvoiceCreatePage() -> Element {
                     }
                 }).collect();
 
+            let do_record = *rec_pay.read();
             let form = InvoiceForm {
                 customer_id: cust_id,
                 invoice_date: inv_date.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
@@ -623,9 +662,9 @@ pub fn InvoiceCreatePage() -> Element {
                 tax_rate: Some(tax_str.read().parse::<f64>().unwrap_or(0.0)),
                 notes: Some(nts.read().clone()),
                 items: form_items,
-                record_payment: Some(false),
-                payment_amount: None,
-                payment_method: None,
+                record_payment: Some(do_record),
+                payment_amount: if do_record { pay_amt.read().parse::<f64>().ok() } else { None },
+                payment_method: if do_record { Some(pay_meth.read().clone()) } else { None },
             };
 
             let item_count = its.read().iter().filter(|li| !li.item_code.is_empty()).count() as i32;
@@ -653,6 +692,9 @@ pub fn InvoiceCreatePage() -> Element {
                         nts.set(String::new());
                         disc_pct.set(String::from("0"));
                         tax_str.set(format!("{}", DEFAULT_TAX_RATE));
+                        rec_pay.set(false);
+                        pay_amt.set(String::new());
+                        pay_meth.set("Cash".to_string());
                         saving.set(false);
                         dirty.set(false);
                     }
@@ -1033,6 +1075,67 @@ pub fn InvoiceCreatePage() -> Element {
                     r#type: InputType::TextArea,
                     placeholder: Some("Optional notes or payment terms…".to_string()),
                     hint: Some("These notes will appear on the printed invoice.".to_string()),
+                }
+            }
+
+            // ── Section: Payment ──
+            div { class: "invoice-section",
+                h2 { "Payment" }
+                label { class: "invoice-payment-toggle",
+                    input {
+                        r#type: "checkbox",
+                        checked: *record_payment.read(),
+                        onchange: move |_| {
+                            let new_val = !*record_payment.read();
+                            record_payment.set(new_val);
+                            if new_val {
+                                let total = metrics.total;
+                                payment_amount.set(format!("{:.2}", total));
+                                payment_method.set("Cash".to_string());
+                            } else {
+                                payment_amount.set(String::new());
+                                payment_method.set("Cash".to_string());
+                            }
+                            is_dirty.set(true);
+                        },
+                    }
+                    span { "Record payment with this invoice" }
+                }
+                if *record_payment.read() {
+                    div { class: "invoice-payment-fields",
+                        FormInput {
+                            label: "Payment Amount".to_string(),
+                            value: payment_amount.read().clone(),
+                            oninput: {
+                                let mut pa = payment_amount.clone();
+                                let mut dirty = is_dirty.clone();
+                                move |v| { pa.set(v); dirty.set(true); }
+                            },
+                            r#type: InputType::Number,
+                            min: Some(0.01),
+                            step: Some(0.01),
+                        }
+                        div {
+                            label { style: "display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;", "Payment Method" }
+                            SearchableSelect {
+                                options: vec![
+                                    SelectOption { value: "Cash".to_string(), label: "Cash".to_string() },
+                                    SelectOption { value: "Bank Transfer".to_string(), label: "Bank Transfer".to_string() },
+                                    SelectOption { value: "Credit Card".to_string(), label: "Credit Card".to_string() },
+                                    SelectOption { value: "Cheque".to_string(), label: "Cheque".to_string() },
+                                ],
+                                selected_value: Some(payment_method.read().clone()),
+                                on_select: {
+                                    let mut pm = payment_method.clone();
+                                    let mut dirty = is_dirty.clone();
+                                    move |v: String| { pm.set(v); dirty.set(true); }
+                                },
+                                placeholder: "Select method…",
+                                searchable: false,
+                                class: Some("cb-input-group".to_string()),
+                            }
+                        }
+                    }
                 }
             }
 

@@ -32,7 +32,7 @@ pub fn router() -> Router<AppState> {
 // ============================================================================
 
 async fn list_sales_orders(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT so.id, so.so_no, so.customer_id, c.customer_name, so.so_date, so.status,
                 so.source_type, so.source_id, so.total_amount, so.warehouse_id, so.notes,
@@ -53,7 +53,7 @@ async fn list_sales_orders(State(_state): State<AppState>) -> impl IntoResponse 
 }
 
 async fn get_sales_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT so.id, so.so_no, so.customer_id, c.customer_name, so.so_date, so.status,
                 so.source_type, so.source_id, so.total_amount, so.warehouse_id, so.notes,
@@ -94,7 +94,7 @@ async fn create_sales_order(State(_state): State<AppState>, Json(form): Json<Sal
     if form.items.is_empty() {
         return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "At least one item is required." })));
     }
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM sales_orders", [], |row| row.get(0)).unwrap_or(1);
     let so_no = format!("SO-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let total: f64 = form.items.iter().map(|i| i.quantity * i.unit_price).sum();
@@ -122,7 +122,7 @@ async fn create_sales_order(State(_state): State<AppState>, Json(form): Json<Sal
 }
 
 async fn update_sales_order(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<SalesOrderForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let total: f64 = form.items.iter().map(|i| i.quantity * i.unit_price).sum();
     let result = db.execute(
         "UPDATE sales_orders SET customer_id=?1, so_date=?2, total_amount=?3, warehouse_id=?4, notes=?5, updated_at=datetime('now') WHERE id=?6",
@@ -146,7 +146,7 @@ async fn update_sales_order(State(_state): State<AppState>, Path(id): Path<i64>,
 }
 
 async fn delete_sales_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     db.execute("DELETE FROM sales_order_items WHERE so_id = ?1", [id]).ok();
     let result = db.execute("DELETE FROM sales_orders WHERE id = ?1", [id]);
     match result {
@@ -157,7 +157,7 @@ async fn delete_sales_order(State(_state): State<AppState>, Path(id): Path<i64>)
 }
 
 async fn cancel_sales_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE sales_orders SET status = 'Cancelled', updated_at = datetime('now') WHERE id = ?1 AND status != 'Cancelled'", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Sales order cancelled." } }))),
@@ -167,7 +167,7 @@ async fn cancel_sales_order(State(_state): State<AppState>, Path(id): Path<i64>)
 }
 
 async fn convert_sales_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let so = db.query_row(
         "SELECT id, customer_id, warehouse_id, total_amount FROM sales_orders WHERE id = ?1 AND status = 'Pending'",
         [id],
@@ -191,7 +191,7 @@ async fn convert_sales_order(State(_state): State<AppState>, Path(id): Path<i64>
 }
 
 async fn so_cycle_chain(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let so = db.query_row("SELECT so_no, quotation_id FROM sales_orders WHERE id = ?1", [id], |row| {
         Ok(json!({ "so_no": row.get::<_, String>(0)?, "quotation_id": row.get::<_, Option<i64>>(1)? }))
     });
@@ -206,7 +206,7 @@ async fn so_cycle_chain(State(_state): State<AppState>, Path(id): Path<i64>) -> 
 // ============================================================================
 
 async fn list_quotations(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT q.id, q.quotation_no, q.customer_id, c.customer_name, q.quotation_date,
                 q.expiry_date, q.status, q.total_amount, q.notes, q.created_by, q.created_at, q.updated_at
@@ -225,7 +225,7 @@ async fn list_quotations(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_quotation(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT q.id, q.quotation_no, q.customer_id, c.customer_name, q.quotation_date,
                 q.expiry_date, q.status, q.total_amount, q.notes, q.created_by, q.created_at, q.updated_at
@@ -264,7 +264,7 @@ async fn create_quotation(State(_state): State<AppState>, Json(form): Json<Quota
     if form.items.is_empty() {
         return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "At least one item is required." })));
     }
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM quotations", [], |row| row.get(0)).unwrap_or(1);
     let qno = format!("QUO-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let total: f64 = form.items.iter().map(|i| {
@@ -299,7 +299,7 @@ async fn create_quotation(State(_state): State<AppState>, Json(form): Json<Quota
 }
 
 async fn update_quotation(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<QuotationForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let total: f64 = form.items.iter().map(|i| {
         let sub = i.quantity * i.unit_price;
         sub - i.discount.unwrap_or(0.0) + sub * (i.tax_rate.unwrap_or(0.0) / 100.0)
@@ -331,7 +331,7 @@ async fn update_quotation(State(_state): State<AppState>, Path(id): Path<i64>, J
 }
 
 async fn delete_quotation(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     db.execute("DELETE FROM quotation_items WHERE quotation_id = ?1", [id]).ok();
     let result = db.execute("DELETE FROM quotations WHERE id = ?1", [id]);
     match result {
@@ -342,7 +342,7 @@ async fn delete_quotation(State(_state): State<AppState>, Path(id): Path<i64>) -
 }
 
 async fn convert_quotation(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let q = db.query_row(
         "SELECT id, customer_id, total_amount FROM quotations WHERE id = ?1 AND status = 'Draft'",
         [id],
@@ -366,7 +366,7 @@ async fn convert_quotation(State(_state): State<AppState>, Path(id): Path<i64>) 
 }
 
 async fn quotation_cycle_chain(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let q = db.query_row("SELECT quotation_no, status FROM quotations WHERE id = ?1", [id], |row| {
         Ok(json!({ "quotation_no": row.get::<_, String>(0)?, "status": row.get::<_, String>(1)? }))
     });
@@ -377,7 +377,7 @@ async fn quotation_cycle_chain(State(_state): State<AppState>, Path(id): Path<i6
 }
 
 async fn sales_dashboard(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let total_invoices: i64 = db.query_row("SELECT COUNT(*) FROM invoices", [], |row| row.get(0)).unwrap_or(0);
     let total_revenue: f64 = db.query_row("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status != 'Cancelled'", [], |row| row.get(0)).unwrap_or(0.0);

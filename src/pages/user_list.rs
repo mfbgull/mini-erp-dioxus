@@ -138,7 +138,7 @@ pub fn UserListPage() -> Element {
     let on_new = {
         let nav = navigator.clone();
         move |_| {
-            nav.push("/users");
+            nav.push("/users/new");
         }
     };
 

@@ -17,7 +17,7 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn list_payments(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT p.id, p.payment_no, p.customer_id, c.customer_name, p.invoice_id,
                 p.payment_date, p.amount, p.payment_method, p.reference, p.notes,
@@ -37,7 +37,7 @@ async fn list_payments(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_payment(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT p.id, p.payment_no, p.customer_id, c.customer_name, p.invoice_id,
                 p.payment_date, p.amount, p.payment_method, p.reference, p.notes,
@@ -61,7 +61,7 @@ async fn create_payment(State(_state): State<AppState>, Json(form): Json<Payment
     if form.amount <= 0.0 {
         return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Payment amount must be positive." })));
     }
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM payments", [], |row| row.get(0)).unwrap_or(1);
     let pno = format!("PAY-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
 
@@ -112,7 +112,7 @@ async fn create_payment(State(_state): State<AppState>, Json(form): Json<Payment
 }
 
 async fn update_payment(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<PaymentForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE payments SET payment_date=?1, amount=?2, payment_method=?3, reference=?4, notes=?5 WHERE id=?6",
         rusqlite::params![form.payment_date, form.amount, form.payment_method,
@@ -126,7 +126,7 @@ async fn update_payment(State(_state): State<AppState>, Path(id): Path<i64>, Jso
 }
 
 async fn delete_payment(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("DELETE FROM payments WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Payment deleted." } }))),

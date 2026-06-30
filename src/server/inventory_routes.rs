@@ -53,7 +53,7 @@ pub fn router() -> Router<AppState> {
 async fn list_items(
     State(_state): State<AppState>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db
         .prepare(
             "SELECT id, item_code, item_name, description, category, unit_of_measure,
@@ -97,7 +97,7 @@ async fn get_item(
     State(_state): State<AppState>,
     Path(id): Path<i64>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, item_code, item_name, description, category, unit_of_measure,
                 current_stock, reorder_level, standard_cost, selling_price,
@@ -148,7 +148,7 @@ async fn create_item(
         );
     }
 
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     // Check for duplicate code
     let exists: bool = db
@@ -240,7 +240,7 @@ async fn update_item(
     Path(id): Path<i64>,
     Json(form): Json<ItemForm>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     let result = db.execute(
         "UPDATE items SET
@@ -321,7 +321,7 @@ async fn delete_item(
     State(_state): State<AppState>,
     Path(id): Path<i64>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE items SET is_active = 0, updated_at = datetime('now') WHERE id = ?1",
         [id],
@@ -349,7 +349,7 @@ async fn delete_item(
 async fn list_categories(
     State(_state): State<AppState>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db
         .prepare("SELECT DISTINCT category FROM items WHERE is_active = 1 AND category != '' ORDER BY category")
         .unwrap();
@@ -366,7 +366,7 @@ async fn list_categories(
 async fn list_low_stock(
     State(_state): State<AppState>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db
         .prepare(
             "SELECT id, item_code, item_name, description, category, unit_of_measure,
@@ -410,7 +410,7 @@ async fn list_low_stock(
 async fn list_uom(
     State(_state): State<AppState>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db
         .prepare("SELECT DISTINCT unit_of_measure FROM items WHERE is_active = 1 ORDER BY unit_of_measure")
         .unwrap();
@@ -431,7 +431,7 @@ async fn list_uom(
 async fn list_warehouses(
     State(_state): State<AppState>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db
         .prepare(
             "SELECT id, warehouse_code, warehouse_name, location, is_active, created_at
@@ -461,7 +461,7 @@ async fn get_warehouse(
     State(_state): State<AppState>,
     Path(id): Path<i64>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, warehouse_code, warehouse_name, location, is_active, created_at
          FROM warehouses WHERE id = ?1",
@@ -498,7 +498,7 @@ async fn create_warehouse(
         );
     }
 
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     let exists: bool = db
         .query_row(
@@ -564,7 +564,7 @@ async fn update_warehouse(
     Path(id): Path<i64>,
     Json(form): Json<WarehouseForm>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE warehouses SET warehouse_code = ?1, warehouse_name = ?2, location = ?3
          WHERE id = ?4",
@@ -609,7 +609,7 @@ async fn delete_warehouse(
     State(_state): State<AppState>,
     Path(id): Path<i64>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE warehouses SET is_active = 0 WHERE id = ?1",
         [id],
@@ -641,7 +641,7 @@ async fn delete_warehouse(
 async fn list_stock_movements(
     State(_state): State<AppState>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db
         .prepare(
             "SELECT sm.id, sm.movement_no, sm.item_id, i.item_name, i.item_code,
@@ -688,7 +688,7 @@ async fn create_stock_movement(
     State(_state): State<AppState>,
     Json(form): Json<StockMovementForm>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     // Generate movement number
     let seq: i64 = db
@@ -816,7 +816,7 @@ async fn create_stock_movement(
 async fn list_stock_balances(
     State(_state): State<AppState>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db
         .prepare(
             "SELECT sb.id, sb.item_id, i.item_name, i.item_code,
@@ -851,7 +851,7 @@ async fn list_stock_balances(
 async fn stock_summary(
     State(_state): State<AppState>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     let total_items: i64 = db
         .query_row("SELECT COUNT(*) FROM items WHERE is_active = 1", [], |row| row.get(0))
@@ -895,7 +895,7 @@ async fn stock_summary(
 async fn list_physical_counts(
     State(_state): State<AppState>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db
         .prepare(
             "SELECT pc.id, pc.count_no, pc.count_date, pc.warehouse_id,
@@ -933,7 +933,7 @@ async fn get_physical_count(
     State(_state): State<AppState>,
     Path(id): Path<i64>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT pc.id, pc.count_no, pc.count_date, pc.warehouse_id,
                 w.warehouse_name, pc.status, pc.notes, pc.created_by,
@@ -1005,7 +1005,7 @@ async fn create_physical_count(
     State(_state): State<AppState>,
     Json(form): Json<PhysicalCountForm>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     let seq: i64 = db
         .query_row("SELECT COUNT(*) + 1 FROM physical_counts", [], |row| row.get(0))
@@ -1078,7 +1078,7 @@ async fn add_count_item(
     Path(id): Path<i64>,
     Json(form): Json<PhysicalCountItemForm>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     let result = db.execute(
         "UPDATE physical_count_items
@@ -1110,7 +1110,7 @@ async fn complete_physical_count(
     State(_state): State<AppState>,
     Path(id): Path<i64>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     let result = db.execute(
         "UPDATE physical_counts SET status = 'Completed', completed_at = datetime('now')
@@ -1141,7 +1141,7 @@ async fn cancel_physical_count(
     State(_state): State<AppState>,
     Path(id): Path<i64>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     let result = db.execute(
         "UPDATE physical_counts SET status = 'Cancelled' WHERE id = ?1 AND status = 'Draft'",

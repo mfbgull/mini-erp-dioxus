@@ -23,7 +23,7 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn list_forecasts(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT df.id, df.item_id, i.item_name, i.item_code, df.forecast_date,
                 df.period, df.predicted_quantity, df.confidence_level,
@@ -43,7 +43,7 @@ async fn list_forecasts(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn run_forecast(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let run_id = uuid::Uuid::new_v4().to_string();
     let items_count: i64 = db.query_row("SELECT COUNT(*) FROM items WHERE is_active = 1", [], |r| r.get(0)).unwrap_or(0);
     db.execute(
@@ -55,7 +55,7 @@ async fn run_forecast(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn list_forecast_runs(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, run_id, run_type, status, items_processed, started_at, completed_at FROM forecast_runs ORDER BY started_at DESC").unwrap();
     let items: Vec<ForecastRun> = stmt.query_map([], |row| {
         Ok(ForecastRun {
@@ -68,7 +68,7 @@ async fn list_forecast_runs(State(_state): State<AppState>) -> impl IntoResponse
 }
 
 async fn list_forecast_accuracy(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT fa.id, fa.forecast_id, fa.item_id, i.item_name, fa.period,
                 fa.mape, fa.mae, fa.smape
@@ -86,7 +86,7 @@ async fn list_forecast_accuracy(State(_state): State<AppState>) -> impl IntoResp
 }
 
 async fn list_model_configs(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, item_id, category, model_type, alpha, beta, gamma FROM forecast_model_config").unwrap();
     let items: Vec<ForecastModelConfig> = stmt.query_map([], |row| {
         Ok(ForecastModelConfig {
@@ -98,7 +98,7 @@ async fn list_model_configs(State(_state): State<AppState>) -> impl IntoResponse
 }
 
 async fn create_model_config(State(_state): State<AppState>, Json(form): Json<ForecastModelConfigForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "INSERT INTO forecast_model_config (item_id, category, model_type, alpha, beta, gamma) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         rusqlite::params![form.item_id, form.category, form.model_type, form.alpha, form.beta, form.gamma],
@@ -110,7 +110,7 @@ async fn create_model_config(State(_state): State<AppState>, Json(form): Json<Fo
 }
 
 async fn update_model_config(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<ForecastModelConfigForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE forecast_model_config SET item_id=?1, category=?2, model_type=?3, alpha=?4, beta=?5, gamma=?6 WHERE id=?7",
         rusqlite::params![form.item_id, form.category, form.model_type, form.alpha, form.beta, form.gamma, id],
@@ -123,7 +123,7 @@ async fn update_model_config(State(_state): State<AppState>, Path(id): Path<i64>
 }
 
 async fn delete_model_config(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("DELETE FROM forecast_model_config WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Config deleted." } }))),
@@ -133,7 +133,7 @@ async fn delete_model_config(State(_state): State<AppState>, Path(id): Path<i64>
 }
 
 async fn list_seasonal_events(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, event_name, start_date, end_date, multiplier, applies_to_category, applies_to_item_id FROM forecast_seasonal_events ORDER BY start_date").unwrap();
     let items: Vec<SeasonalEvent> = stmt.query_map([], |row| {
         Ok(SeasonalEvent {
@@ -146,7 +146,7 @@ async fn list_seasonal_events(State(_state): State<AppState>) -> impl IntoRespon
 }
 
 async fn create_seasonal_event(State(_state): State<AppState>, Json(form): Json<SeasonalEventForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "INSERT INTO forecast_seasonal_events (event_name, start_date, end_date, multiplier, applies_to_category, applies_to_item_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         rusqlite::params![form.event_name, form.start_date, form.end_date, form.multiplier, form.applies_to_category, form.applies_to_item_id],
@@ -158,7 +158,7 @@ async fn create_seasonal_event(State(_state): State<AppState>, Json(form): Json<
 }
 
 async fn update_seasonal_event(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<SeasonalEventForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE forecast_seasonal_events SET event_name=?1, start_date=?2, end_date=?3, multiplier=?4, applies_to_category=?5, applies_to_item_id=?6 WHERE id=?7",
         rusqlite::params![form.event_name, form.start_date, form.end_date, form.multiplier, form.applies_to_category, form.applies_to_item_id, id],
@@ -171,7 +171,7 @@ async fn update_seasonal_event(State(_state): State<AppState>, Path(id): Path<i6
 }
 
 async fn delete_seasonal_event(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("DELETE FROM forecast_seasonal_events WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Event deleted." } }))),

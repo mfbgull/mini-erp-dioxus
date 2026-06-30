@@ -21,7 +21,7 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn list_invoices(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT i.id, i.invoice_no, i.customer_id, c.customer_name, i.so_id, i.quotation_id,
                 i.source_type, i.invoice_date, i.due_date, i.status, i.total_amount,
@@ -47,7 +47,7 @@ async fn list_invoices(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_invoice(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT i.id, i.invoice_no, i.customer_id, c.customer_name, i.so_id, i.quotation_id,
                 i.source_type, i.invoice_date, i.due_date, i.status, i.total_amount,
@@ -95,7 +95,7 @@ async fn create_invoice(State(_state): State<AppState>, Json(form): Json<Invoice
     if form.items.is_empty() {
         return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "At least one item is required." })));
     }
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM invoices", [], |row| row.get(0)).unwrap_or(1);
     let invoice_no = format!("INV-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
 
@@ -182,7 +182,7 @@ async fn create_invoice(State(_state): State<AppState>, Json(form): Json<Invoice
 }
 
 async fn update_invoice(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<InvoiceForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut total_amount = 0.0;
     for item in &form.items {
         let amount = item.quantity * item.unit_price;
@@ -226,7 +226,7 @@ async fn update_invoice(State(_state): State<AppState>, Path(id): Path<i64>, Jso
 }
 
 async fn cancel_invoice(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE invoices SET status = 'Cancelled', updated_at = datetime('now') WHERE id = ?1 AND status != 'Cancelled'", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Invoice cancelled." } }))),
@@ -236,7 +236,7 @@ async fn cancel_invoice(State(_state): State<AppState>, Path(id): Path<i64>) -> 
 }
 
 async fn return_invoice(State(_state): State<AppState>, Path(id): Path<i64>, Json(req): Json<InvoiceReturnRequest>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     for ret_item in &req.items {
         db.execute(
             "UPDATE invoice_items SET returned_qty = returned_qty + ?1 WHERE invoice_id = ?2 AND item_id = ?3",
@@ -253,7 +253,7 @@ async fn return_invoice(State(_state): State<AppState>, Path(id): Path<i64>, Jso
 }
 
 async fn invoice_payments(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT p.id, p.payment_no, p.customer_id, c.customer_name, p.invoice_id,
                 p.payment_date, p.amount, p.payment_method, p.reference, p.notes,
@@ -273,7 +273,7 @@ async fn invoice_payments(State(_state): State<AppState>, Path(id): Path<i64>) -
 }
 
 async fn list_returns(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT i.id, i.invoice_no, i.customer_id, c.customer_name, i.returned_amount, i.invoice_date
          FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id

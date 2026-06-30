@@ -1,9 +1,11 @@
 //! Production Order Detail Page — View a production order with status, kpis, materials, and actions.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
     use_toast,
 };
+use crate::models;
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r##"
@@ -147,70 +149,34 @@ struct ProductionDetail {
     materials: Vec<MatConsumed>,
 }
 
-fn fetch_production_detail(id: &str) -> Option<ProductionDetail> {
-    let parsed = id.parse::<i64>().unwrap_or(0);
-    match parsed {
-        3 => Some(ProductionDetail {
-            id: 3,
-            prd_no: "PRD-2026-0008".to_string(),
-            item_name: "Rubber Gasket Set".to_string(),
-            item_code: "ITM-0005".to_string(),
-            bom_code: "BOM-0003".to_string(),
-            planned_qty: 1000,
-            completed_qty: 620,
-            scrap_qty: 15,
-            start_date: "2026-06-15".to_string(),
-            end_date: "2026-06-30".to_string(),
-            status: "In Progress".to_string(),
-            notes: "High-priority order for Beta Industries. Quality check at 500 units.".to_string(),
-            materials: vec![
-                MatConsumed { item_code: "ITM-0023".to_string(), item_name: "Rubber Sheet 5mm".to_string(), required_qty: 100.0, uom: "sheets".to_string(), issued_qty: 70.0 },
-                MatConsumed { item_code: "ITM-0025".to_string(), item_name: "Bolt M8 x 30mm".to_string(), required_qty: 4000.0, uom: "pcs".to_string(), issued_qty: 2500.0 },
-                MatConsumed { item_code: "ITM-0026".to_string(), item_name: "Nut M8".to_string(), required_qty: 4000.0, uom: "pcs".to_string(), issued_qty: 2500.0 },
-            ],
-        }),
-        1 => Some(ProductionDetail {
-            id: 1,
-            prd_no: "PRD-2026-0007".to_string(),
-            item_name: "Premium Widget Alpha".to_string(),
-            item_code: "ITM-0001".to_string(),
-            bom_code: "BOM-0001".to_string(),
-            planned_qty: 500,
-            completed_qty: 500,
-            scrap_qty: 8,
-            start_date: "2026-06-10".to_string(),
-            end_date: "2026-06-20".to_string(),
-            status: "Completed".to_string(),
-            notes: "Completed ahead of schedule. Yield rate: 98.4%.".to_string(),
-            materials: vec![
-                MatConsumed { item_code: "ITM-0020".to_string(), item_name: "Steel Plate 6mm".to_string(), required_qty: 1000.0, uom: "sheets".to_string(), issued_qty: 1000.0 },
-                MatConsumed { item_code: "ITM-0021".to_string(), item_name: "Aluminum Rod 20mm".to_string(), required_qty: 750.0, uom: "meters".to_string(), issued_qty: 750.0 },
-                MatConsumed { item_code: "ITM-0025".to_string(), item_name: "Bolt M8 x 30mm".to_string(), required_qty: 4000.0, uom: "pcs".to_string(), issued_qty: 4040.0 },
-                MatConsumed { item_code: "ITM-0026".to_string(), item_name: "Nut M8".to_string(), required_qty: 4000.0, uom: "pcs".to_string(), issued_qty: 4040.0 },
-                MatConsumed { item_code: "ITM-0027".to_string(), item_name: "Washer M8".to_string(), required_qty: 8000.0, uom: "pcs".to_string(), issued_qty: 8080.0 },
-                MatConsumed { item_code: "ITM-0024".to_string(), item_name: "Brass Fitting Set".to_string(), required_qty: 500.0, uom: "pcs".to_string(), issued_qty: 505.0 },
-            ],
-        }),
-        4 => Some(ProductionDetail {
-            id: 4,
-            prd_no: "PRD-2026-0009".to_string(),
-            item_name: "Assembly Kit Type-B".to_string(),
-            item_code: "ITM-0008".to_string(),
-            bom_code: "BOM-0004".to_string(),
-            planned_qty: 300,
-            completed_qty: 0,
-            scrap_qty: 0,
-            start_date: "2026-06-28".to_string(),
-            end_date: "2026-07-10".to_string(),
-            status: "Planned".to_string(),
-            notes: "New product launch. First production run.".to_string(),
-            materials: vec![
-                MatConsumed { item_code: "ITM-0020".to_string(), item_name: "Steel Plate 6mm".to_string(), required_qty: 300.0, uom: "sheets".to_string(), issued_qty: 0.0 },
-                MatConsumed { item_code: "ITM-0025".to_string(), item_name: "Bolt M8 x 30mm".to_string(), required_qty: 1200.0, uom: "pcs".to_string(), issued_qty: 0.0 },
-            ],
-        }),
-        _ => None,
-    }
+async fn fetch_production_detail_from_api(client: &crate::api::ApiClient, id: i64) -> Option<ProductionDetail> {
+    let result = client.get_production(id).await.ok()?;
+    let prd: models::Production = serde_json::from_value(result["production"].clone()).ok()?;
+    let inputs: Vec<models::ProductionInput> = serde_json::from_value(result["inputs"].clone()).unwrap_or_default();
+    let materials: Vec<MatConsumed> = inputs.into_iter().map(|i| {
+        MatConsumed {
+            item_code: i.item_code.unwrap_or_default(),
+            item_name: i.item_name.unwrap_or_default(),
+            required_qty: i.quantity,
+            uom: "pcs".to_string(),
+            issued_qty: 0.0,
+        }
+    }).collect();
+    Some(ProductionDetail {
+        id: prd.id,
+        prd_no: prd.production_no,
+        item_name: String::new(),
+        item_code: String::new(),
+        bom_code: String::new(),
+        planned_qty: prd.output_quantity as i32,
+        completed_qty: 0,
+        scrap_qty: 0,
+        start_date: String::new(),
+        end_date: String::new(),
+        status: prd.status,
+        notes: prd.notes.unwrap_or_default(),
+        materials,
+    })
 }
 
 fn status_badge_class(status: &str) -> &'static str {
@@ -235,11 +201,14 @@ pub fn ProductionDetailPage(id: String) -> Element {
     let navigator = use_navigator();
 
     let id_clone = id.clone();
+    let api = use_auth().api;
     let detail_resource = use_resource(move || {
+        let api = api.clone();
         let id_for_fetch = id_clone.clone();
         async move {
-            crate::utils::sleep(std::time::Duration::from_millis(500)).await;
-            fetch_production_detail(&id_for_fetch)
+            let parsed_id = id_for_fetch.parse::<i64>().unwrap_or(0);
+            let client = api.read().clone();
+            fetch_production_detail_from_api(&client, parsed_id).await
         }
     });
 

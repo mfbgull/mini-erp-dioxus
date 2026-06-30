@@ -25,7 +25,7 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn dashboard_summary(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let total_items: i64 = db.query_row("SELECT COUNT(*) FROM items WHERE is_active = 1", [], |r| r.get(0)).unwrap_or(0);
     let total_customers: i64 = db.query_row("SELECT COUNT(*) FROM customers WHERE is_active = 1", [], |r| r.get(0)).unwrap_or(0);
     let total_suppliers: i64 = db.query_row("SELECT COUNT(*) FROM suppliers WHERE is_active = 1", [], |r| r.get(0)).unwrap_or(0);
@@ -46,7 +46,7 @@ async fn dashboard_summary(State(_state): State<AppState>) -> impl IntoResponse 
 }
 
 async fn top_customers(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT c.id, c.customer_name, COALESCE(SUM(i.total_amount), 0) as revenue, COUNT(i.id) as cnt
          FROM customers c LEFT JOIN invoices i ON c.id = i.customer_id AND i.status != 'Cancelled'
@@ -60,7 +60,7 @@ async fn top_customers(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn sales_summary(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let today_sales: f64 = db.query_row("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE invoice_date = ?1 AND status != 'Cancelled'", [&today], |r| r.get(0)).unwrap_or(0.0);
     let today_count: i64 = db.query_row("SELECT COUNT(*) FROM invoices WHERE invoice_date = ?1 AND status != 'Cancelled'", [&today], |r| r.get(0)).unwrap_or(0);
@@ -68,7 +68,7 @@ async fn sales_summary(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn expense_summary(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let this_month: f64 = db.query_row("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE expense_date >= date('now', 'start of month')", [], |r| r.get(0)).unwrap_or(0.0);
     let this_week: f64 = db.query_row("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE expense_date >= date('now', '-7 days')", [], |r| r.get(0)).unwrap_or(0.0);
     let mut stmt = db.prepare("SELECT category, SUM(amount) FROM expenses GROUP BY category ORDER BY SUM(amount) DESC").unwrap();
@@ -79,7 +79,7 @@ async fn expense_summary(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn production_status(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let in_progress: i64 = db.query_row("SELECT COUNT(*) FROM productions WHERE status = 'In Progress'", [], |r| r.get(0)).unwrap_or(0);
     let completed: i64 = db.query_row("SELECT COUNT(*) FROM productions WHERE status = 'Completed'", [], |r| r.get(0)).unwrap_or(0);
     let total_output: f64 = db.query_row("SELECT COALESCE(SUM(output_quantity), 0) FROM productions", [], |r| r.get(0)).unwrap_or(0.0);
@@ -87,7 +87,7 @@ async fn production_status(State(_state): State<AppState>) -> impl IntoResponse 
 }
 
 async fn stock_movement_summary(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT DATE(created_at) as date,
                 SUM(CASE WHEN movement_type = 'IN' THEN quantity ELSE 0 END) as inbound,
@@ -102,7 +102,7 @@ async fn stock_movement_summary(State(_state): State<AppState>) -> impl IntoResp
 }
 
 async fn kpi(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let total_items: i64 = db.query_row("SELECT COUNT(*) FROM items WHERE is_active = 1", [], |r| r.get(0)).unwrap_or(0);
     let low_stock: i64 = db.query_row("SELECT COUNT(*) FROM items WHERE is_active = 1 AND current_stock <= reorder_level", [], |r| r.get(0)).unwrap_or(0);
     let health = if total_items > 0 { ((total_items - low_stock) as f64 / total_items as f64) * 100.0 } else { 100.0 };
@@ -110,7 +110,7 @@ async fn kpi(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn ar_summary(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let current: f64 = db.query_row("SELECT COALESCE(SUM(balance_amount), 0) FROM invoices WHERE due_date >= ?1 AND status IN ('Unpaid','Partially Paid')", [&today], |r| r.get(0)).unwrap_or(0.0);
     let d1_30: f64 = db.query_row("SELECT COALESCE(SUM(balance_amount), 0) FROM invoices WHERE due_date < ?1 AND due_date >= date(?1, '-30 days') AND status IN ('Unpaid','Partially Paid')", [&today], |r| r.get(0)).unwrap_or(0.0);
@@ -125,7 +125,7 @@ async fn ar_summary(State(_state): State<AppState>) -> impl IntoResponse {
 // ============================================================================
 
 async fn list_layouts(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, user_id, layout_name, blocks, is_active, created_at FROM dashboard_layouts ORDER BY layout_name").unwrap();
     let items: Vec<DashboardLayout> = stmt.query_map([], |row| {
         Ok(DashboardLayout { id: row.get(0)?, user_id: row.get(1)?, layout_name: row.get(2)?, blocks: row.get(3)?, is_active: row.get::<_, i64>(4)? != 0, created_at: row.get(5)? })
@@ -134,7 +134,7 @@ async fn list_layouts(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn create_layout(State(_state): State<AppState>, Json(form): Json<DashboardLayoutForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "INSERT INTO dashboard_layouts (user_id, layout_name, blocks) VALUES (1, ?1, ?2)",
         rusqlite::params![form.layout_name, form.blocks],
@@ -146,7 +146,7 @@ async fn create_layout(State(_state): State<AppState>, Json(form): Json<Dashboar
 }
 
 async fn update_layout(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<DashboardLayoutForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE dashboard_layouts SET layout_name=?1, blocks=?2 WHERE id=?3", rusqlite::params![form.layout_name, form.blocks, id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Layout updated." } }))),
@@ -156,7 +156,7 @@ async fn update_layout(State(_state): State<AppState>, Path(id): Path<i64>, Json
 }
 
 async fn delete_layout(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("DELETE FROM dashboard_layouts WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Layout deleted." } }))),

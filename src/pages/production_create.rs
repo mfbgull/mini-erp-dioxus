@@ -1,12 +1,13 @@
 //! Production Order Create Page — Form to create a new production order.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
     SearchableSelect, SelectOption, use_toast,
 };
+use crate::models::{Bom, Item, ProductionForm};
 use dioxus::prelude::*;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
 
 const PAGE_CSS: &str = r##"
 .prd-create-page {
@@ -49,54 +50,13 @@ const PAGE_CSS: &str = r##"
 }
 "##;
 
-static NEXT_PRD_ID: AtomicU32 = AtomicU32::new(8);
-
-fn generate_prd_no() -> String {
-    let seq = NEXT_PRD_ID.fetch_add(1, Ordering::Relaxed);
-    format!("PRD-2026-{:04}", seq)
-}
-
-fn finished_item_options() -> Vec<SelectOption> {
-    vec![
-        SelectOption { value: "ITM-0001".to_string(), label: "Premium Widget Alpha".to_string() },
-        SelectOption { value: "ITM-0004".to_string(), label: "Steel Bracket XR-200".to_string() },
-        SelectOption { value: "ITM-0005".to_string(), label: "Rubber Gasket Set".to_string() },
-        SelectOption { value: "ITM-0008".to_string(), label: "Assembly Kit Type-B".to_string() },
-        SelectOption { value: "ITM-0012".to_string(), label: "Control Panel CX-12".to_string() },
-        SelectOption { value: "ITM-0015".to_string(), label: "Hydraulic Pump HP-45".to_string() },
-    ]
-}
-
-fn bom_options_by_item(item_code: &str) -> Vec<SelectOption> {
-    match item_code {
-        "ITM-0001" => vec![
-            SelectOption { value: "BOM-0001".to_string(), label: "BOM-0001 (v1.2) - Premium Widget Alpha".to_string() },
-        ],
-        "ITM-0004" => vec![
-            SelectOption { value: "BOM-0002".to_string(), label: "BOM-0002 (v1.0) - Steel Bracket XR-200".to_string() },
-        ],
-        "ITM-0005" => vec![
-            SelectOption { value: "BOM-0003".to_string(), label: "BOM-0003 (v0.9) - Rubber Gasket Set".to_string() },
-        ],
-        "ITM-0008" => vec![
-            SelectOption { value: "BOM-0004".to_string(), label: "BOM-0004 (v2.1) - Assembly Kit Type-B".to_string() },
-        ],
-        "ITM-0012" => vec![
-            SelectOption { value: "BOM-0005".to_string(), label: "BOM-0005 (v1.0) - Control Panel CX-12".to_string() },
-        ],
-        "ITM-0015" => vec![
-            SelectOption { value: "BOM-0006".to_string(), label: "BOM-0006 (v1.3) - Hydraulic Pump HP-45".to_string() },
-        ],
-        _ => vec![],
-    }
-}
-
 #[component]
 pub fn ProductionCreatePage() -> Element {
-    let toast = use_toast();
+    let mut toast = use_toast();
     let navigator = use_navigator();
+    let api = use_auth().api;
 
-    let prd_no = use_signal(|| generate_prd_no());
+    let prd_no = use_signal(String::new);
     let item_to_produce = use_signal(String::new);
     let bom = use_signal(String::new);
     let planned_qty = use_signal(|| "100".to_string());
@@ -109,30 +69,68 @@ pub fn ProductionCreatePage() -> Element {
     let mut show_discard_modal = use_signal(|| false);
     let errors = use_signal(HashMap::<&'static str, String>::new);
 
-    let bom_opts = bom_options_by_item(&item_to_produce.read().clone());
-    let bom_disabled = item_to_produce.read().is_empty();
+    // API-loaded data
+    let item_map = use_signal(HashMap::<i64, Item>::new);
+    let item_options_signal = use_signal(Vec::<SelectOption>::new);
+    let bom_list = use_signal(Vec::<Bom>::new);
+    let bom_options_signal = use_signal(Vec::<SelectOption>::new);
 
-    let validate = {
-        let mut item = item_to_produce.clone();
-        let mut bom = bom.clone();
-        let mut qty = planned_qty.clone();
-        let mut start = start_date.clone();
-        let mut end = expected_end_date.clone();
-        let mut toast = toast.clone();
-        move || -> bool {
-            let mut errs = HashMap::<&'static str, String>::new();
-            if item.read().is_empty() { errs.insert("item", "Item is required.".to_string()); }
-            if bom.read().is_empty() { errs.insert("bom", "BOM is required.".to_string()); }
-            if let Ok(q) = qty.read().parse::<i32>() {
-                if q <= 0 { errs.insert("qty", "Must be > 0.".to_string()); }
-            } else { errs.insert("qty", "Invalid number.".to_string()); }
-            if start.read().is_empty() { errs.insert("start", "Start date is required.".to_string()); }
-            if end.read().is_empty() { errs.insert("end", "End date is required.".to_string()); }
-            let is_valid = errs.is_empty();
-            if !is_valid { toast.warning("Validation Error", "Please fix the highlighted fields."); }
-            is_valid
-        }
-    };
+    // Load items and BOMs from API
+    {
+        let api = api.clone();
+        let mut item_map = item_map.clone();
+        let mut item_options_signal = item_options_signal.clone();
+        let mut bom_list = bom_list.clone();
+        let mut bom_options_signal = bom_options_signal.clone();
+        use_effect(move || {
+            let api = api.clone();
+            let mut item_map = item_map.clone();
+            let mut item_options_signal = item_options_signal.clone();
+            let mut bom_list = bom_list.clone();
+            let mut bom_options_signal = bom_options_signal.clone();
+            spawn(async move {
+                let client = api.read().clone();
+                if let Ok(items) = client.list_items_catalog().await {
+                    let mut map = HashMap::new();
+                    let mut opts = Vec::new();
+                    for item in &items {
+                        map.insert(item.id, item.clone());
+                        opts.push(SelectOption { value: item.id.to_string(), label: format!("{} ({})", item.item_name, item.item_code) });
+                    }
+                    item_map.set(map);
+                    item_options_signal.set(opts);
+                }
+                if let Ok(boms) = client.list_boms().await {
+                    let opts: Vec<SelectOption> = boms.iter()
+                        .filter(|b| b.is_active)
+                        .map(|b| SelectOption { value: b.id.to_string(), label: format!("{} - {}", b.bom_no, b.bom_name) })
+                        .collect();
+                    bom_list.set(boms);
+                    bom_options_signal.set(opts);
+                }
+            });
+        });
+    }
+
+    // Update BOM options when item changes
+    {
+        let item_id = item_to_produce.read().clone();
+        let boms = bom_list.read().clone();
+        let mut bom_opts = bom_options_signal.clone();
+        let filtered: Vec<SelectOption> = if item_id.is_empty() {
+            boms.iter().filter(|b| b.is_active)
+                .map(|b| SelectOption { value: b.id.to_string(), label: format!("{} - {}", b.bom_no, b.bom_name) })
+                .collect()
+        } else {
+            let item_id_num = item_id.parse::<i64>().unwrap_or(0);
+            boms.iter().filter(|b| b.is_active && b.finished_item_id == item_id_num)
+                .map(|b| SelectOption { value: b.id.to_string(), label: format!("{} - {}", b.bom_no, b.bom_name) })
+                .collect()
+        };
+        bom_opts.set(filtered);
+    }
+
+    let bom_disabled = item_to_produce.read().is_empty();
 
     let on_item_change = {
         let mut item = item_to_produce.clone();
@@ -175,26 +173,63 @@ pub fn ProductionCreatePage() -> Element {
         move |v: String| { n.set(v); dirty.set(true); }
     };
 
+    let validate = {
+        let item = item_to_produce.clone();
+        let qty = planned_qty.clone();
+        let mut toast = toast.clone();
+        move || -> bool {
+            if item.read().is_empty() { toast.warning("Validation", "Please select an item to produce."); return false; }
+            if qty.read().parse::<f64>().unwrap_or(0.0) <= 0.0 { toast.warning("Validation", "Quantity must be greater than 0."); return false; }
+            true
+        }
+    };
+
     let save_prd = {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
         let mut nav = navigator.clone();
-        let mut pn = prd_no.clone();
+        let mut item = item_to_produce.clone();
+        let mut bom_sig = bom.clone();
+        let mut qty = planned_qty.clone();
+        let mut nts = notes.clone();
         let mut validate = validate.clone();
         let mut dirty = is_dirty.clone();
-
+        let api = api.clone();
         move |_| {
             if !validate() { return; }
             saving.set(true);
-            let no = pn.read().clone();
+            let item_id = item.read().parse::<i64>().unwrap_or(0);
+            let bom_id = bom_sig.read().parse::<i64>().ok();
+            let qty_val = qty.read().parse::<f64>().unwrap_or(100.0);
+            let nts_val = nts.read().clone();
             let mut toast = toast.clone();
             let mut nav = nav.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
+            let api = api.clone();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-                toast.success("Production Order Created", &format!("{} has been created.", no));
-                saving.set(false);
-                dirty.set(false);
-                nav.push("/manufacturing/production");
+                let client = api.read().clone();
+                let form = ProductionForm {
+                    output_item_id: item_id,
+                    output_quantity: qty_val,
+                    warehouse_id: 1,
+                    bom_id,
+                    overhead_cost: None,
+                    notes: if nts_val.is_empty() { None } else { Some(nts_val) },
+                    inputs: vec![],
+                };
+                match client.create_production(&form).await {
+                    Ok(data) => {
+                        let no = data["production_no"].as_str().unwrap_or("PRD-????");
+                        toast.success("Production Order Created", &format!("{} has been created.", no));
+                        dirty.set(false);
+                        nav.push("/manufacturing/production");
+                    }
+                    Err(e) => {
+                        toast.error("Error", &e);
+                        saving.set(false);
+                    }
+                }
             });
         }
     };
@@ -202,33 +237,55 @@ pub fn ProductionCreatePage() -> Element {
     let save_and_new = {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
-        let mut pn = prd_no.clone();
         let mut item = item_to_produce.clone();
-        let mut bom = bom.clone();
+        let mut bom_sig = bom.clone();
         let mut qty = planned_qty.clone();
+        let mut nts = notes.clone();
         let mut start = start_date.clone();
         let mut end = expected_end_date.clone();
-        let mut notes = notes.clone();
         let mut validate = validate.clone();
         let mut dirty = is_dirty.clone();
-
+        let api = api.clone();
         move |_| {
             if !validate() { return; }
             saving.set(true);
-            let no = pn.read().clone();
+            let item_id = item.read().parse::<i64>().unwrap_or(0);
+            let bom_id = bom_sig.read().parse::<i64>().ok();
+            let qty_val = qty.read().parse::<f64>().unwrap_or(100.0);
+            let nts_val = nts.read().clone();
             let mut toast = toast.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
+            let api = api.clone();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(600)).await;
-                toast.success("Production Order Created", &format!("{} created. Creating another...", no));
-                pn.set(generate_prd_no());
-                item.set(String::new());
-                bom.set(String::new());
-                qty.set("100".to_string());
-                start.set(String::new());
-                end.set(String::new());
-                notes.set(String::new());
-                saving.set(false);
-                dirty.set(false);
+                let client = api.read().clone();
+                let form = ProductionForm {
+                    output_item_id: item_id,
+                    output_quantity: qty_val,
+                    warehouse_id: 1,
+                    bom_id,
+                    overhead_cost: None,
+                    notes: if nts_val.is_empty() { None } else { Some(nts_val) },
+                    inputs: vec![],
+                };
+                match client.create_production(&form).await {
+                    Ok(data) => {
+                        let no = data["production_no"].as_str().unwrap_or("PRD-????");
+                        toast.success("Production Order Created", &format!("{} created. Creating another...", no));
+                        item.set(String::new());
+                        bom_sig.set(String::new());
+                        qty.set("100".to_string());
+                        start.set(String::new());
+                        end.set(String::new());
+                        nts.set(String::new());
+                        dirty.set(false);
+                        saving.set(false);
+                    }
+                    Err(e) => {
+                        toast.error("Error", &e);
+                        saving.set(false);
+                    }
+                }
             });
         }
     };
@@ -282,7 +339,7 @@ pub fn ProductionCreatePage() -> Element {
                 }
                 div { class: "prd-form-row", style: "margin-top: 12px;",
                     SearchableSelect {
-                        options: finished_item_options(),
+                        options: item_options_signal.read().clone(),
                         selected_value: Some(item_to_produce.read().clone()).filter(|s| !s.is_empty()),
                         on_select: on_item_change,
                         placeholder: "Select item to produce...",
@@ -296,7 +353,7 @@ pub fn ProductionCreatePage() -> Element {
                 h2 { "BOM & Quantities" }
                 div { class: "prd-form-row",
                     SearchableSelect {
-                        options: bom_opts,
+                        options: bom_options_signal.read().clone(),
                         selected_value: Some(bom.read().clone()).filter(|s| !s.is_empty()),
                         on_select: on_bom_change,
                         placeholder: if bom_disabled { "Select item first..." } else { "Select BOM..." },

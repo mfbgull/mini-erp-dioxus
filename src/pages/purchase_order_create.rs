@@ -1,9 +1,11 @@
 //! Purchase Order Create Page — Form to create a new purchase order.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
     SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
 };
+use crate::models::{PurchaseOrderForm, PurchaseOrderItemForm};
 use dioxus::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -112,6 +114,7 @@ fn item_name(code: &str) -> String {
 pub fn PurchaseOrderCreatePage() -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
+    let api = use_auth().api;
 
     let items = use_signal(|| { let mut v = Vec::new(); for _ in 0..3 { v.push(PoLineItem::default()); } v });
     let supplier_code = use_signal(String::new);
@@ -159,23 +162,47 @@ pub fn PurchaseOrderCreatePage() -> Element {
         let mut toast = toast.clone();
         let mut c_code = supplier_code.clone();
         let c_name = supplier_name.clone();
+        let its = items.clone();
+        let o_date = order_date.clone();
+        let nts = notes.clone();
         let mut dirty = is_dirty.clone();
         let nav = navigator.clone();
+        let api = api.clone();
         move |_| {
             if c_code.read().is_empty() { toast.error("Validation Error", "Please select a supplier."); return; }
-            let filled = items.read().iter().filter(|li| !li.item_code.is_empty()).count();
+            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
             if filled == 0 { toast.error("Validation Error", "Please add at least one item."); return; }
             saving.set(true);
-            let n = c_name.read().clone();
-            let cnt = items.read().len();
             let mut toast = toast.clone();
             let nav = nav.clone();
+            let api = api.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
+            let supplier_id = c_code.read().parse::<i64>().unwrap_or(0);
+            let po_date = o_date.read().clone();
+            let notes_val = nts.read().clone();
+            let order_items: Vec<PurchaseOrderItemForm> = its.read().iter()
+                .filter(|li| !li.item_code.is_empty())
+                .map(|li| PurchaseOrderItemForm {
+                    item_id: li.item_code.parse::<i64>().unwrap_or(0),
+                    description: None,
+                    quantity: li.quantity,
+                    unit_price: li.rate,
+                })
+                .collect();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                toast.success("PO Created", &format!("Purchase order for {} with {} item(s).", n, cnt));
-                saving.set(false);
-                dirty.set(false);
-                nav.push("/purchases/orders");
+                let form = PurchaseOrderForm { supplier_id, po_date, warehouse_id: None, notes: if notes_val.is_empty() { None } else { Some(notes_val) }, items: order_items };
+                match api.read().create_purchase_order(&form).await {
+                    Ok(po) => {
+                        toast.success("PO Created", &format!("PO {} created.", po.po_no));
+                        saving.set(false); dirty.set(false);
+                        nav.push("/purchases/orders");
+                    }
+                    Err(e) => {
+                        toast.error("Error", &format!("Failed to create PO: {}", e));
+                        saving.set(false);
+                    }
+                }
             });
         }
     };
@@ -186,25 +213,49 @@ pub fn PurchaseOrderCreatePage() -> Element {
         let mut c_code = supplier_code.clone();
         let c_name = supplier_name.clone();
         let mut its = items.clone();
+        let o_date = order_date.clone();
+        let nts = notes.clone();
         let mut dp = discount_pct.clone();
         let mut tr = tax_rate_str.clone();
         let mut dirty = is_dirty.clone();
+        let api = api.clone();
         move |_| {
             if c_code.read().is_empty() { toast.error("Validation Error", "Please select a supplier."); return; }
             let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
             if filled == 0 { toast.error("Validation Error", "Please add at least one item."); return; }
             saving.set(true);
-            let n = c_name.read().clone();
-            let cnt = its.read().len();
             let mut toast = toast.clone();
+            let api = api.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
+            let supplier_id = c_code.read().parse::<i64>().unwrap_or(0);
+            let po_date = o_date.read().clone();
+            let notes_val = nts.read().clone();
+            let order_items: Vec<PurchaseOrderItemForm> = its.read().iter()
+                .filter(|li| !li.item_code.is_empty())
+                .map(|li| PurchaseOrderItemForm {
+                    item_id: li.item_code.parse::<i64>().unwrap_or(0),
+                    description: None,
+                    quantity: li.quantity,
+                    unit_price: li.rate,
+                })
+                .collect();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                toast.success("PO Created", &format!("PO for {} with {} item(s). Creating another…", n, cnt));
-                c_code.set(String::new());
-                its.write().clear();
-                for _ in 0..3 { its.write().push(PoLineItem::default()); }
-                dp.set(String::from("0")); tr.set(String::from("16"));
-                saving.set(false); dirty.set(false);
+                let form = PurchaseOrderForm { supplier_id, po_date, warehouse_id: None, notes: if notes_val.is_empty() { None } else { Some(notes_val) }, items: order_items };
+                match api.read().create_purchase_order(&form).await {
+                    Ok(po) => {
+                        toast.success("PO Created", &format!("PO {} created. Creating another…", po.po_no));
+                        c_code.set(String::new());
+                        its.write().clear();
+                        for _ in 0..3 { its.write().push(PoLineItem::default()); }
+                        dp.set(String::from("0")); tr.set(String::from("16"));
+                        saving.set(false); dirty.set(false);
+                    }
+                    Err(e) => {
+                        toast.error("Error", &format!("Failed to create PO: {}", e));
+                        saving.set(false);
+                    }
+                }
             });
         }
     };

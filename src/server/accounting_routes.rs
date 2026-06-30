@@ -32,7 +32,7 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn list_accounts(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, code, name, type, normal_balance, parent_id, is_active FROM chart_of_accounts ORDER BY code").unwrap();
     let items: Vec<ChartOfAccount> = stmt.query_map([], |row| {
         Ok(ChartOfAccount {
@@ -45,7 +45,7 @@ async fn list_accounts(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn account_balances(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT a.id, a.code, a.name, a.type, a.normal_balance,
                 COALESCE(SUM(jl.debit), 0) as total_debit,
@@ -66,7 +66,7 @@ async fn account_balances(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_account(State(_state): State<AppState>, Path(code): Path<String>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, code, name, type, normal_balance, parent_id, is_active FROM chart_of_accounts WHERE code = ?1",
         [&code],
@@ -83,7 +83,7 @@ async fn get_account(State(_state): State<AppState>, Path(code): Path<String>) -
 }
 
 async fn account_balance(State(_state): State<AppState>, Path(code): Path<String>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT COALESCE(SUM(jl.debit), 0) - COALESCE(SUM(jl.credit), 0)
          FROM journal_lines jl JOIN chart_of_accounts a ON jl.account_id = a.id
@@ -98,7 +98,7 @@ async fn account_balance(State(_state): State<AppState>, Path(code): Path<String
 }
 
 async fn list_periods(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, period_name, start_date, end_date, status FROM accounting_periods ORDER BY start_date").unwrap();
     let items: Vec<AccountingPeriod> = stmt.query_map([], |row| {
         Ok(AccountingPeriod {
@@ -110,7 +110,7 @@ async fn list_periods(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_period(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, period_name, start_date, end_date, status FROM accounting_periods WHERE id = ?1",
         [id],
@@ -124,7 +124,7 @@ async fn get_period(State(_state): State<AppState>, Path(id): Path<i64>) -> impl
 
 async fn update_period(State(_state): State<AppState>, Path(id): Path<i64>, Json(body): Json<serde_json::Value>) -> impl IntoResponse {
     let status = body.get("status").and_then(|v| v.as_str()).unwrap_or("Open");
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE accounting_periods SET status = ?1 WHERE id = ?2", rusqlite::params![status, id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Period updated." } }))),
@@ -134,7 +134,7 @@ async fn update_period(State(_state): State<AppState>, Path(id): Path<i64>, Json
 }
 
 async fn list_tax_rates(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, name, rate, is_default, is_active FROM tax_rates WHERE is_active = 1").unwrap();
     let items: Vec<TaxRate> = stmt.query_map([], |row| {
         Ok(TaxRate { id: row.get(0)?, name: row.get(1)?, rate: row.get(2)?, is_default: row.get::<_, i64>(3)? != 0, is_active: row.get::<_, i64>(4)? != 0 })
@@ -143,7 +143,7 @@ async fn list_tax_rates(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn list_payment_terms(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, name, days, is_default, is_active FROM payment_terms WHERE is_active = 1").unwrap();
     let items: Vec<PaymentTerm> = stmt.query_map([], |row| {
         Ok(PaymentTerm { id: row.get(0)?, name: row.get(1)?, days: row.get(2)?, is_default: row.get::<_, i64>(3)? != 0, is_active: row.get::<_, i64>(4)? != 0 })
@@ -156,7 +156,7 @@ async fn list_payment_terms(State(_state): State<AppState>) -> impl IntoResponse
 // ============================================================================
 
 async fn list_expenses(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT id, expense_no, category, description, amount, expense_date, status, created_by, created_at
          FROM expenses ORDER BY created_at DESC"
@@ -172,7 +172,7 @@ async fn list_expenses(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_expense(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, expense_no, category, description, amount, expense_date, status, created_by, created_at
          FROM expenses WHERE id = ?1",
@@ -186,7 +186,7 @@ async fn get_expense(State(_state): State<AppState>, Path(id): Path<i64>) -> imp
 }
 
 async fn create_expense(State(_state): State<AppState>, Json(form): Json<ExpenseForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM expenses", [], |row| row.get(0)).unwrap_or(1);
     let eno = format!("EXP-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let result = db.execute(
@@ -200,7 +200,7 @@ async fn create_expense(State(_state): State<AppState>, Json(form): Json<Expense
 }
 
 async fn delete_expense(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("DELETE FROM expenses WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Expense deleted." } }))),
@@ -210,7 +210,7 @@ async fn delete_expense(State(_state): State<AppState>, Path(id): Path<i64>) -> 
 }
 
 async fn list_expense_categories(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare("SELECT id, category_name, is_active FROM expense_categories WHERE is_active = 1 ORDER BY category_name").unwrap();
     let items: Vec<ExpenseCategory> = stmt.query_map([], |row| {
         Ok(ExpenseCategory { id: row.get(0)?, category_name: row.get(1)?, is_active: row.get::<_, i64>(2)? != 0 })
@@ -219,7 +219,7 @@ async fn list_expense_categories(State(_state): State<AppState>) -> impl IntoRes
 }
 
 async fn create_expense_category(State(_state): State<AppState>, Json(form): Json<ExpenseCategoryForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("INSERT INTO expense_categories (category_name) VALUES (?1)", [&form.category_name]);
     match result {
         Ok(_) => (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": db.last_insert_rowid() } }))),
@@ -232,7 +232,7 @@ async fn create_expense_category(State(_state): State<AppState>, Json(form): Jso
 // ============================================================================
 
 async fn list_employees(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT id, employee_code, first_name, last_name, email, phone, cnic_no, address, city,
                 department, designation, salary, bank_name, bank_account_no,
@@ -254,7 +254,7 @@ async fn list_employees(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_employee(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, employee_code, first_name, last_name, email, phone, cnic_no, address, city,
                 department, designation, salary, bank_name, bank_account_no,
@@ -278,7 +278,7 @@ async fn get_employee(State(_state): State<AppState>, Path(id): Path<i64>) -> im
 }
 
 async fn create_employee(State(_state): State<AppState>, Json(form): Json<EmployeeForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM employees", [], |row| row.get(0)).unwrap_or(1);
     let ecode = format!("EMP-{:04}", seq);
     let result = db.execute(
@@ -299,7 +299,7 @@ async fn create_employee(State(_state): State<AppState>, Json(form): Json<Employ
 }
 
 async fn update_employee(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<EmployeeForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE employees SET first_name=?1, last_name=?2, email=?3, phone=?4, cnic_no=?5,
          address=?6, city=?7, department=?8, designation=?9, salary=?10, bank_name=?11,
@@ -321,7 +321,7 @@ async fn update_employee(State(_state): State<AppState>, Path(id): Path<i64>, Js
 }
 
 async fn delete_employee(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE employees SET is_active = 0, updated_at = datetime('now') WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Employee deleted." } }))),
@@ -331,7 +331,7 @@ async fn delete_employee(State(_state): State<AppState>, Path(id): Path<i64>) ->
 }
 
 async fn pay_salary(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<SalaryPaymentForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "INSERT INTO salary_payments (employee_id, amount, payment_date) VALUES (?1, ?2, ?3)",
         rusqlite::params![id, form.amount, form.payment_date],

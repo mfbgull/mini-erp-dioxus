@@ -114,7 +114,7 @@ async fn login_handler(
     }
 
     // Look up user
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let user_result = db.query_row(
         "SELECT id, username, email, password_hash, full_name, role, role_id, is_active
          FROM users WHERE username = ?1 AND is_active = 1",
@@ -231,7 +231,7 @@ async fn me_handler(
             match verify_token(&token, &state) {
                 Ok(claims) => {
                     // Look up user from DB to get current profile
-                    let db = db::get_db().lock().unwrap();
+                    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
                     let user_result = db.query_row(
                         "SELECT id, username, email, full_name, role, role_id, is_active
                          FROM users WHERE id = ?1 AND is_active = 1",
@@ -295,7 +295,7 @@ async fn change_password_handler(
         Err(_) => return (StatusCode::UNAUTHORIZED, Json(json!({ "success": false, "error": "Invalid or expired token." }))),
     };
 
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT password_hash FROM users WHERE id = ?1",
         [claims.sub],

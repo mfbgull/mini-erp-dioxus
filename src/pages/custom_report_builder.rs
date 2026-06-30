@@ -1,8 +1,10 @@
 //! Custom Report Builder Page — Create custom reports with field selection, filters, and grouping.
 
+use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption, use_toast,
 };
+use crate::models::CustomReportForm;
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -147,22 +149,47 @@ pub fn CustomReportBuilderPage() -> Element {
         }
     };
 
+    let api = use_auth().api;
     let t_gen = toast.clone();
     let on_generate = {
         let mut saving = is_saving.clone();
+        let api = api.clone();
         move |_| {
             let mut t = t_gen.clone();
+            let api = api.clone();
             if report_name.read().trim().is_empty() {
                 t.warning("Name Required", "Enter a report name.");
                 return;
             }
             saving.set(true);
             let name = report_name.read().clone();
+            let module = module.read().clone();
+            let config = serde_json::json!({
+                "module": module,
+                "fields": selected_fields.read().iter().cloned().collect::<Vec<_>>(),
+                "from_date": from_date.read().clone(),
+                "to_date": to_date.read().clone(),
+                "group_by": group_by.read().clone(),
+                "sort_by": sort_by.read().clone(),
+                "sort_order": sort_order.read().clone(),
+            });
             let mut t2 = t.clone();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                saving.set(false);
-                t2.success("Report Generated", &format!("\"{}\" has been generated.", name));
+                let client = api.with(|c| c.clone());
+                let form = CustomReportForm {
+                    name,
+                    config: config.to_string(),
+                };
+                match client.create_custom_report(&form).await {
+                    Ok(_) => {
+                        saving.set(false);
+                        t2.success("Report Generated", "Report has been generated.");
+                    }
+                    Err(e) => {
+                        saving.set(false);
+                        t2.error("Generation Failed", &e);
+                    }
+                }
             });
         }
     };
@@ -170,19 +197,43 @@ pub fn CustomReportBuilderPage() -> Element {
     let t_save = toast.clone();
     let on_save = {
         let mut saving = is_saving.clone();
+        let api = api.clone();
         move |_| {
             let mut t = t_save.clone();
+            let api = api.clone();
             if report_name.read().trim().is_empty() {
                 t.warning("Name Required", "Enter a report name.");
                 return;
             }
             saving.set(true);
             let name = report_name.read().clone();
+            let module = module.read().clone();
+            let config = serde_json::json!({
+                "module": module,
+                "fields": selected_fields.read().iter().cloned().collect::<Vec<_>>(),
+                "from_date": from_date.read().clone(),
+                "to_date": to_date.read().clone(),
+                "group_by": group_by.read().clone(),
+                "sort_by": sort_by.read().clone(),
+                "sort_order": sort_order.read().clone(),
+            });
             let mut t2 = t.clone();
             spawn(async move {
-                crate::utils::sleep(std::time::Duration::from_millis(800)).await;
-                saving.set(false);
-                t2.success("Report Saved", &format!("\"{}\" has been saved as a custom report.", name));
+                let client = api.with(|c| c.clone());
+                let form = CustomReportForm {
+                    name: name.clone(),
+                    config: config.to_string(),
+                };
+                match client.create_custom_report(&form).await {
+                    Ok(_) => {
+                        saving.set(false);
+                        t2.success("Report Saved", &format!("\"{}\" has been saved as a custom report.", name));
+                    }
+                    Err(e) => {
+                        saving.set(false);
+                        t2.error("Save Failed", &e);
+                    }
+                }
             });
         }
     };

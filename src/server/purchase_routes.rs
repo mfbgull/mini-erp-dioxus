@@ -39,7 +39,7 @@ pub fn router() -> Router<AppState> {
 // ============================================================================
 
 async fn list_suppliers(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT id, supplier_code, supplier_name, email, phone, address, is_active, created_at
          FROM suppliers WHERE is_active = 1 ORDER BY supplier_code"
@@ -55,7 +55,7 @@ async fn list_suppliers(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn get_supplier(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, supplier_code, supplier_name, email, phone, address, is_active, created_at
          FROM suppliers WHERE id = ?1",
@@ -76,7 +76,7 @@ async fn create_supplier(State(_state): State<AppState>, Json(form): Json<Suppli
     if form.supplier_code.trim().is_empty() || form.supplier_name.trim().is_empty() {
         return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Supplier code and name are required." })));
     }
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let exists: bool = db.query_row("SELECT COUNT(*) > 0 FROM suppliers WHERE supplier_code = ?1", [&form.supplier_code], |row| row.get(0)).unwrap_or(false);
     if exists { return (StatusCode::CONFLICT, Json(json!({ "success": false, "error": "Supplier code already exists." }))); }
     let result = db.execute(
@@ -96,7 +96,7 @@ async fn create_supplier(State(_state): State<AppState>, Json(form): Json<Suppli
 }
 
 async fn update_supplier(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<SupplierForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE suppliers SET supplier_code=?1, supplier_name=?2, email=?3, phone=?4, address=?5 WHERE id=?6",
         rusqlite::params![form.supplier_code, form.supplier_name, form.email.as_deref().unwrap_or(""), form.phone.as_deref().unwrap_or(""), form.address.as_deref().unwrap_or(""), id],
@@ -109,7 +109,7 @@ async fn update_supplier(State(_state): State<AppState>, Path(id): Path<i64>, Js
 }
 
 async fn delete_supplier(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE suppliers SET is_active = 0 WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Supplier deleted." } }))),
@@ -119,7 +119,7 @@ async fn delete_supplier(State(_state): State<AppState>, Path(id): Path<i64>) ->
 }
 
 async fn next_supplier_code(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let count: i64 = db.query_row("SELECT COUNT(*) FROM suppliers", [], |row| row.get(0)).unwrap_or(0);
     let code = format!("SUP-{:04}", count + 1);
     (StatusCode::OK, Json(json!({ "success": true, "data": { "next_code": code } })))
@@ -130,7 +130,7 @@ async fn next_supplier_code(State(_state): State<AppState>) -> impl IntoResponse
 // ============================================================================
 
 async fn list_purchase_orders(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, po.po_date, po.status,
                 po.total_amount, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at
@@ -149,7 +149,7 @@ async fn list_purchase_orders(State(_state): State<AppState>) -> impl IntoRespon
 }
 
 async fn get_purchase_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, po.po_date, po.status,
                 po.total_amount, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at
@@ -189,7 +189,7 @@ async fn create_purchase_order(State(_state): State<AppState>, Json(form): Json<
     if form.items.is_empty() {
         return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "At least one item is required." })));
     }
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM purchase_orders", [], |row| row.get(0)).unwrap_or(1);
     let po_no = format!("PO-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let total: f64 = form.items.iter().map(|i| i.quantity * i.unit_price).sum();
@@ -217,7 +217,7 @@ async fn create_purchase_order(State(_state): State<AppState>, Json(form): Json<
 }
 
 async fn update_purchase_order(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<PurchaseOrderForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let total: f64 = form.items.iter().map(|i| i.quantity * i.unit_price).sum();
     let result = db.execute(
         "UPDATE purchase_orders SET supplier_id=?1, po_date=?2, total_amount=?3, warehouse_id=?4, notes=?5, updated_at=datetime('now') WHERE id=?6",
@@ -241,7 +241,7 @@ async fn update_purchase_order(State(_state): State<AppState>, Path(id): Path<i6
 }
 
 async fn delete_purchase_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     db.execute("DELETE FROM purchase_order_items WHERE po_id = ?1", [id]).ok();
     let result = db.execute("DELETE FROM purchase_orders WHERE id = ?1", [id]);
     match result {
@@ -252,7 +252,7 @@ async fn delete_purchase_order(State(_state): State<AppState>, Path(id): Path<i6
 }
 
 async fn update_po_status(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<PurchaseOrderStatusUpdate>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute(
         "UPDATE purchase_orders SET status=?1, updated_at=datetime('now') WHERE id=?2",
         rusqlite::params![form.status, id],
@@ -265,7 +265,7 @@ async fn update_po_status(State(_state): State<AppState>, Path(id): Path<i64>, J
 }
 
 async fn list_pending_pos(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, po.po_date, po.status,
                 po.total_amount, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at
@@ -284,7 +284,7 @@ async fn list_pending_pos(State(_state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn list_po_receipts(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT gr.id, gr.receipt_no, gr.po_id, gr.receipt_date, gr.warehouse_id, gr.notes,
                 gr.created_by, gr.created_at
@@ -301,7 +301,7 @@ async fn list_po_receipts(State(_state): State<AppState>, Path(id): Path<i64>) -
 }
 
 async fn create_goods_receipt(State(_state): State<AppState>, Path(po_id): Path<i64>, Json(form): Json<GoodsReceiptForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM goods_receipts", [], |row| row.get(0)).unwrap_or(1);
     let rn = format!("GR-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
 
@@ -351,7 +351,7 @@ async fn return_receipt(State(_state): State<AppState>, Path(_id): Path<i64>, Js
 // ============================================================================
 
 async fn list_direct_purchases(State(_state): State<AppState>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT p.id, p.purchase_no, p.item_id, i.item_name, i.item_code, p.warehouse_id,
                 w.warehouse_name, p.batch_id, p.quantity, p.unit_cost, p.total_cost,
@@ -375,7 +375,7 @@ async fn list_direct_purchases(State(_state): State<AppState>) -> impl IntoRespo
 }
 
 async fn get_direct_purchase(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT p.id, p.purchase_no, p.item_id, i.item_name, i.item_code, p.warehouse_id,
                 w.warehouse_name, p.batch_id, p.quantity, p.unit_cost, p.total_cost,
@@ -399,7 +399,7 @@ async fn get_direct_purchase(State(_state): State<AppState>, Path(id): Path<i64>
 }
 
 async fn create_direct_purchase(State(_state): State<AppState>, Json(form): Json<DirectPurchaseForm>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM purchases", [], |row| row.get(0)).unwrap_or(1);
     let pno = format!("PUR-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let total = form.quantity * form.unit_cost;
@@ -430,7 +430,7 @@ async fn create_direct_purchase(State(_state): State<AppState>, Json(form): Json
 }
 
 async fn delete_direct_purchase(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("DELETE FROM purchases WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Purchase deleted." } }))),
@@ -444,7 +444,7 @@ async fn return_direct_purchase(State(_state): State<AppState>, Path(_id): Path<
 }
 
 async fn po_summary_by_supplier(State(_state): State<AppState>, Path(supplier_id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as total
          FROM purchase_orders WHERE supplier_id = ?1",
@@ -458,7 +458,7 @@ async fn po_summary_by_supplier(State(_state): State<AppState>, Path(supplier_id
 }
 
 async fn supplier_po_balance(State(_state): State<AppState>, Path(supplier_id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let balance: f64 = db.query_row(
         "SELECT COALESCE(SUM(total_amount), 0) FROM purchase_orders WHERE supplier_id = ?1 AND status != 'Cancelled'",
         [supplier_id],
@@ -473,7 +473,7 @@ async fn supplier_po_balance(State(_state): State<AppState>, Path(supplier_id): 
 }
 
 async fn supplier_po_transactions(State(_state): State<AppState>, Path(supplier_id): Path<i64>) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT id, po_no, po_date, status, total_amount FROM purchase_orders
          WHERE supplier_id = ?1 ORDER BY created_at DESC LIMIT 50"
@@ -493,7 +493,7 @@ async fn add_po_item(
     Path(po_id): Path<i64>,
     Json(form): Json<PurchaseOrderItemForm>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let amount = form.quantity * form.unit_price;
     let result = db.execute(
         "INSERT INTO purchase_order_items (po_id, item_id, description, quantity, unit_price, amount) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -520,7 +520,7 @@ async fn update_po_item(
     Path((po_id, item_id)): Path<(i64, i64)>,
     Json(form): Json<PurchaseOrderItemForm>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let old_amount: f64 = db.query_row(
         "SELECT amount FROM purchase_order_items WHERE id = ?1 AND po_id = ?2",
         rusqlite::params![item_id, po_id],
@@ -551,7 +551,7 @@ async fn delete_po_item(
     State(_state): State<AppState>,
     Path((po_id, item_id)): Path<(i64, i64)>,
 ) -> impl IntoResponse {
-    let db = db::get_db().lock().unwrap();
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let amount: f64 = db.query_row(
         "SELECT amount FROM purchase_order_items WHERE id = ?1 AND po_id = ?2",
         rusqlite::params![item_id, po_id],

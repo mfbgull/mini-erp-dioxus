@@ -17,7 +17,18 @@ use components::data_grid::{
     PaginationMode, RowHeight, SelectionMode, TextAlign,
 };
 use components::layout::{Sidebar, SIDEBAR_CSS};
-use components::rbac::{RbacContext, use_rbac, Can, Cannot};
+use components::rbac::{RbacContext, use_rbac, Can, Cannot, ProtectedRoute};
+
+/// Helper macro to wrap a page component with a permission check.
+/// Usage: protected_page!("inventory:read", pages::item_list::ItemListPage())
+/// expands to: rsx! { ProtectedRoute { permission: "inventory:read".to_string(), pages::item_list::ItemListPage() } }
+macro_rules! protected_page {
+    ($perm:expr, $page:expr) => {
+        rsx! {
+            ProtectedRoute { permission: $perm.to_string(), { $page } }
+        }
+    };
+}
 use components::shortcuts::ShortcutsHelp;
 use mini_erp::i18n::use_i18n;
 use dioxus::prelude::*;
@@ -44,6 +55,10 @@ enum Route {
         // ── Dashboard ──
         #[route("/")]
         DashboardPage {},
+
+        // ── Profile ──
+        #[route("/profile")]
+        UserProfilePage {},
 
         // ── Inventory ──
         #[route("/inventory")]
@@ -220,6 +235,10 @@ enum Route {
         IntegrationsPage {},
         #[route("/users")]
         UserListPage {},
+        #[route("/users/new")]
+        UserCreatePage {},
+        #[route("/users/:id/edit")]
+        UserEditPage { id: String },
         #[route("/users/:id")]
         UserDetailPage { id: String },
         #[route("/roles")]
@@ -261,7 +280,7 @@ fn App() -> Element {
     let auth = use_auth_provider();
     use_context_provider(|| auth.clone());
 
-    let rbac = RbacContext::new("admin");
+    let rbac = RbacContext::new("");
     use_context_provider(|| rbac);
 
     let lang_signal = use_signal(|| mini_erp::i18n::Lang::En);
@@ -309,6 +328,17 @@ fn MainLayout() -> Element {
     }
 
     let user = auth.user.read().clone();
+
+    // Sync RBAC with user's actual role
+    {
+        let rbac = use_rbac();
+        if let Some(ref u) = user {
+            let current = rbac.permissions.read().role.clone();
+            if current != u.role {
+                rbac.set_role(&u.role);
+            }
+        }
+    }
 
     // Logout handler
     let on_logout = {
@@ -398,431 +428,778 @@ fn RedirectToLogin() -> Element {
 
 #[component]
 fn DashboardPage() -> Element {
-    pages::dashboard::DashboardPage()
+    rsx! {
+        ProtectedRoute { permission: "dashboard:read".to_string(),
+            pages::dashboard::DashboardPage {}
+        }
+    }
+}
+
+#[component]
+fn UserProfilePage() -> Element {
+    pages::user_profile::UserProfilePage()
 }
 
 // ── Inventory ──
 
 #[component]
 fn InventoryDashboardPage() -> Element {
-    pages::inventory_dashboard::InventoryDashboardPage()
+    rsx! {
+        ProtectedRoute { permission: "inventory:read".to_string(),
+            pages::inventory_dashboard::InventoryDashboardPage {}
+        }
+    }
 }
 
 #[component]
 fn ItemListPage() -> Element {
-    pages::item_list::ItemListPage()
+    rsx! {
+        ProtectedRoute { permission: "inventory:read".to_string(),
+            pages::item_list::ItemListPage {}
+        }
+    }
 }
 
 #[component]
 fn ItemCreatePage() -> Element {
-    pages::item_create::ItemCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "inventory:create".to_string(),
+            pages::item_create::ItemCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn ItemDetailPage(id: String) -> Element {
-    rsx! { pages::item_detail::ItemDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "inventory:read".to_string(),
+            pages::item_detail::ItemDetailPage { id }
+        }
+    }
 }
 
 #[component]
 fn WarehouseListPage() -> Element {
-    pages::warehouse_list::WarehouseListPage()
+    rsx! {
+        ProtectedRoute { permission: "inventory:read".to_string(),
+            pages::warehouse_list::WarehouseListPage {}
+        }
+    }
 }
 
 #[component]
 fn WarehouseCreatePage() -> Element {
-    pages::warehouse_create::WarehouseCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "inventory:create".to_string(),
+            pages::warehouse_create::WarehouseCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn WarehouseDetailPage(id: String) -> Element {
-    rsx! { pages::warehouse_detail::WarehouseDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "inventory:read".to_string(),
+            pages::warehouse_detail::WarehouseDetailPage { id }
+        }
+    }
 }
 
 #[component]
 fn StockMovementListPage() -> Element {
-    pages::stock_movement_list::StockMovementListPage()
+    rsx! {
+        ProtectedRoute { permission: "inventory:read".to_string(),
+            pages::stock_movement_list::StockMovementListPage {}
+        }
+    }
 }
 
 #[component]
 fn StockMovementCreatePage() -> Element {
-    pages::stock_movement_create::StockMovementCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "inventory:create".to_string(),
+            pages::stock_movement_create::StockMovementCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn StockLedgerPage(item_id: String) -> Element {
-    rsx! { pages::stock_ledger::StockLedgerPage { item_id } }
+    rsx! {
+        ProtectedRoute { permission: "inventory:read".to_string(),
+            pages::stock_ledger::StockLedgerPage { item_id }
+        }
+    }
 }
 
 #[component]
 fn PhysicalCountListPage() -> Element {
-    pages::physical_count_list::PhysicalCountListPage()
+    rsx! {
+        ProtectedRoute { permission: "inventory:read".to_string(),
+            pages::physical_count_list::PhysicalCountListPage {}
+        }
+    }
 }
 
 #[component]
 fn PhysicalCountCreatePage() -> Element {
-    pages::physical_count_create::PhysicalCountCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "inventory:create".to_string(),
+            pages::physical_count_create::PhysicalCountCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn PhysicalCountDetailPage(id: String) -> Element {
-    rsx! { pages::physical_count_detail::PhysicalCountDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "inventory:read".to_string(),
+            pages::physical_count_detail::PhysicalCountDetailPage { id }
+        }
+    }
 }
 
 // ── Sales ──
 
 #[component]
 fn SalesDashboardPage() -> Element {
-    pages::sales_dashboard::SalesDashboardPage()
+    rsx! {
+        ProtectedRoute { permission: "dashboard:read".to_string(),
+            pages::sales_dashboard::SalesDashboardPage {}
+        }
+    }
 }
 
 #[component]
 fn InvoiceListPage() -> Element {
-    pages::invoice_list::InvoiceListPage()
+    rsx! {
+        ProtectedRoute { permission: "invoices:read".to_string(),
+            pages::invoice_list::InvoiceListPage {}
+        }
+    }
 }
 
 #[component]
 fn InvoiceCreatePage() -> Element {
-    pages::invoice_create::InvoiceCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "invoices:create".to_string(),
+            pages::invoice_create::InvoiceCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn InvoiceDetailPage(id: String) -> Element {
-    rsx! { pages::invoice_detail::InvoiceDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "invoices:read".to_string(),
+            pages::invoice_detail::InvoiceDetailPage { id }
+        }
+    }
 }
 
 #[component]
 fn InvoicePrintPage(id: String) -> Element {
-    rsx! { pages::invoice_print::InvoicePrintPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "invoices:read".to_string(),
+            pages::invoice_print::InvoicePrintPage { id }
+        }
+    }
 }
 
 #[component]
 fn QuotationListPage() -> Element {
-    pages::quotation_list::QuotationListPage()
+    rsx! {
+        ProtectedRoute { permission: "quotations:read".to_string(),
+            pages::quotation_list::QuotationListPage {}
+        }
+    }
 }
 
 #[component]
 fn QuotationCreatePage() -> Element {
-    pages::quotation_create::QuotationCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "quotations:create".to_string(),
+            pages::quotation_create::QuotationCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn QuotationDetailPage(id: String) -> Element {
-    rsx! { pages::quotation_detail::QuotationDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "quotations:read".to_string(),
+            pages::quotation_detail::QuotationDetailPage { id }
+        }
+    }
 }
 
 #[component]
 fn QuotationPrintPage(id: String) -> Element {
-    rsx! { pages::quotation_print::QuotationPrintPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "quotations:read".to_string(),
+            pages::quotation_print::QuotationPrintPage { id }
+        }
+    }
 }
 
 #[component]
 fn SalesOrderListPage() -> Element {
-    pages::sales_order_list::SalesOrderListPage()
+    rsx! {
+        ProtectedRoute { permission: "sales_orders:read".to_string(),
+            pages::sales_order_list::SalesOrderListPage {}
+        }
+    }
 }
 
 #[component]
 fn SalesOrderCreatePage() -> Element {
-    pages::sales_order_create::SalesOrderCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "sales_orders:create".to_string(),
+            pages::sales_order_create::SalesOrderCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn SalesOrderDetailPage(id: String) -> Element {
-    rsx! { pages::sales_order_detail::SalesOrderDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "sales_orders:read".to_string(),
+            pages::sales_order_detail::SalesOrderDetailPage { id }
+        }
+    }
 }
 
 #[component]
 fn SalesReturnListPage() -> Element {
-    pages::sales_return_list::SalesReturnListPage()
+    rsx! {
+        ProtectedRoute { permission: "invoices:read".to_string(),
+            pages::sales_return_list::SalesReturnListPage {}
+        }
+    }
 }
 
 #[component]
 fn PosTerminalPage() -> Element {
-    pages::pos_terminal::PosTerminalPage()
+    rsx! {
+        ProtectedRoute { permission: "invoices:create".to_string(),
+            pages::pos_terminal::PosTerminalPage {}
+        }
+    }
 }
 
 // ── Purchasing ──
 
 #[component]
 fn PurchasesDashboardPage() -> Element {
-    pages::purchases_dashboard::PurchasesDashboardPage()
+    rsx! {
+        ProtectedRoute { permission: "dashboard:read".to_string(),
+            pages::purchases_dashboard::PurchasesDashboardPage {}
+        }
+    }
 }
 
 #[component]
 fn DirectPurchaseListPage() -> Element {
-    pages::direct_purchase_list::DirectPurchaseListPage()
+    rsx! {
+        ProtectedRoute { permission: "purchases:read".to_string(),
+            pages::direct_purchase_list::DirectPurchaseListPage {}
+        }
+    }
 }
 
 #[component]
 fn DirectPurchaseCreatePage() -> Element {
-    pages::direct_purchase_create::DirectPurchaseCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "purchases:create".to_string(),
+            pages::direct_purchase_create::DirectPurchaseCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn DirectPurchaseDetailPage(id: String) -> Element {
-    rsx! { pages::direct_purchase_detail::DirectPurchaseDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "purchases:read".to_string(),
+            pages::direct_purchase_detail::DirectPurchaseDetailPage { id }
+        }
+    }
 }
 
 #[component]
 fn PurchaseOrderListPage() -> Element {
-    pages::purchase_order_list::PurchaseOrderListPage()
+    rsx! {
+        ProtectedRoute { permission: "purchase_orders:read".to_string(),
+            pages::purchase_order_list::PurchaseOrderListPage {}
+        }
+    }
 }
 
 #[component]
 fn PurchaseOrderCreatePage() -> Element {
-    pages::purchase_order_create::PurchaseOrderCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "purchase_orders:create".to_string(),
+            pages::purchase_order_create::PurchaseOrderCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn PurchaseOrderDetailPage(id: String) -> Element {
-    rsx! { pages::purchase_order_detail::PurchaseOrderDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "purchase_orders:read".to_string(),
+            pages::purchase_order_detail::PurchaseOrderDetailPage { id }
+        }
+    }
 }
 
 #[component]
 fn PurchaseOrderPrintPage(id: String) -> Element {
-    rsx! { pages::purchase_order_print::PurchaseOrderPrintPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "purchase_orders:read".to_string(),
+            pages::purchase_order_print::PurchaseOrderPrintPage { id }
+        }
+    }
 }
 
 #[component]
 fn GoodsReceiptListPage() -> Element {
-    pages::goods_receipt_list::GoodsReceiptListPage()
+    rsx! {
+        ProtectedRoute { permission: "purchase_orders:read".to_string(),
+            pages::goods_receipt_list::GoodsReceiptListPage {}
+        }
+    }
 }
 
 #[component]
 fn PurchaseReturnListPage() -> Element {
-    pages::purchase_return_list::PurchaseReturnListPage()
+    rsx! {
+        ProtectedRoute { permission: "purchase_orders:read".to_string(),
+            pages::purchase_return_list::PurchaseReturnListPage {}
+        }
+    }
 }
 
 // ── Manufacturing ──
 
 #[component]
 fn ManufacturingDashboardPage() -> Element {
-    pages::manufacturing_dashboard::ManufacturingDashboardPage()
+    rsx! {
+        ProtectedRoute { permission: "dashboard:read".to_string(),
+            pages::manufacturing_dashboard::ManufacturingDashboardPage {}
+        }
+    }
 }
 
 #[component]
 fn BomListPage() -> Element {
-    pages::bom_list::BomListPage()
+    rsx! {
+        ProtectedRoute { permission: "bom:read".to_string(),
+            pages::bom_list::BomListPage {}
+        }
+    }
 }
 
 #[component]
 fn BomCreatePage() -> Element {
-    pages::bom_create::BomCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "bom:create".to_string(),
+            pages::bom_create::BomCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn BomDetailPage(id: String) -> Element {
-    rsx! { pages::bom_detail::BomDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "bom:read".to_string(),
+            pages::bom_detail::BomDetailPage { id }
+        }
+    }
 }
 
 #[component]
 fn ProductionListPage() -> Element {
-    pages::production_list::ProductionListPage()
+    rsx! {
+        ProtectedRoute { permission: "production:read".to_string(),
+            pages::production_list::ProductionListPage {}
+        }
+    }
 }
 
 #[component]
 fn ProductionCreatePage() -> Element {
-    pages::production_create::ProductionCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "production:create".to_string(),
+            pages::production_create::ProductionCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn ProductionDetailPage(id: String) -> Element {
-    rsx! { pages::production_detail::ProductionDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "production:read".to_string(),
+            pages::production_detail::ProductionDetailPage { id }
+        }
+    }
 }
 
 // ── Customers ──
 
 #[component]
 fn CustomerListPage() -> Element {
-    pages::customer_list::CustomerListPage()
+    rsx! {
+        ProtectedRoute { permission: "customers:read".to_string(),
+            pages::customer_list::CustomerListPage {}
+        }
+    }
 }
 
 #[component]
 fn CustomerCreatePage() -> Element {
-    pages::customer_create::CustomerCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "customers:create".to_string(),
+            pages::customer_create::CustomerCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn CustomerDetailPage(id: String) -> Element {
-    rsx! { pages::customer_detail::CustomerDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "customers:read".to_string(),
+            pages::customer_detail::CustomerDetailPage { id }
+        }
+    }
 }
 
 // ── Suppliers ──
 
 #[component]
 fn SupplierListPage() -> Element {
-    pages::supplier_list::SupplierListPage()
+    rsx! {
+        ProtectedRoute { permission: "suppliers:read".to_string(),
+            pages::supplier_list::SupplierListPage {}
+        }
+    }
 }
 
 #[component]
 fn SupplierCreatePage() -> Element {
-    pages::supplier_create::SupplierCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "suppliers:create".to_string(),
+            pages::supplier_create::SupplierCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn SupplierDetailPage(id: String) -> Element {
-    rsx! { pages::supplier_detail::SupplierDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "suppliers:read".to_string(),
+            pages::supplier_detail::SupplierDetailPage { id }
+        }
+    }
 }
 
 // ── Employees ──
 
 #[component]
 fn EmployeeListPage() -> Element {
-    pages::employee_list::EmployeeListPage()
+    rsx! {
+        ProtectedRoute { permission: "employees:read".to_string(),
+            pages::employee_list::EmployeeListPage {}
+        }
+    }
 }
 
 #[component]
 fn EmployeeCreatePage() -> Element {
-    pages::employee_create::EmployeeCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "employees:create".to_string(),
+            pages::employee_create::EmployeeCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn EmployeeDetailPage(id: String) -> Element {
-    rsx! { pages::employee_detail::EmployeeDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "employees:read".to_string(),
+            pages::employee_detail::EmployeeDetailPage { id }
+        }
+    }
 }
 
 // ── Expenses ──
 
 #[component]
 fn ExpenseListPage() -> Element {
-    pages::expense_list::ExpenseListPage()
+    rsx! {
+        ProtectedRoute { permission: "expenses:read".to_string(),
+            pages::expense_list::ExpenseListPage {}
+        }
+    }
 }
 
 #[component]
 fn ExpenseCreatePage() -> Element {
-    pages::expense_create::ExpenseCreatePage()
+    rsx! {
+        ProtectedRoute { permission: "expenses:create".to_string(),
+            pages::expense_create::ExpenseCreatePage {}
+        }
+    }
 }
 
 #[component]
 fn ExpenseCategoryListPage() -> Element {
-    pages::expense_category_list::ExpenseCategoryListPage()
+    rsx! {
+        ProtectedRoute { permission: "expenses:read".to_string(),
+            pages::expense_category_list::ExpenseCategoryListPage {}
+        }
+    }
 }
 
 // ── Accounting ──
 
 #[component]
 fn AccountingDashboardPage() -> Element {
-    pages::accounting_dashboard::AccountingDashboardPage()
+    rsx! {
+        ProtectedRoute { permission: "dashboard:read".to_string(),
+            pages::accounting_dashboard::AccountingDashboardPage {}
+        }
+    }
 }
 
 #[component]
 fn ChartOfAccountsPage() -> Element {
-    pages::chart_of_accounts::ChartOfAccountsPage()
+    rsx! {
+        ProtectedRoute { permission: "accounting:read".to_string(),
+            pages::chart_of_accounts::ChartOfAccountsPage {}
+        }
+    }
 }
 
 #[component]
 fn AccountingPeriodsPage() -> Element {
-    pages::accounting_periods::AccountingPeriodsPage()
+    rsx! {
+        ProtectedRoute { permission: "accounting:read".to_string(),
+            pages::accounting_periods::AccountingPeriodsPage {}
+        }
+    }
 }
 
 // ── Reports ──
 
 #[component]
 fn ReportsDashboardPage() -> Element {
-    pages::reports_dashboard::ReportsDashboardPage()
+    rsx! {
+        ProtectedRoute { permission: "reports:read".to_string(),
+            pages::reports_dashboard::ReportsDashboardPage {}
+        }
+    }
 }
 
 #[component]
 fn ArAgingReportPage() -> Element {
-    pages::ar_aging::ArAgingReportPage()
+    rsx! {
+        ProtectedRoute { permission: "reports:read".to_string(),
+            pages::ar_aging::ArAgingReportPage {}
+        }
+    }
 }
 
 #[component]
 fn CustomerStatementsPage() -> Element {
-    pages::customer_statements::CustomerStatementsPage()
+    rsx! {
+        ProtectedRoute { permission: "customers:read".to_string(),
+            pages::customer_statements::CustomerStatementsPage {}
+        }
+    }
 }
 
 #[component]
 fn SalesReportPage() -> Element {
-    pages::sales_report::SalesReportPage()
+    rsx! {
+        ProtectedRoute { permission: "reports:read".to_string(),
+            pages::sales_report::SalesReportPage {}
+        }
+    }
 }
 
 #[component]
 fn InventoryReportPage() -> Element {
-    pages::inventory_report::InventoryReportPage()
+    rsx! {
+        ProtectedRoute { permission: "reports:read".to_string(),
+            pages::inventory_report::InventoryReportPage {}
+        }
+    }
 }
 
 #[component]
 fn FinancialReportPage() -> Element {
-    pages::financial_report::FinancialReportPage()
+    rsx! {
+        ProtectedRoute { permission: "reports:read".to_string(),
+            pages::financial_report::FinancialReportPage {}
+        }
+    }
 }
 
 #[component]
 fn CustomReportBuilderPage() -> Element {
-    pages::custom_report_builder::CustomReportBuilderPage()
+    rsx! {
+        ProtectedRoute { permission: "reports:create".to_string(),
+            pages::custom_report_builder::CustomReportBuilderPage {}
+        }
+    }
 }
 
 #[component]
 fn TaxSummaryPage() -> Element {
-    pages::tax_summary::TaxSummaryPage()
+    rsx! {
+        ProtectedRoute { permission: "reports:read".to_string(),
+            pages::tax_summary::TaxSummaryPage {}
+        }
+    }
 }
 
 // ── Forecasts ──
 
 #[component]
 fn ForecastsDashboardPage() -> Element {
-    pages::forecasts_dashboard::ForecastsDashboardPage()
+    rsx! {
+        ProtectedRoute { permission: "forecasts:read".to_string(),
+            pages::forecasts_dashboard::ForecastsDashboardPage {}
+        }
+    }
 }
 
 #[component]
 fn DemandForecastPage() -> Element {
-    pages::demand_forecast::DemandForecastPage()
+    rsx! {
+        ProtectedRoute { permission: "forecasts:read".to_string(),
+            pages::demand_forecast::DemandForecastPage {}
+        }
+    }
 }
 
 #[component]
 fn TrendAnalysisPage() -> Element {
-    pages::trend_analysis::TrendAnalysisPage()
+    rsx! {
+        ProtectedRoute { permission: "forecasts:read".to_string(),
+            pages::trend_analysis::TrendAnalysisPage {}
+        }
+    }
 }
 
 #[component]
 fn ForecastAccuracyPage() -> Element {
-    pages::forecast_accuracy::ForecastAccuracyPage()
+    rsx! {
+        ProtectedRoute { permission: "forecasts:read".to_string(),
+            pages::forecast_accuracy::ForecastAccuracyPage {}
+        }
+    }
 }
 
 #[component]
 fn ForecastModelConfigPage() -> Element {
-    pages::forecast_model_config::ForecastModelConfigPage()
+    rsx! {
+        ProtectedRoute { permission: "forecasts:update".to_string(),
+            pages::forecast_model_config::ForecastModelConfigPage {}
+        }
+    }
 }
 
 #[component]
 fn SeasonalEventsPage() -> Element {
-    pages::seasonal_events::SeasonalEventsPage()
+    rsx! {
+        ProtectedRoute { permission: "forecasts:read".to_string(),
+            pages::seasonal_events::SeasonalEventsPage {}
+        }
+    }
 }
 
 // ── Settings & Admin ──
 
 #[component]
 fn SettingsPage() -> Element {
-    pages::settings::SettingsPage()
+    rsx! {
+        ProtectedRoute { permission: "settings:read".to_string(),
+            pages::settings::SettingsPage {}
+        }
+    }
 }
 
 #[component]
 fn IntegrationsPage() -> Element {
-    pages::integrations::IntegrationsPage()
+    rsx! {
+        ProtectedRoute { permission: "settings:read".to_string(),
+            pages::integrations::IntegrationsPage {}
+        }
+    }
 }
 
 #[component]
 fn UserListPage() -> Element {
-    pages::user_list::UserListPage()
+    rsx! {
+        ProtectedRoute { permission: "users:read".to_string(),
+            pages::user_list::UserListPage {}
+        }
+    }
+}
+
+#[component]
+fn UserCreatePage() -> Element {
+    rsx! {
+        ProtectedRoute { permission: "users:create".to_string(),
+            pages::user_create::UserCreatePage {}
+        }
+    }
+}
+
+#[component]
+fn UserEditPage(id: String) -> Element {
+    rsx! {
+        ProtectedRoute { permission: "users:update".to_string(),
+            pages::user_edit::UserEditPage { id }
+        }
+    }
 }
 
 #[component]
 fn UserDetailPage(id: String) -> Element {
-    rsx! { pages::user_detail::UserDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "users:read".to_string(),
+            pages::user_detail::UserDetailPage { id }
+        }
+    }
 }
 
 #[component]
 fn RoleListPage() -> Element {
-    pages::role_list::RoleListPage()
+    rsx! {
+        ProtectedRoute { permission: "roles:read".to_string(),
+            pages::role_list::RoleListPage {}
+        }
+    }
 }
 
 #[component]
 fn RoleDetailPage(id: String) -> Element {
-    rsx! { pages::role_detail::RoleDetailPage { id } }
+    rsx! {
+        ProtectedRoute { permission: "roles:read".to_string(),
+            pages::role_detail::RoleDetailPage { id }
+        }
+    }
 }
 
 #[component]
 fn ActivityLogPage() -> Element {
-    pages::activity_log::ActivityLogPage()
+    rsx! {
+        ProtectedRoute { permission: "activity_log:read".to_string(),
+            pages::activity_log::ActivityLogPage {}
+        }
+    }
 }
 
 // ── 404 ──

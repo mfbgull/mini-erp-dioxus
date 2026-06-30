@@ -6,6 +6,7 @@ use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
 use crate::pages::role_list::Role;
+use crate::models::UserProfile;
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -138,22 +139,6 @@ fn role_permissions(role_name: &str) -> Vec<ModulePermission> {
 }
 
 // ============================================================================
-// User in role helper
-// ============================================================================
-
-fn users_in_role(role: &str) -> Vec<(&'static str, &'static str)> {
-    match role {
-        "Admin" => vec![("admin", "Administrator"), ("zainab.akhtar", "Zainab Akhtar")],
-        "Manager" => vec![("ahmad.khan", "Ahmad Khan"), ("hira.pervaiz", "Hira Pervaiz")],
-        "Sales" => vec![("fatima.ali", "Fatima Ali"), ("bilal.hussain", "Bilal Hussain"), ("raheel.butt", "Raheel Butt")],
-        "Accounts" => vec![("sana.raza", "Sana Raza"), ("kamran.khan", "Kamran Khan")],
-        "Inventory" => vec![("usman.siddiqui", "Usman Siddiqui"), ("noor.sheikh", "Noor Sheikh")],
-        "Production" => vec![("tariq.mehmood", "Tariq Mehmood")],
-        _ => vec![],
-    }
-}
-
-// ============================================================================
 // Component
 // ============================================================================
 
@@ -175,10 +160,21 @@ pub fn RoleDetailPage(id: String) -> Element {
                 id: r.id,
                 role_name: r.role_name,
                 description: r.description,
-                user_count: 0, // ponytail: not in API
+                user_count: r.user_count as i32,
                 is_system: r.is_system_role,
-                created_at: String::new(), // ponytail: not in API
+                created_at: String::new(),
             })
+        }
+    });
+
+    let id_clone2 = id.clone();
+    let users_resource = use_resource(move || {
+        let api = api.clone();
+        let id_fetch = id_clone2.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            let parsed = id_fetch.parse::<i64>().ok().unwrap_or(0);
+            client.list_role_users(parsed).await.unwrap_or_default()
         }
     });
 
@@ -241,7 +237,7 @@ pub fn RoleDetailPage(id: String) -> Element {
 
     let role = role_opt.as_ref().unwrap();
     let permissions = role_permissions(&role.role_name);
-    let users = users_in_role(&role.role_name);
+    let users = users_resource.read().cloned().unwrap_or_default();
     let can_edit = !role.is_system;
     let is_system_str = if role.is_system { "System Role" } else { "Custom Role" };
 
@@ -351,14 +347,16 @@ pub fn RoleDetailPage(id: String) -> Element {
                             tr {
                                 th { "Username" }
                                 th { "Full Name" }
+                                th { "Email" }
                             }
                         }
                         tbody {
-                            {users.iter().map(|(username, full_name)| {
+                            {users.iter().map(|u| {
                                 rsx! {
                                     tr {
-                                        td { "{username}" }
-                                        td { "{full_name}" }
+                                        td { "{u.username}" }
+                                        td { "{u.full_name}" }
+                                        td { "{u.email}" }
                                     }
                                 }
                             })}
