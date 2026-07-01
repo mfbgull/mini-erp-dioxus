@@ -81,12 +81,23 @@ async fn create_bom(State(_state): State<AppState>, Json(form): Json<BomForm>) -
     if form.items.is_empty() {
         return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "At least one raw material is required." })));
     }
+    if form.bom_name.trim().is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "BOM name is required." })));
+    }
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM boms", [], |row| row.get(0)).unwrap_or(1);
-    let bom_no = format!("BOM-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
+    // ponytail: simple sequence via MAX, works for single-server; use a sequence table if multi-node
+    let year = chrono::Utc::now().format("%Y");
+    let max_seq: i64 = db.query_row(
+        "SELECT COALESCE(MAX(CAST(SUBSTR(bom_no, 9) AS INTEGER)), 0) FROM boms WHERE bom_no LIKE ?1",
+        [&format!("BOM-{}%-%", year)],
+        |row| row.get(0),
+    ).unwrap_or(0);
+    let bom_no = format!("BOM-{}-{:04}", year, max_seq + 1);
+    // ponytail: description stored but not displayed on detail page yet
+    let description = form.description.as_deref().unwrap_or("");
     let result = db.execute(
-        "INSERT INTO boms (bom_no, bom_name, finished_item_id, quantity) VALUES (?1, ?2, ?3, ?4)",
-        rusqlite::params![bom_no, form.bom_name, form.finished_item_id, form.quantity],
+        "INSERT INTO boms (bom_no, bom_name, finished_item_id, quantity, description) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params![bom_no, form.bom_name, form.finished_item_id, form.quantity, description],
     );
     match result {
         Ok(_) => {

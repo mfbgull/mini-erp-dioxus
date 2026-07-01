@@ -79,7 +79,7 @@ pub fn nav_modules() -> Vec<NavModule> {
             name: "Manufacturing", icon: "🏭", permission: "bom:read",
             items: vec![
                 NavItem { label: "Dashboard", icon: "📊", route: "/manufacturing", permission: "dashboard:read" },
-                NavItem { label: "BOM", icon: "📋", route: "/manufacturing/bom", permission: "bom:read" },
+                NavItem { label: "BOM", icon: "📋", route: "/manufacturing/boms", permission: "bom:read" },
                 NavItem { label: "Production", icon: "⚙", route: "/manufacturing/production", permission: "production:read" },
             ],
         },

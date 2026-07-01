@@ -830,6 +830,7 @@ pub struct BomForm {
     pub bom_name: String,
     pub finished_item_id: i64,
     pub quantity: f64,
+    pub description: Option<String>,
     pub items: Vec<BomItemForm>,
 }
 

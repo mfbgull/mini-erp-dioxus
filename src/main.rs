@@ -145,11 +145,11 @@ enum Route {
         // ── Manufacturing ──
         #[route("/manufacturing")]
         ManufacturingDashboardPage {},
-        #[route("/manufacturing/bom")]
+        #[route("/manufacturing/boms")]
         BomListPage {},
-        #[route("/manufacturing/bom/new")]
+        #[route("/manufacturing/boms/new")]
         BomCreatePage {},
-        #[route("/manufacturing/bom/:id")]
+        #[route("/manufacturing/boms/:id")]
         BomDetailPage { id: String },
         #[route("/manufacturing/production")]
         ProductionListPage {},

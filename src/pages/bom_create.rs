@@ -151,6 +151,7 @@ pub fn BomCreatePage() -> Element {
     }
 
     let bom_code = use_signal(String::new);
+    let description = use_signal(String::new);
     let finished_item = use_signal(String::new);
     let quantity_produced = use_signal(|| "1.0".to_string());
     let component_lines = use_signal(|| vec![
@@ -221,6 +222,7 @@ pub fn BomCreatePage() -> Element {
         let mut toast = toast.clone();
         let mut nav = navigator.clone();
         let bc = bom_code.clone();
+        let desc = description.clone();
         let fi = finished_item.clone();
         let qty = quantity_produced.clone();
         let cls = component_lines.clone();
@@ -232,6 +234,7 @@ pub fn BomCreatePage() -> Element {
             if !validate() { return; }
             saving.set(true);
             let bom_name = bc.read().clone();
+            let description = Some(desc.read().clone()).filter(|s| !s.is_empty());
             let finished_item_id = fi.read().parse::<i64>().unwrap_or(0);
             let quantity = qty.read().parse::<f64>().unwrap_or(0.0);
             let items: Vec<BomItemForm> = cls.read().iter().map(|l| {
@@ -252,6 +255,7 @@ pub fn BomCreatePage() -> Element {
                     bom_name: if bom_name.is_empty() { "New BOM".to_string() } else { bom_name },
                     finished_item_id,
                     quantity,
+                    description,
                     items,
                 };
                 match client.create_bom(&form).await {
@@ -273,6 +277,7 @@ pub fn BomCreatePage() -> Element {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
         let bc = bom_code.clone();
+        let desc = description.clone();
         let fi = finished_item.clone();
         let qty = quantity_produced.clone();
         let mut lines = component_lines.clone();
@@ -285,6 +290,7 @@ pub fn BomCreatePage() -> Element {
             if !validate() { return; }
             saving.set(true);
             let bom_name = bc.read().clone();
+            let description = Some(desc.read().clone()).filter(|s| !s.is_empty());
             let finished_item_id = fi.read().parse::<i64>().unwrap_or(0);
             let quantity = qty.read().parse::<f64>().unwrap_or(0.0);
             let items: Vec<BomItemForm> = lines.read().iter().map(|l| {
@@ -302,6 +308,7 @@ pub fn BomCreatePage() -> Element {
             let mut fi = fi.clone();
             let mut qty = qty.clone();
             let mut bc = bc.clone();
+            let mut desc = desc.clone();
             let api = api.clone();
             spawn(async move {
                 let client = api.read().clone();
@@ -309,12 +316,14 @@ pub fn BomCreatePage() -> Element {
                     bom_name: if bom_name.is_empty() { "New BOM".to_string() } else { bom_name },
                     finished_item_id,
                     quantity,
+                    description,
                     items,
                 };
                 match client.create_bom(&form).await {
                     Ok(_) => {
                         toast.success("BOM Created", "Created. Creating another...");
                         bc.set(String::new());
+                        desc.set(String::new());
                         fi.set(String::new());
                         qty.set("1.0".to_string());
                         lines.set(vec![BomComponentLine { id: 1, item_code: String::new(), item_label: String::new(), quantity: 1.0, uom: "pcs".to_string(), unit_cost: 0.0, scrap_pct: 0.0 }]);
@@ -396,6 +405,19 @@ pub fn BomCreatePage() -> Element {
                         placeholder: "Select finished item...",
                         searchable: true,
                         class: Some("cb-input-group".to_string()),
+                    }
+                }
+                div { style: "margin-top: 12px;",
+                    label { style: "display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;", "Description" }
+                    textarea {
+                        style: "width: 100%; min-height: 60px; padding: 8px 10px; border: 1px solid var(--border-color, #e0e0e0); border-radius: 4px; font-size: 13px; box-sizing: border-box; resize: vertical;",
+                        placeholder: "Optional description or notes about this BOM...",
+                        value: description.read().clone(),
+                        oninput: {
+                            let mut d = description.clone();
+                            let mut dirty = is_dirty.clone();
+                            move |e| { d.set(e.value()); dirty.set(true); }
+                        },
                     }
                 }
             }

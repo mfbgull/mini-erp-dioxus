@@ -118,6 +118,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         ("052_dashboard_layouts", MIGRATION_052_DASHBOARD_LAYOUTS),
         ("053_invoice_drafts", MIGRATION_053_INVOICE_DRAFTS),
         ("054_activity_log", MIGRATION_054_ACTIVITY_LOG),
+        ("055_bom_add_description_created_by", MIGRATION_055_BOM_DESCRIPTION_CREATED_BY),
     ];
 
     for (name, sql) in &migrations {
@@ -1035,6 +1036,11 @@ CREATE TABLE IF NOT EXISTS invoice_drafts (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_invoice_drafts_session ON invoice_drafts(session_id);
+";
+
+const MIGRATION_055_BOM_DESCRIPTION_CREATED_BY: &str = "
+ALTER TABLE boms ADD COLUMN description TEXT NOT NULL DEFAULT '';
+ALTER TABLE boms ADD COLUMN created_by INTEGER REFERENCES users(id);
 ";
 
 const MIGRATION_054_ACTIVITY_LOG: &str = "
