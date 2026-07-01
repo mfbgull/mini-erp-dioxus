@@ -1,6 +1,7 @@
 //! AR Aging Report Page — Outstanding receivables by aging buckets.
 
 use crate::components::common::{Button, ButtonVariant, StatCard, StatCardVariant, use_toast};
+use crate::pages::print_shared::trigger_print;
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -317,7 +318,7 @@ pub fn ArAgingReportPage() -> Element {
 
             // Export actions
             div { class: "ar-actions",
-                Button { variant: ButtonVariant::Secondary, icon: Some("🖨".to_string()), onclick: move |_| {}, "Print" }
+                Button { variant: ButtonVariant::Secondary, icon: Some("🖨".to_string()), onclick: move |_| trigger_print(), "Print" }
                 Button { variant: ButtonVariant::Primary, icon: Some("📥".to_string()), onclick: on_export2, "Export PDF" }
             }
         }

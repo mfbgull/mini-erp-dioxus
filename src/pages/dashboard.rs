@@ -450,6 +450,7 @@ fn SalesChart(props: SalesChartProps) -> Element {
 
 #[component]
 pub fn DashboardPage() -> Element {
+    let navigator = use_navigator();
     let api = use_auth().api;
 
     let summary_resource = use_resource(move || {
@@ -723,25 +724,25 @@ pub fn DashboardPage() -> Element {
                     Button {
                         variant: ButtonVariant::Primary,
                         icon: Some("🧾".to_string()),
-                        onclick: move |_| {},
+                        onclick: move |_| { navigator.push("/sales/invoices/new"); },
                         "New Invoice"
                     }
                     Button {
                         variant: ButtonVariant::Secondary,
                         icon: Some("📦".to_string()),
-                        onclick: move |_| {},
+                        onclick: move |_| { navigator.push("/inventory/items/new"); },
                         "New Item"
                     }
                     Button {
                         variant: ButtonVariant::Secondary,
                         icon: Some("👤".to_string()),
-                        onclick: move |_| {},
+                        onclick: move |_| { navigator.push("/customers/new"); },
                         "New Customer"
                     }
                     Button {
                         variant: ButtonVariant::Ghost,
                         icon: Some("📊".to_string()),
-                        onclick: move |_| {},
+                        onclick: move |_| { navigator.push("/reports"); },
                         "View Reports"
                     }
                 }

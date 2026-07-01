@@ -263,12 +263,49 @@ enum Route {
 // Entry Point
 // ============================================================================
 
+// ============================================================================
+// Desktop mode: start embedded API server in background
+// ============================================================================
+
+/// Start the Axum API server on a background thread for desktop mode.
+/// Means users don't need to run two processes.
+#[cfg(all(feature = "desktop", not(target_arch = "wasm32")))]
+fn start_background_server() {
+    std::thread::spawn(|| {
+        let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime for embedded server");
+        runtime.block_on(async {
+            let port: u16 = std::env::var("MINI_ERP_PORT")
+                .ok()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(3001);
+            tracing::info!("Starting embedded API server on port {}…", port);
+            mini_erp::server::db::get_db();
+            let state = mini_erp::server::auth_routes::AppState::new();
+            let app = mini_erp::server::routes::create_router(state);
+            let addr = format!("0.0.0.0:{}", port);
+            let listener = tokio::net::TcpListener::bind(&addr)
+                .await
+                .expect(&format!("Failed to bind to {}", addr));
+            axum::serve(listener, app).await.expect("Server error");
+        });
+    });
+}
+
+// ============================================================================
+// Entry Point
+// ============================================================================
+
 fn main() {
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .without_time()
         .with_target(false)
         .init();
+
+    // In desktop mode, automatically start the API server in a background thread.
+    #[cfg(all(feature = "desktop", not(target_arch = "wasm32")))]
+    start_background_server();
+
     dioxus::launch(App);
 }
 

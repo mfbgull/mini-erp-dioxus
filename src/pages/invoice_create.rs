@@ -373,6 +373,7 @@ pub fn InvoiceCreatePage() -> Element {
     let due_date = use_signal(|| Some(today + chrono::Duration::days(30)));
 
     let discount_pct = use_signal(|| String::from("0"));
+    let mut discount_scope = use_signal(|| DiscountScope::BeforeTax);
     let tax_rate_str = use_signal(|| format!("{}", DEFAULT_TAX_RATE));
     let notes = use_signal(String::new);
     let is_saving = use_signal(|| false);
@@ -436,7 +437,7 @@ pub fn InvoiceCreatePage() -> Element {
     let tax_rate_val = tax_rate_str.read().parse::<f64>().unwrap_or(0.0);
 
     let discount = Discount {
-        scope: DiscountScope::BeforeTax,
+        scope: *discount_scope.read(),
         r#type: DiscountType::Percentage,
         value: discount_val,
     };
@@ -737,7 +738,8 @@ pub fn InvoiceCreatePage() -> Element {
         move |_| modal.set(false)
     };
 
-    let scope_btn_class = if discount_pct.read().parse::<f64>().unwrap_or(0.0) > 0.0 { "invoice-scope-btn invoice-scope-btn-active" } else { "invoice-scope-btn" };
+    let discount_scope_val = *discount_scope.read();
+    let scope_btn_class = if matches!(discount_scope_val, DiscountScope::BeforeTax) { "invoice-scope-btn invoice-scope-btn-active" } else { "invoice-scope-btn" };
 
     // ── Render ──
 
@@ -1030,8 +1032,14 @@ pub fn InvoiceCreatePage() -> Element {
                         button {
                             class: "{scope_btn_class}",
                             r#type: "button",
-                            onclick: move |_| {},
-                            "Before Tax"
+                            onclick: move |_| {
+                                let next = match *discount_scope.read() {
+                                    DiscountScope::BeforeTax => DiscountScope::AfterTax,
+                                    DiscountScope::AfterTax => DiscountScope::BeforeTax,
+                                };
+                                discount_scope.set(next);
+                            },
+                            if matches!(*discount_scope.read(), DiscountScope::BeforeTax) { "Before Tax" } else { "After Tax" }
                         }
                     }
                 }
