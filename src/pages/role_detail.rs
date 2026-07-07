@@ -6,7 +6,6 @@ use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
 use crate::pages::role_list::Role;
-use crate::models::UserProfile;
 use dioxus::prelude::*;
 
 // ============================================================================

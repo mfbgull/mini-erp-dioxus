@@ -27,7 +27,7 @@ use dioxus::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use super::columns::{calculate_column_widths, render_header_row, render_resize_handle};
+use super::columns::{calculate_column_widths, render_header_row};
 use super::filter::{apply_filters, count_active_filters, FilterValue};
 use super::pagination::{PageState, PaginationBar};
 use super::renderers::render_cell;

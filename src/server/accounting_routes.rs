@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, put},
+    routing::{get, post},
     Json, Router,
 };
 use serde_json::json;
@@ -235,7 +235,7 @@ async fn list_employees(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT id, employee_code, first_name, last_name, email, phone, cnic_no, address, city,
-                department, designation, salary, bank_name, bank_account_no,
+                department, designation, employment_type, salary, bank_name, bank_account_no,
                 emergency_contact_name, emergency_contact_phone, is_active, created_at, updated_at
          FROM employees WHERE is_active = 1 ORDER BY employee_code"
     ).unwrap();
@@ -244,10 +244,11 @@ async fn list_employees(State(_state): State<AppState>) -> impl IntoResponse {
             id: row.get(0)?, employee_code: row.get(1)?, first_name: row.get(2)?,
             last_name: row.get(3)?, email: row.get(4)?, phone: row.get(5)?,
             cnic_no: row.get(6)?, address: row.get(7)?, city: row.get(8)?,
-            department: row.get(9)?, designation: row.get(10)?, salary: row.get(11)?,
-            bank_name: row.get(12)?, bank_account_no: row.get(13)?,
-            emergency_contact_name: row.get(14)?, emergency_contact_phone: row.get(15)?,
-            is_active: row.get::<_, i64>(16)? != 0, created_at: row.get(17)?, updated_at: row.get(18)?,
+            department: row.get(9)?, designation: row.get(10)?,
+            employment_type: row.get(11)?, salary: row.get(12)?,
+            bank_name: row.get(13)?, bank_account_no: row.get(14)?,
+            emergency_contact_name: row.get(15)?, emergency_contact_phone: row.get(16)?,
+            is_active: row.get::<_, i64>(17)? != 0, created_at: row.get(18)?, updated_at: row.get(19)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
@@ -257,7 +258,7 @@ async fn get_employee(State(_state): State<AppState>, Path(id): Path<i64>) -> im
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT id, employee_code, first_name, last_name, email, phone, cnic_no, address, city,
-                department, designation, salary, bank_name, bank_account_no,
+                department, designation, employment_type, salary, bank_name, bank_account_no,
                 emergency_contact_name, emergency_contact_phone, is_active, created_at, updated_at
          FROM employees WHERE id = ?1",
         [id],
@@ -265,10 +266,11 @@ async fn get_employee(State(_state): State<AppState>, Path(id): Path<i64>) -> im
             id: row.get(0)?, employee_code: row.get(1)?, first_name: row.get(2)?,
             last_name: row.get(3)?, email: row.get(4)?, phone: row.get(5)?,
             cnic_no: row.get(6)?, address: row.get(7)?, city: row.get(8)?,
-            department: row.get(9)?, designation: row.get(10)?, salary: row.get(11)?,
-            bank_name: row.get(12)?, bank_account_no: row.get(13)?,
-            emergency_contact_name: row.get(14)?, emergency_contact_phone: row.get(15)?,
-            is_active: row.get::<_, i64>(16)? != 0, created_at: row.get(17)?, updated_at: row.get(18)?,
+            department: row.get(9)?, designation: row.get(10)?,
+            employment_type: row.get(11)?, salary: row.get(12)?,
+            bank_name: row.get(13)?, bank_account_no: row.get(14)?,
+            emergency_contact_name: row.get(15)?, emergency_contact_phone: row.get(16)?,
+            is_active: row.get::<_, i64>(17)? != 0, created_at: row.get(18)?, updated_at: row.get(19)?,
         }),
     );
     match result {

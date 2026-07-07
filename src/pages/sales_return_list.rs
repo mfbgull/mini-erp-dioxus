@@ -1,7 +1,6 @@
 //! Sales Return List Page — DataGrid-backed list for sales returns with status
 //! badges, summary bar, toolbar, and row click navigation.
 
-use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,

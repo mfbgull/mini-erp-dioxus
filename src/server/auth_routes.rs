@@ -129,6 +129,8 @@ async fn login_handler(
                 role: row.get(5)?,
                 role_id: row.get(6)?,
                 is_active: row.get::<_, i64>(7)? != 0,
+                created_at: None,
+                last_login: None,
             })
         },
     );
@@ -149,6 +151,8 @@ async fn login_handler(
                                 role: user.role,
                                 role_id: user.role_id,
                                 is_active: user.is_active,
+                                created_at: None,
+                                last_login: None,
                             };
                             (
                                 StatusCode::OK,
@@ -245,6 +249,8 @@ async fn me_handler(
                                 role: row.get(4)?,
                                 role_id: row.get(5)?,
                                 is_active: row.get::<_, i64>(6)? != 0,
+                                created_at: None,
+                                last_login: None,
                             })
                         },
                     );

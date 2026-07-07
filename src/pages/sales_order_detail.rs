@@ -2,7 +2,7 @@
 //! line items, action bar, and conversion to invoice.
 
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
+    use_toast,
 };
 use dioxus::prelude::*;
 use crate::auth::use_auth;
@@ -136,9 +136,9 @@ pub fn SalesOrderDetailPage(id: String) -> Element {
                 id: order.id,
                 order_no: order.so_no,
                 customer_name: order.customer_name.unwrap_or_default(),
-                customer_code: String::new(), // ponytail: not returned by server
+                customer_code: order.customer_code.unwrap_or_default(),
                 order_date: order.so_date.clone(),
-                delivery_date: String::new(), // ponytail: not returned by server
+                delivery_date: order.delivery_date.unwrap_or_default(),
                 status: order.status,
                 subtotal: order.total_amount,  // ponytail: server only has total_amount
                 discount_percent: 0.0,

@@ -4,7 +4,6 @@
 //! the sort list. Shift+click appends a secondary sort column.
 
 use std::cmp::Ordering;
-use std::rc::Rc;
 
 use super::types::*;
 

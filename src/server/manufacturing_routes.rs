@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, put, patch},
+    routing::{get, patch, put},
     Json, Router,
 };
 use serde_json::json;
@@ -17,7 +17,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/bom/{id}/toggle-active", patch(toggle_bom_active))
         .route("/api/bom/by-item/{itemId}", get(get_bom_by_item))
         .route("/api/production/productions", get(list_productions).post(create_production))
-        .route("/api/production/productions/{id}", get(get_production).delete(delete_production))
+        .route("/api/production/productions/{id}", get(get_production).put(update_production).delete(delete_production))
         .route("/api/production/productions/summary/item/{id}", get(production_summary_by_item))
 }
 
@@ -29,7 +29,8 @@ async fn list_boms(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT b.id, b.bom_no, b.bom_name, b.finished_item_id, i.item_name, i.item_code,
-                b.quantity, b.is_active, b.created_at, b.updated_at
+                b.quantity, b.version, b.is_active, b.created_at, b.updated_at,
+                (SELECT COALESCE(SUM(bi.quantity * bi.unit_cost), 0) FROM bom_items bi WHERE bi.bom_id = b.id) AS total_cost
          FROM boms b LEFT JOIN items i ON b.finished_item_id = i.id
          ORDER BY b.created_at DESC"
     ).unwrap();
@@ -38,7 +39,9 @@ async fn list_boms(State(_state): State<AppState>) -> impl IntoResponse {
             id: row.get(0)?, bom_no: row.get(1)?, bom_name: row.get(2)?,
             finished_item_id: row.get(3)?, finished_item_name: row.get(4)?,
             finished_item_code: row.get(5)?, quantity: row.get(6)?,
-            is_active: row.get::<_, i64>(7)? != 0, created_at: row.get(8)?, updated_at: row.get(9)?,
+            version: row.get(7)?, is_active: row.get::<_, i64>(8)? != 0,
+            created_at: row.get(9)?, updated_at: row.get(10)?,
+            total_cost: row.get(11)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
@@ -48,14 +51,17 @@ async fn get_bom(State(_state): State<AppState>, Path(id): Path<i64>) -> impl In
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT b.id, b.bom_no, b.bom_name, b.finished_item_id, i.item_name, i.item_code,
-                b.quantity, b.is_active, b.created_at, b.updated_at
+                b.quantity, b.version, b.is_active, b.created_at, b.updated_at,
+                (SELECT COALESCE(SUM(bi.quantity * bi.unit_cost), 0) FROM bom_items bi WHERE bi.bom_id = b.id) AS total_cost
          FROM boms b LEFT JOIN items i ON b.finished_item_id = i.id WHERE b.id = ?1",
         [id],
         |row| Ok(Bom {
             id: row.get(0)?, bom_no: row.get(1)?, bom_name: row.get(2)?,
             finished_item_id: row.get(3)?, finished_item_name: row.get(4)?,
             finished_item_code: row.get(5)?, quantity: row.get(6)?,
-            is_active: row.get::<_, i64>(7)? != 0, created_at: row.get(8)?, updated_at: row.get(9)?,
+            version: row.get(7)?, is_active: row.get::<_, i64>(8)? != 0,
+            created_at: row.get(9)?, updated_at: row.get(10)?,
+            total_cost: row.get(11)?,
         }),
     );
     match result {
@@ -182,7 +188,8 @@ async fn list_productions(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
         "SELECT p.id, p.production_no, p.output_item_id, i.item_name, i.item_code,
-                p.output_quantity, p.warehouse_id, w.warehouse_name, p.bom_id,
+                p.output_quantity, p.completed_qty, p.end_date,
+                p.warehouse_id, w.warehouse_name, p.bom_id,
                 b.bom_name, p.overhead_cost, p.batch_id, p.unit_cost, p.total_material_cost,
                 p.status, p.notes, p.created_by, p.created_at
          FROM productions p
@@ -195,11 +202,12 @@ async fn list_productions(State(_state): State<AppState>) -> impl IntoResponse {
         Ok(Production {
             id: row.get(0)?, production_no: row.get(1)?, output_item_id: row.get(2)?,
             output_item_name: row.get(3)?, output_item_code: row.get(4)?,
-            output_quantity: row.get(5)?, warehouse_id: row.get(6)?, warehouse_name: row.get(7)?,
-            bom_id: row.get(8)?, bom_name: row.get(9)?, overhead_cost: row.get(10)?,
-            batch_id: row.get(11)?, unit_cost: row.get(12)?, total_material_cost: row.get(13)?,
-            status: row.get(14)?, notes: row.get(15)?, created_by: row.get(16)?,
-            created_at: row.get(17)?,
+            output_quantity: row.get(5)?, completed_qty: row.get(6)?,
+            end_date: row.get(7)?, warehouse_id: row.get(8)?, warehouse_name: row.get(9)?,
+            bom_id: row.get(10)?, bom_name: row.get(11)?, overhead_cost: row.get(12)?,
+            batch_id: row.get(13)?, unit_cost: row.get(14)?, total_material_cost: row.get(15)?,
+            status: row.get(16)?, notes: row.get(17)?, created_by: row.get(18)?,
+            created_at: row.get(19)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
@@ -209,7 +217,8 @@ async fn get_production(State(_state): State<AppState>, Path(id): Path<i64>) -> 
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
         "SELECT p.id, p.production_no, p.output_item_id, i.item_name, i.item_code,
-                p.output_quantity, p.warehouse_id, w.warehouse_name, p.bom_id,
+                p.output_quantity, p.completed_qty, p.end_date,
+                p.warehouse_id, w.warehouse_name, p.bom_id,
                 b.bom_name, p.overhead_cost, p.batch_id, p.unit_cost, p.total_material_cost,
                 p.status, p.notes, p.created_by, p.created_at
          FROM productions p
@@ -221,11 +230,12 @@ async fn get_production(State(_state): State<AppState>, Path(id): Path<i64>) -> 
         |row| Ok(Production {
             id: row.get(0)?, production_no: row.get(1)?, output_item_id: row.get(2)?,
             output_item_name: row.get(3)?, output_item_code: row.get(4)?,
-            output_quantity: row.get(5)?, warehouse_id: row.get(6)?, warehouse_name: row.get(7)?,
-            bom_id: row.get(8)?, bom_name: row.get(9)?, overhead_cost: row.get(10)?,
-            batch_id: row.get(11)?, unit_cost: row.get(12)?, total_material_cost: row.get(13)?,
-            status: row.get(14)?, notes: row.get(15)?, created_by: row.get(16)?,
-            created_at: row.get(17)?,
+            output_quantity: row.get(5)?, completed_qty: row.get(6)?,
+            end_date: row.get(7)?, warehouse_id: row.get(8)?, warehouse_name: row.get(9)?,
+            bom_id: row.get(10)?, bom_name: row.get(11)?, overhead_cost: row.get(12)?,
+            batch_id: row.get(13)?, unit_cost: row.get(14)?, total_material_cost: row.get(15)?,
+            status: row.get(16)?, notes: row.get(17)?, created_by: row.get(18)?,
+            created_at: row.get(19)?,
         }),
     );
     match result {
@@ -289,6 +299,31 @@ async fn create_production(State(_state): State<AppState>, Json(form): Json<Prod
             (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": prod_id, "production_no": pno } })))
         }
         Err(e) => { tracing::error!("Failed to create production: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create production." }))) }
+    }
+}
+
+async fn update_production(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<ProductionForm>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let result = db.execute(
+        "UPDATE productions SET output_item_id=?1, output_quantity=?2, warehouse_id=?3, bom_id=?4,
+         overhead_cost=?5, notes=?6 WHERE id=?7 AND status != 'Completed'",
+        rusqlite::params![form.output_item_id, form.output_quantity, form.warehouse_id,
+            form.bom_id, form.overhead_cost.unwrap_or(0.0), form.notes.as_deref().unwrap_or(""), id],
+    );
+    match result {
+        Ok(rows) if rows > 0 => {
+            // Re-insert production inputs (delete old, insert new)
+            db.execute("DELETE FROM production_inputs WHERE production_id = ?1", [id]).ok();
+            for input in &form.inputs {
+                db.execute(
+                    "INSERT INTO production_inputs (production_id, item_id, quantity, warehouse_id) VALUES (?1, ?2, ?3, ?4)",
+                    rusqlite::params![id, input.item_id, input.quantity, input.warehouse_id],
+                ).ok();
+            }
+            (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Production updated." } })))
+        }
+        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Production not found or already completed." }))),
+        Err(e) => { tracing::error!("Failed to update production: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update production." }))) }
     }
 }
 

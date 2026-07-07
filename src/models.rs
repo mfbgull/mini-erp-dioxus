@@ -39,6 +39,8 @@ pub struct UserProfile {
     pub role: String,
     pub role_id: Option<i64>,
     pub is_active: bool,
+    pub created_at: Option<String>,
+    pub last_login: Option<String>,
 }
 
 /// JWT claims payload.
@@ -143,6 +145,10 @@ pub struct User {
     pub role: String,
     pub role_id: Option<i64>,
     pub is_active: bool,
+    #[serde(default)]
+    pub created_at: Option<String>,
+    #[serde(default)]
+    pub last_login: Option<String>,
 }
 
 /// User create/update payload.
@@ -225,6 +231,7 @@ pub struct Warehouse {
     pub warehouse_code: String,
     pub warehouse_name: String,
     pub location: String,
+    pub capacity: f64,
     pub is_active: bool,
     pub created_at: String,
 }
@@ -278,6 +285,8 @@ pub struct StockBalance {
     pub item_id: i64,
     pub item_name: Option<String>,
     pub item_code: Option<String>,
+    pub category: Option<String>,
+    pub unit_of_measure: Option<String>,
     pub warehouse_id: i64,
     pub warehouse_name: Option<String>,
     pub quantity: f64,
@@ -344,6 +353,11 @@ pub struct Customer {
     pub current_balance: f64,
     pub opening_balance: f64,
     pub is_active: bool,
+    pub customer_type: String,
+    pub notes: String,
+    pub total_invoiced: f64,
+    pub total_paid: f64,
+    pub last_invoice_date: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -383,6 +397,7 @@ pub struct Invoice {
     pub invoice_no: String,
     pub customer_id: i64,
     pub customer_name: Option<String>,
+    pub customer_code: Option<String>,
     pub so_id: Option<i64>,
     pub quotation_id: Option<i64>,
     pub source_type: String,
@@ -402,6 +417,7 @@ pub struct Invoice {
     pub created_by: Option<i64>,
     pub created_at: String,
     pub updated_at: String,
+    pub item_count: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -520,8 +536,10 @@ pub struct SalesOrder {
     pub so_no: String,
     pub customer_id: i64,
     pub customer_name: Option<String>,
+    pub customer_code: Option<String>,
     pub so_date: String,
     pub status: String,
+    pub delivery_date: Option<String>,
     pub source_type: Option<String>,
     pub source_id: Option<i64>,
     pub total_amount: f64,
@@ -530,6 +548,7 @@ pub struct SalesOrder {
     pub created_by: Option<i64>,
     pub created_at: String,
     pub updated_at: String,
+    pub item_count: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -664,14 +683,17 @@ pub struct PurchaseOrder {
     pub po_no: String,
     pub supplier_id: i64,
     pub supplier_name: Option<String>,
+    pub supplier_code: Option<String>,
     pub po_date: String,
     pub status: String,
     pub total_amount: f64,
+    pub expected_date: Option<String>,
     pub warehouse_id: Option<i64>,
     pub notes: Option<String>,
     pub created_by: Option<i64>,
     pub created_at: String,
     pub updated_at: String,
+    pub item_count: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -773,6 +795,7 @@ pub struct DirectPurchase {
     pub total_cost: f64,
     pub supplier_name: String,
     pub purchase_date: String,
+    pub status: String,
     pub notes: Option<String>,
     pub created_by: Option<i64>,
     pub created_at: String,
@@ -802,6 +825,8 @@ pub struct Bom {
     pub finished_item_name: Option<String>,
     pub finished_item_code: Option<String>,
     pub quantity: f64,
+    pub version: i64,
+    pub total_cost: f64,
     pub is_active: bool,
     pub created_at: String,
     pub updated_at: String,
@@ -846,6 +871,8 @@ pub struct Production {
     pub output_item_name: Option<String>,
     pub output_item_code: Option<String>,
     pub output_quantity: f64,
+    pub completed_qty: f64,
+    pub end_date: Option<String>,
     pub warehouse_id: i64,
     pub warehouse_name: Option<String>,
     pub bom_id: Option<i64>,
@@ -907,6 +934,7 @@ pub struct Employee {
     pub city: String,
     pub department: String,
     pub designation: String,
+    pub employment_type: String,
     pub salary: f64,
     pub bank_name: String,
     pub bank_account_no: String,

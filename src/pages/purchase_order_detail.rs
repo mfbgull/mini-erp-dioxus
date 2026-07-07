@@ -97,9 +97,9 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
                 id: po.id,
                 po_no: po.po_no,
                 supplier_name: po.supplier_name.unwrap_or_default(),
-                supplier_code: String::new(), // ponytail: not in PO detail endpoint
+                supplier_code: po.supplier_code.unwrap_or_default(),
                 order_date: po.po_date,
-                expected_date: String::new(), // ponytail: not in PO model
+                expected_date: po.expected_date.unwrap_or_default(),
                 status: po.status,
                 items: line_items,
                 subtotal,

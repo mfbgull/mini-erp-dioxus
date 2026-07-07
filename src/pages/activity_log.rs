@@ -1,10 +1,10 @@
 //! Activity Log Page — DataGrid-backed audit trail with module and action filters.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, DateRangePicker, use_toast};
+use crate::components::common::use_toast;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
-    RowHeight, SelectionMode, TextAlign,
+    RowHeight, SelectionMode,
 };
 use dioxus::prelude::*;
 use std::collections::HashSet;

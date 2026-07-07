@@ -2,11 +2,10 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
+    Button, ButtonSize, ButtonVariant, FormInput, InputType,
     SearchableSelect, SelectOption, use_toast,
 };
 use dioxus::prelude::*;
-use crate::models::Role;
 
 const PAGE_CSS: &str = r#"
 .user-create-page { max-width: 700px; margin: 0 auto; }

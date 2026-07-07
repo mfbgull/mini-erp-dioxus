@@ -3,7 +3,7 @@
 use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
-    RowHeight, SelectionMode, TextAlign,
+    RowHeight, SelectionMode,
 };
 use dioxus::prelude::*;
 use std::collections::HashSet;
@@ -80,8 +80,8 @@ pub fn UserListPage() -> Element {
                         email: u.email,
                         role: u.role,
                         status: if u.is_active { "Active".to_string() } else { "Inactive".to_string() },
-                        last_login: String::new(), // ponytail: not in list endpoint
-                        created_at: String::new(), // ponytail: not in list endpoint
+                        last_login: u.last_login.unwrap_or_default(),
+                        created_at: u.created_at.unwrap_or_default(),
                     }).collect::<Vec<_>>()
                 })
                 .unwrap_or_default()

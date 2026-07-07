@@ -3,7 +3,7 @@
 use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
-    RowHeight, SelectionMode, TextAlign,
+    RowHeight, SelectionMode,
 };
 use dioxus::prelude::*;
 use std::collections::HashSet;
@@ -34,8 +34,7 @@ async fn fetch_employees(client: &crate::api::ApiClient) -> Vec<Employee> {
                 phone: e.phone,
                 department: e.department,
                 designation: e.designation,
-                // ponytail: employment_type not in server model
-                employment_type: "Permanent".to_string(),
+                employment_type: e.employment_type,
                 status: if e.is_active {
                     "Active".to_string()
                 } else {

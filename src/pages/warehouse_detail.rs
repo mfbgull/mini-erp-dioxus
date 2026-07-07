@@ -307,9 +307,9 @@ pub fn WarehouseDetailPage(id: String) -> Element {
                 .map(|sb| StockItem {
                     item_code: sb.item_code.unwrap_or_default(),
                     item_name: sb.item_name.unwrap_or_default(),
-                    category: String::new(), // ponytail: category not in StockBalance
+                    category: sb.category.unwrap_or_default(),
                     quantity: sb.quantity as i32,
-                    unit: String::new(), // ponytail: unit not in StockBalance
+                    unit: sb.unit_of_measure.unwrap_or_default(),
                 })
                 .collect::<Vec<_>>();
 
@@ -355,9 +355,8 @@ pub fn WarehouseDetailPage(id: String) -> Element {
         };
     };
 
-    // ponytail: capacity not returned by server, defaulting to 0
     let total_items: i32 = stock_items.iter().map(|s| s.quantity).sum();
-    let capacity = 0.0;
+    let capacity = wh.capacity;
 
     // ── Handlers ──
 

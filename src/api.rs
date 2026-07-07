@@ -1106,6 +1106,19 @@ impl ApiClient {
         Ok(body["data"].clone())
     }
 
+    /// PUT /api/inventory/physical-counts/{id}
+    pub async fn update_physical_count(&self, id: i64, form: &PhysicalCountForm) -> Result<serde_json::Value, String> {
+        let url = format!("{}/api/inventory/physical-counts/{}", base_url(), id);
+        let resp = self.inner.put(&url).headers(self.headers()).json(form).send().await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            return Err(body["error"].as_str().unwrap_or("Request failed").to_string());
+        }
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].clone())
+    }
+
     // ── Invoice endpoints ──
 
     /// GET /api/invoices
@@ -1555,6 +1568,21 @@ impl ApiClient {
         Ok(body["data"].clone())
     }
 
+    /// GET /api/customers/{id}/payments
+    pub async fn get_customer_payments(&self, id: i64) -> Result<Vec<Payment>, String> {
+        let url = format!("{}/api/customers/{}/payments", base_url(), id);
+        let resp = self.inner.get(&url).headers(self.headers()).send().await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            return Err(body["error"].as_str().unwrap_or("Request failed").to_string());
+        }
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        let items: Vec<Payment> = serde_json::from_value(body["data"].clone())
+            .map_err(|e| format!("Parse error: {}", e))?;
+        Ok(items)
+    }
+
     /// POST /api/customers
     pub async fn create_customer(&self, form: &CustomerForm) -> Result<Customer, String> {
         let url = format!("{}/api/customers", base_url());
@@ -1590,6 +1618,28 @@ impl ApiClient {
         }
         let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
         Ok(body["data"].as_array().cloned().unwrap_or_default())
+    }
+
+    /// PUT /api/customers/:id
+    pub async fn update_customer(&self, id: i64, form: &CustomerForm) -> Result<serde_json::Value, String> {
+        let url = format!("{}/api/customers/{}", base_url(), id);
+        let resp = self
+            .inner
+            .put(&url)
+            .headers(self.headers())
+            .json(form)
+            .send()
+            .await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            let msg = body["error"].as_str().unwrap_or("Request failed");
+            return Err(msg.to_string());
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].clone())
     }
 
     /// POST /api/customers/recalculate-balances
@@ -1677,6 +1727,28 @@ impl ApiClient {
         Ok(supplier)
     }
 
+    /// PUT /api/suppliers/:id
+    pub async fn update_supplier(&self, id: i64, form: &SupplierForm) -> Result<serde_json::Value, String> {
+        let url = format!("{}/api/suppliers/{}", base_url(), id);
+        let resp = self
+            .inner
+            .put(&url)
+            .headers(self.headers())
+            .json(form)
+            .send()
+            .await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            let msg = body["error"].as_str().unwrap_or("Request failed");
+            return Err(msg.to_string());
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].clone())
+    }
+
     // ── Purchase endpoints ──
 
     /// GET /api/purchases
@@ -1723,6 +1795,45 @@ impl ApiClient {
         let purchase: DirectPurchase = serde_json::from_value(body["data"].clone())
             .map_err(|e| format!("Parse error: {}", e))?;
         Ok(purchase)
+    }
+
+    /// PUT /api/purchases/{id}
+    pub async fn update_direct_purchase(&self, id: i64, form: &DirectPurchaseForm) -> Result<serde_json::Value, String> {
+        let url = format!("{}/api/purchases/{}", base_url(), id);
+        let resp = self.inner.put(&url).headers(self.headers()).json(form).send().await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            return Err(body["error"].as_str().unwrap_or("Request failed").to_string());
+        }
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].clone())
+    }
+
+    /// GET /api/receipts
+    pub async fn list_receipts(&self) -> Result<Vec<serde_json::Value>, String> {
+        let url = format!("{}/api/receipts", base_url());
+        let resp = self.inner.get(&url).headers(self.headers()).send().await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            return Err(body["error"].as_str().unwrap_or("Request failed").to_string());
+        }
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].as_array().cloned().unwrap_or_default())
+    }
+
+    /// GET /api/purchase-returns
+    pub async fn list_purchase_returns(&self) -> Result<Vec<serde_json::Value>, String> {
+        let url = format!("{}/api/purchase-returns", base_url());
+        let resp = self.inner.get(&url).headers(self.headers()).send().await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            return Err(body["error"].as_str().unwrap_or("Request failed").to_string());
+        }
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].as_array().cloned().unwrap_or_default())
     }
 
     // ── Catalog alias ──
@@ -1800,6 +1911,28 @@ impl ApiClient {
         let order: PurchaseOrder = serde_json::from_value(body["data"].clone())
             .map_err(|e| format!("Parse error: {}", e))?;
         Ok(order)
+    }
+
+    /// PUT /api/purchase-orders/:id
+    pub async fn update_purchase_order(&self, id: i64, form: &PurchaseOrderForm) -> Result<serde_json::Value, String> {
+        let url = format!("{}/api/purchase-orders/{}", base_url(), id);
+        let resp = self
+            .inner
+            .put(&url)
+            .headers(self.headers())
+            .json(form)
+            .send()
+            .await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            let msg = body["error"].as_str().unwrap_or("Request failed");
+            return Err(msg.to_string());
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].clone())
     }
 
     /// POST /api/purchases
@@ -2120,6 +2253,19 @@ impl ApiClient {
         Ok(body["data"].clone())
     }
 
+    /// GET /api/sales-returns
+    pub async fn list_sales_returns(&self) -> Result<Vec<serde_json::Value>, String> {
+        let url = format!("{}/api/sales-returns", base_url());
+        let resp = self.inner.get(&url).headers(self.headers()).send().await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            return Err(body["error"].as_str().unwrap_or("Request failed").to_string());
+        }
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].as_array().cloned().unwrap_or_default())
+    }
+
     // ── Employee endpoints ──
 
     /// GET /api/employees
@@ -2190,6 +2336,28 @@ impl ApiClient {
         let employee: Employee = serde_json::from_value(body["data"].clone())
             .map_err(|e| format!("Parse error: {}", e))?;
         Ok(employee)
+    }
+
+    /// PUT /api/employees/{id}
+    pub async fn update_employee(&self, id: i64, form: &EmployeeForm) -> Result<serde_json::Value, String> {
+        let url = format!("{}/api/employees/{}", base_url(), id);
+        let resp = self
+            .inner
+            .put(&url)
+            .headers(self.headers())
+            .json(form)
+            .send()
+            .await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            let msg = body["error"].as_str().unwrap_or("Request failed");
+            return Err(msg.to_string());
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].clone())
     }
 
     /// POST /api/employees/{employee_id}/salary
@@ -2568,6 +2736,19 @@ impl ApiClient {
         Ok(body["data"].clone())
     }
 
+    /// PUT /api/bom/{id}
+    pub async fn update_bom(&self, id: i64, form: &BomForm) -> Result<serde_json::Value, String> {
+        let url = format!("{}/api/bom/{}", base_url(), id);
+        let resp = self.inner.put(&url).headers(self.headers()).json(form).send().await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            return Err(body["error"].as_str().unwrap_or("Request failed").to_string());
+        }
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].clone())
+    }
+
     /// PATCH /api/bom/{id}/toggle-active
     pub async fn toggle_bom_active(&self, id: i64) -> Result<serde_json::Value, String> {
         let url = format!("{}/api/bom/{}/toggle-active", base_url(), id);
@@ -2649,6 +2830,19 @@ impl ApiClient {
     pub async fn get_production_item_summary(&self, item_id: i64) -> Result<serde_json::Value, String> {
         let url = format!("{}/api/production/productions/summary/item/{}", base_url(), item_id);
         let resp = self.inner.get(&url).headers(self.headers()).send().await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            return Err(body["error"].as_str().unwrap_or("Request failed").to_string());
+        }
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body["data"].clone())
+    }
+
+    /// PUT /api/production/productions/{id}
+    pub async fn update_production(&self, id: i64, form: &ProductionForm) -> Result<serde_json::Value, String> {
+        let url = format!("{}/api/production/productions/{}", base_url(), id);
+        let resp = self.inner.put(&url).headers(self.headers()).json(form).send().await
             .map_err(|e| format!("Connection failed: {}", e))?;
         if !resp.status().is_success() {
             let body: serde_json::Value = resp.json().await.unwrap_or_default();

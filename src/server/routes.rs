@@ -1,19 +1,22 @@
 use super::auth_routes::{self, AppState};
 use super::*;
 use axum::Router;
-use axum::http::{header, Method};
-use tower_http::cors::{AllowOrigin, CorsLayer};
+use axum::http::HeaderValue;
+use tower_http::cors::{AllowHeaders, AllowMethods, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 pub fn create_router(state: AppState) -> Router {
     let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::mirror_request())
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS, Method::PATCH])
-        .allow_headers([
-            header::CONTENT_TYPE,
-            header::AUTHORIZATION,
-            header::ACCEPT,
-        ]);
+        .allow_origin([
+            "http://localhost:8080".parse::<HeaderValue>().unwrap(),
+            "http://localhost:3000".parse::<HeaderValue>().unwrap(),
+            "http://127.0.0.1:8080".parse::<HeaderValue>().unwrap(),
+            "http://127.0.0.1:3000".parse::<HeaderValue>().unwrap(),
+            "http://localhost:3001".parse::<HeaderValue>().unwrap(),
+            "http://127.0.0.1:3001".parse::<HeaderValue>().unwrap(),
+        ])
+        .allow_methods(AllowMethods::any())
+        .allow_headers(AllowHeaders::any());
 
     Router::new()
         .merge(auth_routes::router())

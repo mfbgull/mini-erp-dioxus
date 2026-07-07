@@ -2,7 +2,7 @@
 //! quick actions, navigation links, and recent production runs.
 
 use crate::auth::use_auth;
-use crate::components::common::{StatCard, StatCardVariant, StatTrend, TrendDirection};
+use crate::components::common::{StatCard, StatCardVariant, StatTrend};
 use crate::models::{Bom, Production};
 use dioxus::prelude::*;
 

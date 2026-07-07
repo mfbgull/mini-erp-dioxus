@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::{get, post},
     Json, Router,
 };
 use serde_json::json;
@@ -25,6 +25,8 @@ pub fn router() -> Router<AppState> {
         .route("/api/sales/quotations/{id}/cycle-chain", get(quotation_cycle_chain))
         // Sales Dashboard
         .route("/api/sales/dashboard", get(sales_dashboard))
+        // Returns
+        .route("/api/sales-returns", get(list_sales_returns))
 }
 
 // ============================================================================
@@ -34,19 +36,22 @@ pub fn router() -> Router<AppState> {
 async fn list_sales_orders(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
-        "SELECT so.id, so.so_no, so.customer_id, c.customer_name, so.so_date, so.status,
-                so.source_type, so.source_id, so.total_amount, so.warehouse_id, so.notes,
-                so.created_by, so.created_at, so.updated_at
+        "SELECT so.id, so.so_no, so.customer_id, c.customer_name, c.customer_code, so.so_date, so.status,
+                so.delivery_date, so.source_type, so.source_id, so.total_amount, so.warehouse_id, so.notes,
+                so.created_by, so.created_at, so.updated_at,
+                (SELECT COUNT(*) FROM sales_order_items soi WHERE soi.so_id = so.id) AS item_count
          FROM sales_orders so LEFT JOIN customers c ON so.customer_id = c.id
          ORDER BY so.created_at DESC"
     ).unwrap();
     let items: Vec<SalesOrder> = stmt.query_map([], |row| {
         Ok(SalesOrder {
             id: row.get(0)?, so_no: row.get(1)?, customer_id: row.get(2)?,
-            customer_name: row.get(3)?, so_date: row.get(4)?, status: row.get(5)?,
-            source_type: row.get(6)?, source_id: row.get(7)?, total_amount: row.get(8)?,
-            warehouse_id: row.get(9)?, notes: row.get(10)?, created_by: row.get(11)?,
-            created_at: row.get(12)?, updated_at: row.get(13)?,
+            customer_name: row.get(3)?, customer_code: row.get(4)?, so_date: row.get(5)?,
+            status: row.get(6)?, delivery_date: row.get(7)?,
+            source_type: row.get(8)?, source_id: row.get(9)?, total_amount: row.get(10)?,
+            warehouse_id: row.get(11)?, notes: row.get(12)?, created_by: row.get(13)?,
+            created_at: row.get(14)?, updated_at: row.get(15)?,
+            item_count: row.get(16)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
@@ -55,17 +60,20 @@ async fn list_sales_orders(State(_state): State<AppState>) -> impl IntoResponse 
 async fn get_sales_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
-        "SELECT so.id, so.so_no, so.customer_id, c.customer_name, so.so_date, so.status,
-                so.source_type, so.source_id, so.total_amount, so.warehouse_id, so.notes,
-                so.created_by, so.created_at, so.updated_at
+        "SELECT so.id, so.so_no, so.customer_id, c.customer_name, c.customer_code, so.so_date, so.status,
+                so.delivery_date, so.source_type, so.source_id, so.total_amount, so.warehouse_id, so.notes,
+                so.created_by, so.created_at, so.updated_at,
+                (SELECT COUNT(*) FROM sales_order_items soi WHERE soi.so_id = so.id) AS item_count
          FROM sales_orders so LEFT JOIN customers c ON so.customer_id = c.id WHERE so.id = ?1",
         [id],
         |row| Ok(SalesOrder {
             id: row.get(0)?, so_no: row.get(1)?, customer_id: row.get(2)?,
-            customer_name: row.get(3)?, so_date: row.get(4)?, status: row.get(5)?,
-            source_type: row.get(6)?, source_id: row.get(7)?, total_amount: row.get(8)?,
-            warehouse_id: row.get(9)?, notes: row.get(10)?, created_by: row.get(11)?,
-            created_at: row.get(12)?, updated_at: row.get(13)?,
+            customer_name: row.get(3)?, customer_code: row.get(4)?, so_date: row.get(5)?,
+            status: row.get(6)?, delivery_date: row.get(7)?,
+            source_type: row.get(8)?, source_id: row.get(9)?, total_amount: row.get(10)?,
+            warehouse_id: row.get(11)?, notes: row.get(12)?, created_by: row.get(13)?,
+            created_at: row.get(14)?, updated_at: row.get(15)?,
+            item_count: row.get(16)?,
         }),
     );
     match result {
@@ -374,6 +382,26 @@ async fn quotation_cycle_chain(State(_state): State<AppState>, Path(id): Path<i6
         Ok(data) => (StatusCode::OK, Json(json!({ "success": true, "data": data }))),
         Err(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Quotation not found." }))),
     }
+}
+
+async fn list_sales_returns(State(_state): State<AppState>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let mut stmt = db.prepare(
+        "SELECT i.id, i.invoice_no, i.customer_id, c.customer_name, i.returned_amount, i.invoice_date
+         FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id
+         WHERE i.returned_amount > 0 ORDER BY i.created_at DESC"
+    ).unwrap();
+    let items: Vec<serde_json::Value> = stmt.query_map([], |row| {
+        Ok(json!({
+            "id": row.get::<_, i64>(0)?,
+            "invoice_no": row.get::<_, String>(1)?,
+            "customer_id": row.get::<_, i64>(2)?,
+            "customer_name": row.get::<_, Option<String>>(3)?,
+            "returned_amount": row.get::<_, f64>(4)?,
+            "invoice_date": row.get::<_, String>(5)?,
+        }))
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
 }
 
 async fn sales_dashboard(State(_state): State<AppState>) -> impl IntoResponse {

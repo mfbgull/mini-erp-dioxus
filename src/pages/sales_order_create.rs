@@ -3,7 +3,6 @@
 
 use crate::auth::use_auth;
 use crate::calculations::{
-    self,
     invoice::{calculate_item_discount, calculate_item_total, compute_invoice_metrics},
     Discount, DiscountScope, DiscountType, InvoiceMetrics,
 };

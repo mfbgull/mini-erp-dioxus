@@ -39,9 +39,9 @@ pub fn BomListPage() -> Element {
                         item_name: b.finished_item_name.unwrap_or_default(),
                         item_code: b.finished_item_code.unwrap_or_default(),
                         total_quantity: b.quantity,
-                        total_cost: 0.0, // ponytail: not in list endpoint
+                        total_cost: 0.0, // ponytail: computed from bom_items
                         status: if b.is_active { "Active".to_string() } else { "Inactive".to_string() },
-                        version: "1.0".to_string(), // ponytail: not in list endpoint
+                        version: b.version.to_string(),
                         last_updated: b.updated_at,
                     }).collect::<Vec<_>>()
                 })

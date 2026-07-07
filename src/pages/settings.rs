@@ -3,7 +3,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType, use_toast,
+    Button, ButtonVariant, FormInput, InputType, use_toast,
 };
 use dioxus::prelude::*;
 

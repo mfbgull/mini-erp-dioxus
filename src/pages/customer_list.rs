@@ -81,10 +81,9 @@ async fn fetch_customers(client: &ApiClient) -> Vec<Customer> {
             credit_limit: sc.credit_limit,
             current_balance: sc.current_balance,
             opening_balance: sc.opening_balance,
-            // ponytail: total_invoiced/paid/last_invoice_date not in list endpoint
-            total_invoiced: 0.0,
-            total_paid: 0.0,
-            last_invoice_date: String::new(),
+            total_invoiced: sc.total_invoiced,
+            total_paid: sc.total_paid,
+            last_invoice_date: sc.last_invoice_date.unwrap_or_default(),
             status: if sc.current_balance > sc.credit_limit && sc.credit_limit > 0.0 {
                 "Over Limit".to_string()
             } else if sc.is_active {
@@ -92,9 +91,8 @@ async fn fetch_customers(client: &ApiClient) -> Vec<Customer> {
             } else {
                 "Inactive".to_string()
             },
-            // ponytail: customer_type/notes not in list endpoint
-            customer_type: "Standard".to_string(),
-            notes: String::new(),
+            customer_type: sc.customer_type,
+            notes: sc.notes,
         }).collect(),
         Err(_) => Vec::new(),
     }

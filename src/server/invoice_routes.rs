@@ -23,24 +23,26 @@ pub fn router() -> Router<AppState> {
 async fn list_invoices(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
-        "SELECT i.id, i.invoice_no, i.customer_id, c.customer_name, i.so_id, i.quotation_id,
+        "SELECT i.id, i.invoice_no, i.customer_id, c.customer_name, c.customer_code, i.so_id, i.quotation_id,
                 i.source_type, i.invoice_date, i.due_date, i.status, i.total_amount,
                 i.paid_amount, i.balance_amount, i.returned_amount, i.discount_scope,
                 i.discount_type, i.discount_value, i.tax_rate, i.notes, i.warehouse_id,
-                i.created_by, i.created_at, i.updated_at
+                i.created_by, i.created_at, i.updated_at,
+                (SELECT COUNT(*) FROM invoice_items ii WHERE ii.invoice_id = i.id) AS item_count
          FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id
          ORDER BY i.created_at DESC"
     ).unwrap();
     let items: Vec<Invoice> = stmt.query_map([], |row| {
         Ok(Invoice {
             id: row.get(0)?, invoice_no: row.get(1)?, customer_id: row.get(2)?,
-            customer_name: row.get(3)?, so_id: row.get(4)?, quotation_id: row.get(5)?,
-            source_type: row.get(6)?, invoice_date: row.get(7)?, due_date: row.get(8)?,
-            status: row.get(9)?, total_amount: row.get(10)?, paid_amount: row.get(11)?,
-            balance_amount: row.get(12)?, returned_amount: row.get(13)?,
-            discount_scope: row.get(14)?, discount_type: row.get(15)?, discount_value: row.get(16)?,
-            tax_rate: row.get(17)?, notes: row.get(18)?, warehouse_id: row.get(19)?,
-            created_by: row.get(20)?, created_at: row.get(21)?, updated_at: row.get(22)?,
+            customer_name: row.get(3)?, customer_code: row.get(4)?, so_id: row.get(5)?, quotation_id: row.get(6)?,
+            source_type: row.get(7)?, invoice_date: row.get(8)?, due_date: row.get(9)?,
+            status: row.get(10)?, total_amount: row.get(11)?, paid_amount: row.get(12)?,
+            balance_amount: row.get(13)?, returned_amount: row.get(14)?,
+            discount_scope: row.get(15)?, discount_type: row.get(16)?, discount_value: row.get(17)?,
+            tax_rate: row.get(18)?, notes: row.get(19)?, warehouse_id: row.get(20)?,
+            created_by: row.get(21)?, created_at: row.get(22)?, updated_at: row.get(23)?,
+            item_count: row.get(24)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
@@ -49,22 +51,24 @@ async fn list_invoices(State(_state): State<AppState>) -> impl IntoResponse {
 async fn get_invoice(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
-        "SELECT i.id, i.invoice_no, i.customer_id, c.customer_name, i.so_id, i.quotation_id,
+        "SELECT i.id, i.invoice_no, i.customer_id, c.customer_name, c.customer_code, i.so_id, i.quotation_id,
                 i.source_type, i.invoice_date, i.due_date, i.status, i.total_amount,
                 i.paid_amount, i.balance_amount, i.returned_amount, i.discount_scope,
                 i.discount_type, i.discount_value, i.tax_rate, i.notes, i.warehouse_id,
-                i.created_by, i.created_at, i.updated_at
+                i.created_by, i.created_at, i.updated_at,
+                (SELECT COUNT(*) FROM invoice_items ii WHERE ii.invoice_id = i.id) AS item_count
          FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id WHERE i.id = ?1",
         [id],
         |row| Ok(Invoice {
             id: row.get(0)?, invoice_no: row.get(1)?, customer_id: row.get(2)?,
-            customer_name: row.get(3)?, so_id: row.get(4)?, quotation_id: row.get(5)?,
-            source_type: row.get(6)?, invoice_date: row.get(7)?, due_date: row.get(8)?,
-            status: row.get(9)?, total_amount: row.get(10)?, paid_amount: row.get(11)?,
-            balance_amount: row.get(12)?, returned_amount: row.get(13)?,
-            discount_scope: row.get(14)?, discount_type: row.get(15)?, discount_value: row.get(16)?,
-            tax_rate: row.get(17)?, notes: row.get(18)?, warehouse_id: row.get(19)?,
-            created_by: row.get(20)?, created_at: row.get(21)?, updated_at: row.get(22)?,
+            customer_name: row.get(3)?, customer_code: row.get(4)?, so_id: row.get(5)?, quotation_id: row.get(6)?,
+            source_type: row.get(7)?, invoice_date: row.get(8)?, due_date: row.get(9)?,
+            status: row.get(10)?, total_amount: row.get(11)?, paid_amount: row.get(12)?,
+            balance_amount: row.get(13)?, returned_amount: row.get(14)?,
+            discount_scope: row.get(15)?, discount_type: row.get(16)?, discount_value: row.get(17)?,
+            tax_rate: row.get(18)?, notes: row.get(19)?, warehouse_id: row.get(20)?,
+            created_by: row.get(21)?, created_at: row.get(22)?, updated_at: row.get(23)?,
+            item_count: row.get(24)?,
         }),
     );
     match result {
@@ -157,22 +161,24 @@ async fn create_invoice(State(_state): State<AppState>, Json(form): Json<Invoice
                 }
             }
             let inv = db.query_row(
-                "SELECT i.id, i.invoice_no, i.customer_id, c.customer_name, i.so_id, i.quotation_id,
+                "SELECT i.id, i.invoice_no, i.customer_id, c.customer_name, c.customer_code, i.so_id, i.quotation_id,
                         i.source_type, i.invoice_date, i.due_date, i.status, i.total_amount,
                         i.paid_amount, i.balance_amount, i.returned_amount, i.discount_scope,
                         i.discount_type, i.discount_value, i.tax_rate, i.notes, i.warehouse_id,
-                        i.created_by, i.created_at, i.updated_at
+                        i.created_by, i.created_at, i.updated_at,
+                        (SELECT COUNT(*) FROM invoice_items ii WHERE ii.invoice_id = i.id) AS item_count
                  FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id WHERE i.id = ?1",
                 [inv_id],
                 |row| Ok(Invoice {
                     id: row.get(0)?, invoice_no: row.get(1)?, customer_id: row.get(2)?,
-                    customer_name: row.get(3)?, so_id: row.get(4)?, quotation_id: row.get(5)?,
-                    source_type: row.get(6)?, invoice_date: row.get(7)?, due_date: row.get(8)?,
-                    status: row.get(9)?, total_amount: row.get(10)?, paid_amount: row.get(11)?,
-                    balance_amount: row.get(12)?, returned_amount: row.get(13)?,
-                    discount_scope: row.get(14)?, discount_type: row.get(15)?, discount_value: row.get(16)?,
-                    tax_rate: row.get(17)?, notes: row.get(18)?, warehouse_id: row.get(19)?,
-                    created_by: row.get(20)?, created_at: row.get(21)?, updated_at: row.get(22)?,
+                    customer_name: row.get(3)?, customer_code: row.get(4)?, so_id: row.get(5)?, quotation_id: row.get(6)?,
+                    source_type: row.get(7)?, invoice_date: row.get(8)?, due_date: row.get(9)?,
+                    status: row.get(10)?, total_amount: row.get(11)?, paid_amount: row.get(12)?,
+                    balance_amount: row.get(13)?, returned_amount: row.get(14)?,
+                    discount_scope: row.get(15)?, discount_type: row.get(16)?, discount_value: row.get(17)?,
+                    tax_rate: row.get(18)?, notes: row.get(19)?, warehouse_id: row.get(20)?,
+                    created_by: row.get(21)?, created_at: row.get(22)?, updated_at: row.get(23)?,
+                    item_count: row.get(24)?,
                 }),
             ).unwrap();
             (StatusCode::CREATED, Json(json!({ "success": true, "data": inv })))

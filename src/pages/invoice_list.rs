@@ -66,7 +66,7 @@ async fn fetch_invoices(client: &ApiClient) -> Vec<Invoice> {
                 id: si.id,
                 invoice_no: si.invoice_no,
                 customer_name: si.customer_name.unwrap_or_default(),
-                customer_code: String::new(), // ponytail: server doesn't return customer_code on list
+                customer_code: si.customer_code.unwrap_or_default(),
                 invoice_date: si.invoice_date,
                 due_date: si.due_date,
                 status: si.status,

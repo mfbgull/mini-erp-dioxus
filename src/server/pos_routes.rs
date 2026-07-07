@@ -1,4 +1,3 @@
-use crate::models::*;
 use crate::server::auth_routes::AppState;
 use crate::server::db;
 use axum::{

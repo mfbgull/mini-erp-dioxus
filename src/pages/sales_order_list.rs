@@ -86,7 +86,7 @@ pub fn SalesOrderListPage() -> Element {
                     order_no: so.so_no,
                     customer_name: so.customer_name.unwrap_or_default(),
                     order_date: so.so_date,
-                    delivery_date: String::new(), // ponytail: not returned by server
+                    delivery_date: so.delivery_date.unwrap_or_default(),
                     status: so.status,
                     total_amount: so.total_amount,
                     item_count: 0, // ponytail: not returned by server

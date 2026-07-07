@@ -144,7 +144,7 @@ pub fn InvoiceDetailPage(id: String) -> Element {
                 invoice_no: inv.invoice_no,
                 customer_id: inv.customer_id,
                 customer_name: inv.customer_name.clone().unwrap_or_default(),
-                customer_code: String::new(), // ponytail: not returned by detail endpoint, add if needed
+                customer_code: inv.customer_code.clone().unwrap_or_default(),
                 invoice_date: inv.invoice_date.clone(),
                 due_date: inv.due_date.clone(),
                 status: inv.status.clone(),

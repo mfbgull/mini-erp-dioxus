@@ -2,7 +2,7 @@
 //! (receipt, issue, adjustment, or transfer) using common UI components.
 
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
+    Button, ButtonVariant, FormInput, InputType, Modal, ModalSize,
     SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
 };
 use dioxus::prelude::*;

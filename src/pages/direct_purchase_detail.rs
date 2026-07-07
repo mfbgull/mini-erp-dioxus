@@ -107,7 +107,7 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
                         supplier_name: m.supplier_name,
                         supplier_code: String::new(), // ponytail: server model doesn't have supplier_code
                         date: m.purchase_date,
-                        status: "Completed".to_string(), // ponytail: server doesn't have status for direct purchases
+                        status: m.status,
                         items: vec![line_item], // ponytail: server model is single-line, show as one item
                         subtotal: m.total_cost,
                         discount_total: 0.0,

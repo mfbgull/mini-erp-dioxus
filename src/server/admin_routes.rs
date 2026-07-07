@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, put, delete},
+    routing::{get, put},
     Json, Router,
 };
 use serde_json::json;
@@ -39,14 +39,15 @@ pub fn router() -> Router<AppState> {
 async fn list_users(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
-        "SELECT u.id, u.username, u.email, u.full_name, u.role, u.role_id, u.is_active
+        "SELECT u.id, u.username, u.email, u.full_name, u.role, u.role_id, u.is_active, u.created_at, u.last_login
          FROM users u ORDER BY u.username"
     ).unwrap();
     let items: Vec<UserProfile> = stmt.query_map([], |row| {
         Ok(UserProfile {
             id: row.get(0)?, username: row.get(1)?, full_name: row.get(3)?,
             email: row.get(2)?, role: row.get(4)?, role_id: row.get(5)?,
-            is_active: row.get::<_, i64>(6)? != 0,
+            is_active: row.get::<_, i64>(6)? != 0, created_at: row.get(7)?,
+            last_login: row.get(8)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
@@ -55,9 +56,9 @@ async fn list_users(State(_state): State<AppState>) -> impl IntoResponse {
 async fn get_user(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
-        "SELECT id, username, email, full_name, role, role_id, is_active FROM users WHERE id = ?1",
+        "SELECT id, username, email, full_name, role, role_id, is_active, created_at, last_login FROM users WHERE id = ?1",
         [id],
-        |row| Ok(UserProfile { id: row.get(0)?, username: row.get(1)?, full_name: row.get(3)?, email: row.get(2)?, role: row.get(4)?, role_id: row.get(5)?, is_active: row.get::<_, i64>(6)? != 0 }),
+        |row| Ok(UserProfile { id: row.get(0)?, username: row.get(1)?, full_name: row.get(3)?, email: row.get(2)?, role: row.get(4)?, role_id: row.get(5)?, is_active: row.get::<_, i64>(6)? != 0, created_at: row.get(7)?, last_login: row.get(8)? }),
     );
     match result {
         Ok(u) => (StatusCode::OK, Json(json!({ "success": true, "data": u }))),
@@ -249,7 +250,7 @@ async fn update_role_permissions(State(_state): State<AppState>, Path(id): Path<
 async fn list_role_users(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
-        "SELECT u.id, u.username, u.full_name, u.email, u.role, u.role_id, u.is_active
+        "SELECT u.id, u.username, u.full_name, u.email, u.role, u.role_id, u.is_active, u.created_at, u.last_login
          FROM users u
          WHERE u.role_id = ?1 OR (u.role_id IS NULL AND u.role = (SELECT r.role_name FROM roles r WHERE r.id = ?1))
          ORDER BY u.username"
@@ -258,7 +259,8 @@ async fn list_role_users(State(_state): State<AppState>, Path(id): Path<i64>) ->
         Ok(UserProfile {
             id: row.get(0)?, username: row.get(1)?, full_name: row.get(2)?,
             email: row.get(3)?, role: row.get(4)?, role_id: row.get(5)?,
-            is_active: row.get::<_, i64>(6)? != 0,
+            is_active: row.get::<_, i64>(6)? != 0, created_at: row.get(7)?,
+            last_login: row.get(8)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))

@@ -52,7 +52,7 @@ pub fn PurchaseOrderListPage() -> Element {
                         po_no: po.po_no,
                         supplier_name: po.supplier_name.unwrap_or_default(),
                         order_date: po.po_date,
-                        expected_date: String::new(), // ponytail: not in list endpoint
+                        expected_date: po.expected_date.unwrap_or_default(),
                         status: po.status,
                         total_amount: po.total_amount,
                         item_count: 0, // ponytail: not in list endpoint

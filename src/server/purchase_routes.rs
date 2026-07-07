@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::{get, post, put},
     Json, Router,
 };
 use serde_json::json;
@@ -30,8 +30,11 @@ pub fn router() -> Router<AppState> {
         .route("/api/purchase-orders/{id}/items/{item_id}", put(update_po_item).delete(delete_po_item))
         // Direct Purchases
         .route("/api/purchases", get(list_direct_purchases).post(create_direct_purchase))
-        .route("/api/purchases/{id}", get(get_direct_purchase).delete(delete_direct_purchase))
+        .route("/api/purchases/{id}", get(get_direct_purchase).put(update_direct_purchase).delete(delete_direct_purchase))
         .route("/api/purchases/{id}/return", post(return_direct_purchase))
+        // Global lists
+        .route("/api/receipts", get(list_receipts))
+        .route("/api/purchase-returns", get(list_purchase_returns))
 }
 
 // ============================================================================
@@ -132,17 +135,20 @@ async fn next_supplier_code(State(_state): State<AppState>) -> impl IntoResponse
 async fn list_purchase_orders(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
-        "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, po.po_date, po.status,
-                po.total_amount, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at
+        "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, s.supplier_code, po.po_date, po.status,
+                po.total_amount, po.expected_date, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at,
+                (SELECT COUNT(*) FROM purchase_order_items poi WHERE poi.po_id = po.id) AS item_count
          FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id
          ORDER BY po.created_at DESC"
     ).unwrap();
     let items: Vec<PurchaseOrder> = stmt.query_map([], |row| {
         Ok(PurchaseOrder {
             id: row.get(0)?, po_no: row.get(1)?, supplier_id: row.get(2)?,
-            supplier_name: row.get(3)?, po_date: row.get(4)?, status: row.get(5)?,
-            total_amount: row.get(6)?, warehouse_id: row.get(7)?, notes: row.get(8)?,
-            created_by: row.get(9)?, created_at: row.get(10)?, updated_at: row.get(11)?,
+            supplier_name: row.get(3)?, supplier_code: row.get(4)?, po_date: row.get(5)?, status: row.get(6)?,
+            total_amount: row.get(7)?, expected_date: row.get(8)?,
+            warehouse_id: row.get(9)?, notes: row.get(10)?,
+            created_by: row.get(11)?, created_at: row.get(12)?, updated_at: row.get(13)?,
+            item_count: row.get(14)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
@@ -151,15 +157,18 @@ async fn list_purchase_orders(State(_state): State<AppState>) -> impl IntoRespon
 async fn get_purchase_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
-        "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, po.po_date, po.status,
-                po.total_amount, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at
+        "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, s.supplier_code, po.po_date, po.status,
+                po.total_amount, po.expected_date, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at,
+                (SELECT COUNT(*) FROM purchase_order_items poi WHERE poi.po_id = po.id) AS item_count
          FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id WHERE po.id = ?1",
         [id],
         |row| Ok(PurchaseOrder {
             id: row.get(0)?, po_no: row.get(1)?, supplier_id: row.get(2)?,
-            supplier_name: row.get(3)?, po_date: row.get(4)?, status: row.get(5)?,
-            total_amount: row.get(6)?, warehouse_id: row.get(7)?, notes: row.get(8)?,
-            created_by: row.get(9)?, created_at: row.get(10)?, updated_at: row.get(11)?,
+            supplier_name: row.get(3)?, supplier_code: row.get(4)?, po_date: row.get(5)?, status: row.get(6)?,
+            total_amount: row.get(7)?, expected_date: row.get(8)?,
+            warehouse_id: row.get(9)?, notes: row.get(10)?,
+            created_by: row.get(11)?, created_at: row.get(12)?, updated_at: row.get(13)?,
+            item_count: row.get(14)?,
         }),
     );
     match result {
@@ -267,17 +276,20 @@ async fn update_po_status(State(_state): State<AppState>, Path(id): Path<i64>, J
 async fn list_pending_pos(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db.prepare(
-        "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, po.po_date, po.status,
-                po.total_amount, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at
+        "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, s.supplier_code, po.po_date, po.status,
+                po.total_amount, po.expected_date, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at,
+                (SELECT COUNT(*) FROM purchase_order_items poi WHERE poi.po_id = po.id) AS item_count
          FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id
          WHERE po.status IN ('Draft', 'Approved') ORDER BY po.created_at DESC"
     ).unwrap();
     let items: Vec<PurchaseOrder> = stmt.query_map([], |row| {
         Ok(PurchaseOrder {
             id: row.get(0)?, po_no: row.get(1)?, supplier_id: row.get(2)?,
-            supplier_name: row.get(3)?, po_date: row.get(4)?, status: row.get(5)?,
-            total_amount: row.get(6)?, warehouse_id: row.get(7)?, notes: row.get(8)?,
-            created_by: row.get(9)?, created_at: row.get(10)?, updated_at: row.get(11)?,
+            supplier_name: row.get(3)?, supplier_code: row.get(4)?, po_date: row.get(5)?, status: row.get(6)?,
+            total_amount: row.get(7)?, expected_date: row.get(8)?,
+            warehouse_id: row.get(9)?, notes: row.get(10)?,
+            created_by: row.get(11)?, created_at: row.get(12)?, updated_at: row.get(13)?,
+            item_count: row.get(14)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
@@ -355,7 +367,7 @@ async fn list_direct_purchases(State(_state): State<AppState>) -> impl IntoRespo
     let mut stmt = db.prepare(
         "SELECT p.id, p.purchase_no, p.item_id, i.item_name, i.item_code, p.warehouse_id,
                 w.warehouse_name, p.batch_id, p.quantity, p.unit_cost, p.total_cost,
-                p.supplier_name, p.purchase_date, p.notes, p.created_by, p.created_at
+                p.supplier_name, p.purchase_date, p.status, p.notes, p.created_by, p.created_at
          FROM purchases p
          LEFT JOIN items i ON p.item_id = i.id
          LEFT JOIN warehouses w ON p.warehouse_id = w.id
@@ -367,8 +379,9 @@ async fn list_direct_purchases(State(_state): State<AppState>) -> impl IntoRespo
             item_name: row.get(3)?, item_code: row.get(4)?, warehouse_id: row.get(5)?,
             warehouse_name: row.get(6)?, batch_id: row.get(7)?, quantity: row.get(8)?,
             unit_cost: row.get(9)?, total_cost: row.get(10)?, supplier_name: row.get(11)?,
-            purchase_date: row.get(12)?, notes: row.get(13)?, created_by: row.get(14)?,
-            created_at: row.get(15)?,
+            purchase_date: row.get(12)?, status: row.get(13)?,
+            notes: row.get(14)?, created_by: row.get(15)?,
+            created_at: row.get(16)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
@@ -379,7 +392,7 @@ async fn get_direct_purchase(State(_state): State<AppState>, Path(id): Path<i64>
     let result = db.query_row(
         "SELECT p.id, p.purchase_no, p.item_id, i.item_name, i.item_code, p.warehouse_id,
                 w.warehouse_name, p.batch_id, p.quantity, p.unit_cost, p.total_cost,
-                p.supplier_name, p.purchase_date, p.notes, p.created_by, p.created_at
+                p.supplier_name, p.purchase_date, p.status, p.notes, p.created_by, p.created_at
          FROM purchases p LEFT JOIN items i ON p.item_id = i.id LEFT JOIN warehouses w ON p.warehouse_id = w.id
          WHERE p.id = ?1",
         [id],
@@ -388,8 +401,9 @@ async fn get_direct_purchase(State(_state): State<AppState>, Path(id): Path<i64>
             item_name: row.get(3)?, item_code: row.get(4)?, warehouse_id: row.get(5)?,
             warehouse_name: row.get(6)?, batch_id: row.get(7)?, quantity: row.get(8)?,
             unit_cost: row.get(9)?, total_cost: row.get(10)?, supplier_name: row.get(11)?,
-            purchase_date: row.get(12)?, notes: row.get(13)?, created_by: row.get(14)?,
-            created_at: row.get(15)?,
+            purchase_date: row.get(12)?, status: row.get(13)?,
+            notes: row.get(14)?, created_by: row.get(15)?,
+            created_at: row.get(16)?,
         }),
     );
     match result {
@@ -439,8 +453,66 @@ async fn delete_direct_purchase(State(_state): State<AppState>, Path(id): Path<i
     }
 }
 
+async fn update_direct_purchase(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<DirectPurchaseForm>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let total = form.quantity * form.unit_cost;
+    let result = db.execute(
+        "UPDATE purchases SET item_id=?1, warehouse_id=?2, quantity=?3, unit_cost=?4, total_cost=?5,
+         supplier_name=?6, purchase_date=?7, notes=?8 WHERE id=?9",
+        rusqlite::params![form.item_id, form.warehouse_id, form.quantity, form.unit_cost, total,
+            form.supplier_name, form.purchase_date, form.notes.as_deref().unwrap_or(""), id],
+    );
+    match result {
+        Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Purchase updated." } }))),
+        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Purchase not found." }))),
+        Err(e) => { tracing::error!("Failed to update purchase: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update purchase." }))) }
+    }
+}
+
 async fn return_direct_purchase(State(_state): State<AppState>, Path(_id): Path<i64>) -> impl IntoResponse {
     (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Purchase return recorded." } })))
+}
+
+async fn list_receipts(State(_state): State<AppState>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let mut stmt = db.prepare(
+        "SELECT gr.id, gr.receipt_no, gr.po_id, gr.receipt_date, gr.warehouse_id,
+                w.warehouse_name, gr.notes, gr.created_by, gr.created_at
+         FROM goods_receipts gr
+         LEFT JOIN warehouses w ON gr.warehouse_id = w.id
+         ORDER BY gr.created_at DESC"
+    ).unwrap();
+    let items: Vec<GoodsReceipt> = stmt.query_map([], |row| {
+        Ok(GoodsReceipt {
+            id: row.get(0)?, receipt_no: row.get(1)?, po_id: row.get(2)?,
+            receipt_date: row.get(3)?, warehouse_id: row.get(4)?, notes: row.get(5)?,
+            created_by: row.get(6)?, created_at: row.get(7)?,
+        })
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
+}
+
+async fn list_purchase_returns(State(_state): State<AppState>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let mut stmt = db.prepare(
+        "SELECT p.id, p.purchase_no, p.item_id, i.item_name, i.item_code,
+                p.quantity, p.unit_cost, p.total_cost, p.supplier_name, p.purchase_date, p.status, p.notes,
+                p.created_by, p.created_at
+         FROM purchases p LEFT JOIN items i ON p.item_id = i.id
+         ORDER BY p.created_at DESC"
+    ).unwrap();
+    let items: Vec<DirectPurchase> = stmt.query_map([], |row| {
+        Ok(DirectPurchase {
+            id: row.get(0)?, purchase_no: row.get(1)?, item_id: row.get(2)?,
+            item_name: row.get(3)?, item_code: row.get(4)?, warehouse_id: 0,
+            warehouse_name: None, batch_id: None, quantity: row.get(5)?,
+            unit_cost: row.get(6)?, total_cost: row.get(7)?, supplier_name: row.get(8)?,
+            purchase_date: row.get(9)?, status: row.get(10)?,
+            notes: row.get(11)?, created_by: row.get(12)?,
+            created_at: row.get(13)?,
+        })
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
 }
 
 async fn po_summary_by_supplier(State(_state): State<AppState>, Path(supplier_id): Path<i64>) -> impl IntoResponse {

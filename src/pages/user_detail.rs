@@ -5,7 +5,6 @@ use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
-use crate::pages::user_list::User;
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -65,8 +64,8 @@ pub fn UserDetailPage(id: String) -> Element {
                 email: u.email,
                 role: u.role,
                 status: if u.is_active { "Active".to_string() } else { "Inactive".to_string() },
-                last_login: String::new(), // ponytail: not in API
-                created_at: String::new(), // ponytail: not in API
+                last_login: u.last_login.unwrap_or_default(),
+                created_at: u.created_at.unwrap_or_default(),
             })
         }
     });

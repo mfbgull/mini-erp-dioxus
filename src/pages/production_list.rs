@@ -39,9 +39,9 @@ pub fn ProductionListPage() -> Element {
                         item_name: o.output_item_name.unwrap_or_default(),
                         item_code: o.output_item_code.unwrap_or_default(),
                         planned_qty: o.output_quantity as i32,
-                        completed_qty: 0, // ponytail: not in list endpoint
+                        completed_qty: o.completed_qty as i32,
                         start_date: o.created_at.clone(),
-                        end_date: o.created_at, // ponytail: not in list endpoint
+                        end_date: o.end_date.unwrap_or_default(),
                         status: o.status,
                     }).collect::<Vec<_>>()
                 })

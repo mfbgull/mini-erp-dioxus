@@ -1,6 +1,6 @@
 //! Seasonal Events Page — Manage seasonal events with impact factors for forecast adjustment.
 
-use crate::components::common::{Button, ButtonSize, ButtonVariant, Modal, ModalSize, use_toast};
+use crate::components::common::{Button, ButtonVariant, Modal, ModalSize, use_toast};
 use crate::components::data_grid::{
     BadgeColor, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode, RowHeight,
     SelectionMode,

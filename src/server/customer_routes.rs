@@ -5,7 +5,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::{get, post, put},
     Json, Router,
 };
 use serde_json::json;
@@ -17,6 +17,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/customers/{id}/ledger", get(customer_ledger))
         .route("/api/customers/{id}/statement", get(customer_statement))
         .route("/api/customers/{id}/balance", get(customer_balance))
+        .route("/api/customers/{id}/payments", get(customer_payments))
         .route("/api/customers/recalculate-balances", post(recalculate_balances))
 }
 
@@ -25,7 +26,8 @@ async fn list_customers(State(_state): State<AppState>) -> impl IntoResponse {
     let mut stmt = db.prepare(
         "SELECT id, customer_code, customer_name, email, phone, billing_address, shipping_address,
                 payment_terms, credit_limit, credit_balance, current_balance, opening_balance,
-                is_active, created_at, updated_at
+                is_active, customer_type, notes, total_invoiced, total_paid, last_invoice_date,
+                created_at, updated_at
          FROM customers WHERE is_active = 1 ORDER BY customer_code"
     ).unwrap();
     let items: Vec<Customer> = stmt.query_map([], |row| {
@@ -43,8 +45,13 @@ async fn list_customers(State(_state): State<AppState>) -> impl IntoResponse {
             current_balance: row.get(10)?,
             opening_balance: row.get(11)?,
             is_active: row.get::<_, i64>(12)? != 0,
-            created_at: row.get(13)?,
-            updated_at: row.get(14)?,
+            customer_type: row.get(13)?,
+            notes: row.get(14)?,
+            total_invoiced: row.get(15)?,
+            total_paid: row.get(16)?,
+            last_invoice_date: row.get(17)?,
+            created_at: row.get(18)?,
+            updated_at: row.get(19)?,
         })
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
@@ -55,7 +62,8 @@ async fn get_customer(State(_state): State<AppState>, Path(id): Path<i64>) -> im
     let result = db.query_row(
         "SELECT id, customer_code, customer_name, email, phone, billing_address, shipping_address,
                 payment_terms, credit_limit, credit_balance, current_balance, opening_balance,
-                is_active, created_at, updated_at
+                is_active, customer_type, notes, total_invoiced, total_paid, last_invoice_date,
+                created_at, updated_at
          FROM customers WHERE id = ?1",
         [id],
         |row| Ok(Customer {
@@ -72,8 +80,13 @@ async fn get_customer(State(_state): State<AppState>, Path(id): Path<i64>) -> im
             current_balance: row.get(10)?,
             opening_balance: row.get(11)?,
             is_active: row.get::<_, i64>(12)? != 0,
-            created_at: row.get(13)?,
-            updated_at: row.get(14)?,
+            customer_type: row.get(13)?,
+            notes: row.get(14)?,
+            total_invoiced: row.get(15)?,
+            total_paid: row.get(16)?,
+            last_invoice_date: row.get(17)?,
+            created_at: row.get(18)?,
+            updated_at: row.get(19)?,
         }),
     );
     match result {
@@ -109,7 +122,8 @@ async fn create_customer(State(_state): State<AppState>, Json(form): Json<Custom
             let c = db.query_row(
                 "SELECT id, customer_code, customer_name, email, phone, billing_address, shipping_address,
                         payment_terms, credit_limit, credit_balance, current_balance, opening_balance,
-                        is_active, created_at, updated_at FROM customers WHERE id = ?1",
+                        is_active, customer_type, notes, total_invoiced, total_paid, last_invoice_date,
+                        created_at, updated_at FROM customers WHERE id = ?1",
                 [id],
                 |row| Ok(Customer {
                     id: row.get(0)?, customer_code: row.get(1)?, customer_name: row.get(2)?,
@@ -117,7 +131,9 @@ async fn create_customer(State(_state): State<AppState>, Json(form): Json<Custom
                     shipping_address: row.get(6)?, payment_terms: row.get(7)?,
                     credit_limit: row.get(8)?, credit_balance: row.get(9)?,
                     current_balance: row.get(10)?, opening_balance: row.get(11)?,
-                    is_active: row.get::<_, i64>(12)? != 0, created_at: row.get(13)?, updated_at: row.get(14)?,
+                    is_active: row.get::<_, i64>(12)? != 0, customer_type: row.get(13)?,
+                    notes: row.get(14)?, total_invoiced: row.get(15)?, total_paid: row.get(16)?,
+                    last_invoice_date: row.get(17)?, created_at: row.get(18)?, updated_at: row.get(19)?,
                 }),
             ).unwrap();
             (StatusCode::CREATED, Json(json!({ "success": true, "data": c })))
@@ -153,7 +169,9 @@ async fn update_customer(State(_state): State<AppState>, Path(id): Path<i64>, Js
                     shipping_address: row.get(6)?, payment_terms: row.get(7)?,
                     credit_limit: row.get(8)?, credit_balance: row.get(9)?,
                     current_balance: row.get(10)?, opening_balance: row.get(11)?,
-                    is_active: row.get::<_, i64>(12)? != 0, created_at: row.get(13)?, updated_at: row.get(14)?,
+                    is_active: row.get::<_, i64>(12)? != 0, customer_type: row.get(13)?,
+                    notes: row.get(14)?, total_invoiced: row.get(15)?, total_paid: row.get(16)?,
+                    last_invoice_date: row.get(17)?, created_at: row.get(18)?, updated_at: row.get(19)?,
                 }),
             ).unwrap();
             (StatusCode::OK, Json(json!({ "success": true, "data": c })))
@@ -218,6 +236,26 @@ async fn customer_balance(State(_state): State<AppState>, Path(id): Path<i64>) -
         Ok(balance) => (StatusCode::OK, Json(json!({ "success": true, "data": { "balance": balance } }))),
         Err(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Customer not found." }))),
     }
+}
+
+async fn customer_payments(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let mut stmt = db.prepare(
+        "SELECT p.id, p.payment_no, p.customer_id, c.customer_name, p.invoice_id,
+                p.payment_date, p.amount, p.payment_method, p.reference, p.notes,
+                p.created_by, p.created_at
+         FROM payments p LEFT JOIN customers c ON p.customer_id = c.id
+         WHERE p.customer_id = ?1 ORDER BY p.payment_date DESC"
+    ).unwrap();
+    let items: Vec<Payment> = stmt.query_map([id], |row| {
+        Ok(Payment {
+            id: row.get(0)?, payment_no: row.get(1)?, customer_id: row.get(2)?,
+            customer_name: row.get(3)?, invoice_id: row.get(4)?, payment_date: row.get(5)?,
+            amount: row.get(6)?, payment_method: row.get(7)?, reference: row.get(8)?,
+            notes: row.get(9)?, created_by: row.get(10)?, created_at: row.get(11)?,
+        })
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
 }
 
 async fn recalculate_balances(State(_state): State<AppState>) -> impl IntoResponse {

@@ -37,7 +37,7 @@ pub fn DirectPurchaseListPage() -> Element {
                     dp_no: m.purchase_no,
                     supplier_name: m.supplier_name,
                     date: m.purchase_date,
-                    status: "Completed".to_string(), // ponytail: server doesn't have status for direct purchases
+                    status: m.status,
                     total_amount: m.total_cost,
                     item_count: 0, // server model lacks item_count
                 }).collect(),

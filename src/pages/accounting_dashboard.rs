@@ -1,7 +1,7 @@
 //! Accounting Dashboard Page — Overview of accounting health and quick links.
 
 use crate::auth::use_auth;
-use crate::components::common::{StatCard, StatCardVariant, StatTrend, TrendDirection};
+use crate::components::common::{StatCard, StatCardVariant, StatTrend};
 use crate::models::AccountBalance;
 use dioxus::prelude::*;
 

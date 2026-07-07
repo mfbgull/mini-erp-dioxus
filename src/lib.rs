@@ -15,6 +15,7 @@
 //! | `pages` | Page components | Both (frontend) |
 
 #![allow(dead_code)]
+#![allow(non_snake_case)]
 
 pub mod calculations;
 pub mod models;

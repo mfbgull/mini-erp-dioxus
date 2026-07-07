@@ -5,7 +5,6 @@ use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType,
     SearchableSelect, SelectOption, use_toast,
 };
-use crate::models::Role;
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r#"

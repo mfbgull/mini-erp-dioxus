@@ -2,10 +2,9 @@
 //! line items, discount, tax, and totals.
 
 use crate::calculations::{
-    self,
     quotation::{calculate_item_discount, calculate_item_total},
     formatting,
-    Discount, DiscountScope, DiscountType, InvoiceMetrics,
+    Discount, DiscountScope, DiscountType,
 };
 use crate::auth::use_auth;
 use crate::components::common::{

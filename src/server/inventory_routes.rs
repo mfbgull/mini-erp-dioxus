@@ -14,7 +14,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, get, post, put},
+    routing::{get, post, put},
     Json, Router,
 };
 use serde_json::json;
@@ -40,7 +40,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/inventory/stock-summary", get(stock_summary))
         // Physical Counts
         .route("/api/inventory/physical-counts", get(list_physical_counts).post(create_physical_count))
-        .route("/api/inventory/physical-counts/{id}", get(get_physical_count))
+        .route("/api/inventory/physical-counts/{id}", get(get_physical_count).put(update_physical_count))
         .route("/api/inventory/physical-counts/{id}/items", post(add_count_item))
         .route("/api/inventory/physical-counts/{id}/complete", post(complete_physical_count))
         .route("/api/inventory/physical-counts/{id}/cancel", post(cancel_physical_count))
@@ -434,8 +434,8 @@ async fn list_warehouses(
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db
         .prepare(
-            "SELECT id, warehouse_code, warehouse_name, location, is_active, created_at
-             FROM warehouses WHERE is_active = 1 ORDER BY warehouse_code",
+        "SELECT id, warehouse_code, warehouse_name, location, capacity, is_active, created_at
+         FROM warehouses WHERE is_active = 1 ORDER BY warehouse_code",
         )
         .unwrap();
 
@@ -446,8 +446,9 @@ async fn list_warehouses(
                 warehouse_code: row.get(1)?,
                 warehouse_name: row.get(2)?,
                 location: row.get(3)?,
-                is_active: row.get::<_, i64>(4)? != 0,
-                created_at: row.get(5)?,
+                capacity: row.get(4)?,
+                is_active: row.get::<_, i64>(5)? != 0,
+                created_at: row.get(6)?,
             })
         })
         .unwrap()
@@ -463,7 +464,7 @@ async fn get_warehouse(
 ) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.query_row(
-        "SELECT id, warehouse_code, warehouse_name, location, is_active, created_at
+        "SELECT id, warehouse_code, warehouse_name, location, capacity, is_active, created_at
          FROM warehouses WHERE id = ?1",
         [id],
         |row| {
@@ -472,8 +473,9 @@ async fn get_warehouse(
                 warehouse_code: row.get(1)?,
                 warehouse_name: row.get(2)?,
                 location: row.get(3)?,
-                is_active: row.get::<_, i64>(4)? != 0,
-                created_at: row.get(5)?,
+                capacity: row.get(4)?,
+                is_active: row.get::<_, i64>(5)? != 0,
+                created_at: row.get(6)?,
             })
         },
     );
@@ -538,6 +540,7 @@ async fn create_warehouse(
                         warehouse_code: row.get(1)?,
                         warehouse_name: row.get(2)?,
                         location: row.get(3)?,
+                        capacity: 0.0,
                         is_active: row.get::<_, i64>(4)? != 0,
                         created_at: row.get(5)?,
                     })
@@ -583,6 +586,7 @@ async fn update_warehouse(
                         warehouse_code: row.get(1)?,
                         warehouse_name: row.get(2)?,
                         location: row.get(3)?,
+                        capacity: 0.0,
                         is_active: row.get::<_, i64>(4)? != 0,
                         created_at: row.get(5)?,
                     })
@@ -819,7 +823,7 @@ async fn list_stock_balances(
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let mut stmt = db
         .prepare(
-            "SELECT sb.id, sb.item_id, i.item_name, i.item_code,
+            "SELECT sb.id, sb.item_id, i.item_name, i.item_code, i.category, i.unit_of_measure,
                     sb.warehouse_id, w.warehouse_name, sb.quantity
              FROM stock_balances sb
              LEFT JOIN items i ON sb.item_id = i.id
@@ -836,9 +840,11 @@ async fn list_stock_balances(
                 item_id: row.get(1)?,
                 item_name: row.get(2)?,
                 item_code: row.get(3)?,
-                warehouse_id: row.get(4)?,
-                warehouse_name: row.get(5)?,
-                quantity: row.get(6)?,
+                category: row.get(4)?,
+                unit_of_measure: row.get(5)?,
+                warehouse_id: row.get(6)?,
+                warehouse_name: row.get(7)?,
+                quantity: row.get(8)?,
             })
         })
         .unwrap()
@@ -1134,6 +1140,19 @@ async fn complete_physical_count(
                 Json(json!({ "success": false, "error": "Failed to complete count." })),
             )
         }
+    }
+}
+
+async fn update_physical_count(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<PhysicalCountForm>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let result = db.execute(
+        "UPDATE physical_counts SET warehouse_id=?1, notes=?2 WHERE id=?3 AND status='Draft'",
+        rusqlite::params![form.warehouse_id, form.notes.as_deref().unwrap_or(""), id],
+    );
+    match result {
+        Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Physical count updated." } }))),
+        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Count not found or not in Draft status." }))),
+        Err(e) => { tracing::error!("Failed to update physical count: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update physical count." }))) }
     }
 }
 

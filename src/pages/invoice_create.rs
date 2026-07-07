@@ -16,7 +16,6 @@
 //! - Form dirty-state detection
 
 use crate::calculations::{
-    self,
     invoice::calculate_item_discount,
     invoice::calculate_item_total,
     invoice::compute_invoice_metrics,

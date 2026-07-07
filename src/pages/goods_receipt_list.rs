@@ -6,7 +6,6 @@ use crate::components::data_grid::{
 };
 use dioxus::prelude::*;
 use std::collections::HashSet;
-use crate::auth::use_auth;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct GoodsReceipt {

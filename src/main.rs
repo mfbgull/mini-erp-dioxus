@@ -17,7 +17,7 @@ use components::data_grid::{
     PaginationMode, RowHeight, SelectionMode, TextAlign,
 };
 use components::layout::{Sidebar, SIDEBAR_CSS};
-use components::rbac::{RbacContext, use_rbac, Can, Cannot, ProtectedRoute};
+use components::rbac::{RbacContext, use_rbac, ProtectedRoute};
 
 /// Helper macro to wrap a page component with a permission check.
 /// Usage: protected_page!("inventory:read", pages::item_list::ItemListPage())
@@ -30,7 +30,6 @@ macro_rules! protected_page {
     };
 }
 use components::shortcuts::ShortcutsHelp;
-use mini_erp::i18n::use_i18n;
 use dioxus::prelude::*;
 
 use pages::dashboard::DASHBOARD_CSS;
@@ -69,12 +68,16 @@ enum Route {
         ItemCreatePage {},
         #[route("/inventory/items/:id")]
         ItemDetailPage { id: String },
+        #[route("/inventory/items/:id/edit")]
+        ItemEditPage { id: String },
         #[route("/inventory/warehouses")]
         WarehouseListPage {},
         #[route("/inventory/warehouses/new")]
         WarehouseCreatePage {},
         #[route("/inventory/warehouses/:id")]
         WarehouseDetailPage { id: String },
+        #[route("/inventory/warehouses/:id/edit")]
+        WarehouseEditPage { id: String },
         #[route("/inventory/stock-movements")]
         StockMovementListPage {},
         #[route("/inventory/stock-movements/new")]
@@ -135,6 +138,8 @@ enum Route {
         PurchaseOrderCreatePage {},
         #[route("/purchases/orders/:id")]
         PurchaseOrderDetailPage { id: String },
+        #[route("/purchases/orders/:id/edit")]
+        PurchaseOrderEditPage { id: String },
         #[route("/purchases/orders/:id/print")]
         PurchaseOrderPrintPage { id: String },
         #[route("/purchases/receipts")]
@@ -151,6 +156,8 @@ enum Route {
         BomCreatePage {},
         #[route("/manufacturing/boms/:id")]
         BomDetailPage { id: String },
+        #[route("/manufacturing/boms/:id/edit")]
+        BomEditPage { id: String },
         #[route("/manufacturing/production")]
         ProductionListPage {},
         #[route("/manufacturing/production/new")]
@@ -165,6 +172,8 @@ enum Route {
         CustomerCreatePage {},
         #[route("/customers/:id")]
         CustomerDetailPage { id: String },
+        #[route("/customers/:id/edit")]
+        CustomerEditPage { id: String },
 
         // ── Suppliers ──
         #[route("/suppliers")]
@@ -173,6 +182,8 @@ enum Route {
         SupplierCreatePage {},
         #[route("/suppliers/:id")]
         SupplierDetailPage { id: String },
+        #[route("/suppliers/:id/edit")]
+        SupplierEditPage { id: String },
 
         // ── Employees ──
         #[route("/employees")]
@@ -181,6 +192,8 @@ enum Route {
         EmployeeCreatePage {},
         #[route("/employees/:id")]
         EmployeeDetailPage { id: String },
+        #[route("/employees/:id/edit")]
+        EmployeeEditPage { id: String },
 
         // ── Expenses ──
         #[route("/expenses")]
@@ -325,7 +338,7 @@ fn App() -> Element {
     let lang_signal = use_signal(|| mini_erp::i18n::Lang::En);
     use_context_provider(|| lang_signal);
 
-    let mut shortcuts_show = use_signal(|| false);
+    let shortcuts_show = use_signal(|| false);
     use_context_provider(|| shortcuts_show);
 
     rsx! {
@@ -382,10 +395,10 @@ fn MainLayout() -> Element {
     // Logout handler
     let on_logout = {
         let auth = auth.clone();
-        let navigator = navigator.clone();
+        let navigator = navigator;
         move |_| {
             let auth = auth.clone();
-            let nav = navigator.clone();
+            let nav = navigator;
             spawn(async move {
                 auth.logout().await;
                 nav.push("/login");
@@ -518,6 +531,15 @@ fn ItemDetailPage(id: String) -> Element {
 }
 
 #[component]
+fn ItemEditPage(id: String) -> Element {
+    rsx! {
+        ProtectedRoute { permission: "inventory:update".to_string(),
+            pages::item_edit::ItemEditPage { id }
+        }
+    }
+}
+
+#[component]
 fn WarehouseListPage() -> Element {
     rsx! {
         ProtectedRoute { permission: "inventory:read".to_string(),
@@ -540,6 +562,15 @@ fn WarehouseDetailPage(id: String) -> Element {
     rsx! {
         ProtectedRoute { permission: "inventory:read".to_string(),
             pages::warehouse_detail::WarehouseDetailPage { id }
+        }
+    }
+}
+
+#[component]
+fn WarehouseEditPage(id: String) -> Element {
+    rsx! {
+        ProtectedRoute { permission: "inventory:update".to_string(),
+            pages::warehouse_edit::WarehouseEditPage { id }
         }
     }
 }
@@ -801,6 +832,15 @@ fn PurchaseOrderDetailPage(id: String) -> Element {
 }
 
 #[component]
+fn PurchaseOrderEditPage(id: String) -> Element {
+    rsx! {
+        ProtectedRoute { permission: "purchase_orders:update".to_string(),
+            pages::purchase_order_edit::PurchaseOrderEditPage { id }
+        }
+    }
+}
+
+#[component]
 fn PurchaseOrderPrintPage(id: String) -> Element {
     rsx! {
         ProtectedRoute { permission: "purchase_orders:read".to_string(),
@@ -866,6 +906,15 @@ fn BomDetailPage(id: String) -> Element {
 }
 
 #[component]
+fn BomEditPage(id: String) -> Element {
+    rsx! {
+        ProtectedRoute { permission: "bom:update".to_string(),
+            pages::bom_edit::BomEditPage { id }
+        }
+    }
+}
+
+#[component]
 fn ProductionListPage() -> Element {
     rsx! {
         ProtectedRoute { permission: "production:read".to_string(),
@@ -921,6 +970,15 @@ fn CustomerDetailPage(id: String) -> Element {
     }
 }
 
+#[component]
+fn CustomerEditPage(id: String) -> Element {
+    rsx! {
+        ProtectedRoute { permission: "customers:update".to_string(),
+            pages::customer_edit::CustomerEditPage { id }
+        }
+    }
+}
+
 // ── Suppliers ──
 
 #[component]
@@ -950,6 +1008,15 @@ fn SupplierDetailPage(id: String) -> Element {
     }
 }
 
+#[component]
+fn SupplierEditPage(id: String) -> Element {
+    rsx! {
+        ProtectedRoute { permission: "suppliers:update".to_string(),
+            pages::supplier_edit::SupplierEditPage { id }
+        }
+    }
+}
+
 // ── Employees ──
 
 #[component]
@@ -975,6 +1042,15 @@ fn EmployeeDetailPage(id: String) -> Element {
     rsx! {
         ProtectedRoute { permission: "employees:read".to_string(),
             pages::employee_detail::EmployeeDetailPage { id }
+        }
+    }
+}
+
+#[component]
+fn EmployeeEditPage(id: String) -> Element {
+    rsx! {
+        ProtectedRoute { permission: "employees:update".to_string(),
+            pages::employee_edit::EmployeeEditPage { id }
         }
     }
 }
@@ -1269,7 +1345,7 @@ fn NotFoundPage(route: Vec<String>) -> Element {
 #[component]
 fn DataGridDemoPage() -> Element {
     let items = demo_items();
-    let selected_rows = use_signal(|| std::collections::HashSet::<usize>::new());
+    let selected_rows = use_signal(std::collections::HashSet::<usize>::new);
 
     let columns: Vec<ColumnDef<DemoItem>> = vec![
         ColumnDef::text("code", "Code", |item: &DemoItem| item.code.clone())
