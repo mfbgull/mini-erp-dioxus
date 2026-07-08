@@ -30,6 +30,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/reports/balance-sheet", get(report_balance_sheet))
         .route("/api/reports/income-statement", get(report_income_statement))
         .route("/api/reports/tax-summary", get(report_tax_summary))
+        .route("/api/reports/trend-decomposition", get(report_trend_decomposition))
         .route("/api/reports/expenses", get(report_expenses))
         .route("/api/reports/purchase-summary", get(report_purchase_summary))
         .route("/api/reports/supplier-analysis", get(report_supplier_analysis))
@@ -42,6 +43,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/reports/custom/{id}", put(update_custom_report).delete(delete_custom_report))
 }
 
+#[macro_export]
 macro_rules! query_report {
     ($db:expr, $sql:expr) => {{
         let mut stmt = $db.prepare($sql).unwrap();
@@ -261,14 +263,70 @@ async fn report_income_statement(State(_state): State<AppState>) -> impl IntoRes
 
 async fn report_tax_summary(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    let items = query_report!(db,
-        "SELECT ii.tax_rate, COUNT(*) as item_count, SUM(ii.amount) as total_amount,
-                SUM(ii.amount * ii.tax_rate / 100) as tax_amount
-         FROM invoice_items ii JOIN invoices i ON ii.invoice_id = i.id
-         WHERE i.status != 'Cancelled' AND ii.tax_rate > 0
-         GROUP BY ii.tax_rate ORDER BY ii.tax_rate"
+    // returns sales_tax, income_tax, withholding_tax arrays grouped by month
+    let sales_tax = query_report!(db,
+        "SELECT strftime('%Y-%m', i.invoice_date) as period,
+                SUM(i.total_amount) as tax_base,
+                COALESCE(AVG(i.tax_rate), 0) as rate,
+                SUM(i.total_amount * i.tax_rate / 100) as tax_amount,
+                SUM(i.paid_amount * i.tax_rate / 100) as paid_amount
+         FROM invoices i
+         WHERE i.status != 'Cancelled' AND i.tax_rate > 0
+         GROUP BY strftime('%Y-%m', i.invoice_date)
+         ORDER BY period"
     );
-    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
+    // Add balance = tax_amount - paid_amount to each row
+    let sales_tax: Vec<serde_json::Value> = sales_tax.into_iter().map(|mut row| {
+        let tax = row["tax_amount"].as_f64().unwrap_or(0.0);
+        let paid = row["paid_amount"].as_f64().unwrap_or(0.0);
+        row.as_object_mut().map(|obj| {
+            obj.insert("balance".to_string(), json!(tax - paid));
+        });
+        row
+    }).collect();
+    (StatusCode::OK, Json(json!({
+        "success": true,
+        "data": {
+            "sales_tax": sales_tax,
+            "income_tax": [],
+            "withholding_tax": []
+        }
+    })))
+}
+
+async fn report_trend_decomposition(State(_state): State<AppState>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    // Monthly invoice totals for the last 12 months
+    let month_names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    let raw = query_report!(db,
+        "SELECT strftime('%Y-%m', invoice_date) as ym, SUM(total_amount) as actual
+         FROM invoices WHERE status != 'Cancelled'
+         GROUP BY ym ORDER BY ym DESC LIMIT 12"
+    );
+    let mut rows: Vec<serde_json::Value> = raw.into_iter().rev().collect();
+    // Compute 3-month moving average as trend
+    for i in 0..rows.len() {
+        let actual = rows[i]["actual"].as_f64().unwrap_or(0.0);
+        let trend = if i >= 2 {
+            (rows[i-2]["actual"].as_f64().unwrap_or(0.0)
+             + rows[i-1]["actual"].as_f64().unwrap_or(0.0)
+             + actual) / 3.0
+        } else if i == 1 {
+            (rows[0]["actual"].as_f64().unwrap_or(0.0) + actual) / 2.0
+        } else {
+            actual
+        };
+        let ym = rows[i]["ym"].as_str().unwrap_or("").to_string();
+        let month_num = ym[5..7].parse::<usize>().unwrap_or(1);
+        let period = month_names.get(month_num - 1).unwrap_or(&"?").to_string();
+        rows[i].as_object_mut().map(|obj| {
+            obj.insert("period".to_string(), json!(period));
+            obj.insert("trend".to_string(), json!(trend));
+            obj.insert("seasonal".to_string(), json!(actual - trend));
+            obj.insert("residual".to_string(), json!(0.0));
+        });
+    }
+    (StatusCode::OK, Json(json!({ "success": true, "data": rows })))
 }
 
 async fn report_expenses(State(_state): State<AppState>) -> impl IntoResponse {

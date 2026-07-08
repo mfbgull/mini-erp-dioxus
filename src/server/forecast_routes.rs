@@ -1,6 +1,7 @@
 use crate::models::*;
 use crate::server::auth_routes::AppState;
 use crate::server::db;
+use crate::query_report;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -20,6 +21,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/forecasts/config/{id}", put(update_model_config).delete(delete_model_config))
         .route("/api/forecasts/seasonal-events", get(list_seasonal_events).post(create_seasonal_event))
         .route("/api/forecasts/seasonal-events/{id}", put(update_seasonal_event).delete(delete_seasonal_event))
+        .route("/api/forecasts/demand-timeline", get(report_demand_timeline))
 }
 
 async fn list_forecasts(State(_state): State<AppState>) -> impl IntoResponse {
@@ -178,4 +180,61 @@ async fn delete_seasonal_event(State(_state): State<AppState>, Path(id): Path<i6
         Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Event not found." }))),
         Err(e) => { tracing::error!("Failed to delete event: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to delete event." }))) }
     }
+}
+
+async fn report_demand_timeline(State(_state): State<AppState>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let month_names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    // Historical: monthly invoice item quantities
+    let historical = query_report!(db,
+        "SELECT strftime('%Y-%m', i.invoice_date) as ym, SUM(ii.quantity) as qty
+         FROM invoice_items ii JOIN invoices i ON ii.invoice_id = i.id
+         WHERE i.status != 'Cancelled'
+         GROUP BY ym ORDER BY ym"
+    );
+    // Forecasted: from demand_forecasts table
+    let forecasted = query_report!(db,
+        "SELECT period, SUM(predicted_quantity) as qty,
+                AVG(confidence_level) as confidence
+         FROM demand_forecasts GROUP BY period ORDER BY period"
+    );
+    // Build timeline
+    let mut periods: std::collections::BTreeMap<String, serde_json::Value> = std::collections::BTreeMap::new();
+    for row in &historical {
+        let ym = row["ym"].as_str().unwrap_or("").to_string();
+        let qty = row["qty"].as_f64().unwrap_or(0.0);
+        let month_num = if ym.len() >= 7 { ym[5..7].parse::<usize>().unwrap_or(1) } else { 1 };
+        let period = month_names.get(month_num - 1).unwrap_or(&"?").to_string();
+        periods.insert(ym.clone(), json!({
+            "period": period,
+            "historical": qty,
+            "forecasted": serde_json::Value::Null,
+            "lower_bound": serde_json::Value::Null,
+            "upper_bound": serde_json::Value::Null,
+        }));
+    }
+    for row in &forecasted {
+        let period = row["period"].as_str().unwrap_or("").to_string();
+        let qty = row["qty"].as_f64().unwrap_or(0.0);
+        let conf = row["confidence"].as_f64().unwrap_or(0.0);
+        let lb = qty * (1.0 - conf / 200.0);
+        let ub = qty * (1.0 + conf / 200.0);
+        if let Some(entry) = periods.get_mut(&period) {
+            entry["forecasted"] = json!(qty);
+            entry["lower_bound"] = json!(lb);
+            entry["upper_bound"] = json!(ub);
+        } else {
+            let month_num = if period.len() >= 7 { period[5..7].parse::<usize>().unwrap_or(1) } else { 1 };
+            let p = month_names.get(month_num - 1).unwrap_or(&"?").to_string();
+            periods.insert(period.clone(), json!({
+                "period": p,
+                "historical": serde_json::Value::Null,
+                "forecasted": qty,
+                "lower_bound": lb,
+                "upper_bound": ub,
+            }));
+        }
+    }
+    let items: Vec<serde_json::Value> = periods.into_values().collect();
+    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
 }

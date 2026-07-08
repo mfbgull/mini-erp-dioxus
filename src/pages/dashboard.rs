@@ -374,7 +374,7 @@ fn severity_label(severity: &Severity) -> &'static str {
 }
 
 fn today_formatted() -> String {
-    "June 26, 2026".to_string()
+    chrono::Local::now().format("%B %-e, %Y").to_string()
 }
 
 // ============================================================================
@@ -390,7 +390,8 @@ pub struct SalesChartProps {
 fn SalesChart(props: SalesChartProps) -> Element {
     let max_amount = props.data.iter().map(|s| s.amount).fold(0.0_f64, f64::max);
     let bar_count = props.data.len();
-    let bar_width_pct = 100.0 / bar_count as f64;
+    let chart_width = (bar_count as f64 * 25.0).max(500.0);
+    let bar_width_pct = chart_width / bar_count as f64;
     let bar_gap_pct = bar_width_pct * 0.25;
     let bar_inner_pct = bar_width_pct - bar_gap_pct;
     let chart_height = 160.0;
@@ -398,12 +399,13 @@ fn SalesChart(props: SalesChartProps) -> Element {
     rsx! {
         div { class: "dashboard-chart",
             svg {
-                view_box: "0 0 100 180",
-                preserve_aspect_ratio: "xMidYMid meet",
-                line { x1: "0", y1: "10", x2: "100", y2: "10", stroke: "#f0f0f0", stroke_width: "0.5" }
-                line { x1: "0", y1: "50", x2: "100", y2: "50", stroke: "#f0f0f0", stroke_width: "0.5" }
-                line { x1: "0", y1: "90", x2: "100", y2: "90", stroke: "#f0f0f0", stroke_width: "0.5" }
-                line { x1: "0", y1: "130", x2: "100", y2: "130", stroke: "#f0f0f0", stroke_width: "0.5" }
+                view_box: "0 0 {chart_width:.0} 180",
+                preserve_aspect_ratio: "none",
+                line { x1: "0", y1: "10", x2: "{chart_width:.0}", y2: "10", stroke: "#f0f0f0", stroke_width: "0.5" }
+                line { x1: "0", y1: "50", x2: "{chart_width:.0}", y2: "50", stroke: "#f0f0f0", stroke_width: "0.5" }
+                line { x1: "0", y1: "90", x2: "{chart_width:.0}", y2: "90", stroke: "#f0f0f0", stroke_width: "0.5" }
+                line { x1: "0", y1: "130", x2: "{chart_width:.0}", y2: "130", stroke: "#f0f0f0", stroke_width: "0.5" }
+                line { x1: "0", y1: "170", x2: "{chart_width:.0}", y2: "170", stroke: "#e0e0e0", stroke_width: "0.5" }
 
                 {props.data.into_iter().enumerate().map(|(i, s)| {
                     let bar_height = if max_amount > 0.0 {

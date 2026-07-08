@@ -69,11 +69,33 @@ struct CategorySale {
 // ============================================================================
 
 fn parse_monthly_sales(data: &serde_json::Value) -> Vec<MonthlySale> {
-    data.get("monthly").and_then(|v| v.as_array()).cloned().unwrap_or_default()
-        .iter().map(|m| MonthlySale {
-            month: m.get("month").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            amount: m.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        }).collect()
+    if let Some(arr) = data.as_array() {
+        // Backend returns [{ invoice_date, invoice_count, total, paid, outstanding }, ...]
+        // Aggregate daily totals into monthly buckets
+        let mut buckets: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+        for item in arr {
+            let date_str = item.get("invoice_date").and_then(|v| v.as_str()).unwrap_or("");
+            let month = if date_str.len() >= 7 { date_str[..7].to_string() } else { date_str.to_string() };
+            let total = item.get("total").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            *buckets.entry(month).or_insert(0.0) += total;
+        }
+        let month_names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        let mut result: Vec<MonthlySale> = buckets.into_iter().map(|(m, amount)| {
+            let month_num = m[5..7].parse::<usize>().unwrap_or(1);
+            MonthlySale { month: month_names.get(month_num - 1).unwrap_or(&"?").to_string(), amount }
+        }).collect();
+        result.sort_by(|a, b| month_names.iter().position(|m| m == &a.month).cmp(&month_names.iter().position(|m| m == &b.month)));
+        result
+    } else if let Some(obj) = data.as_object() {
+        // Fallback: try legacy format { monthly: [{ month, amount }, ...] }
+        obj.get("monthly").and_then(|v| v.as_array()).cloned().unwrap_or_default()
+            .iter().map(|m| MonthlySale {
+                month: m.get("month").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                amount: m.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
+            }).collect()
+    } else {
+        vec![]
+    }
 }
 
 fn parse_category_sales(data: &serde_json::Value) -> Vec<CategorySale> {
@@ -139,7 +161,8 @@ pub fn SalesReportPage() -> Element {
 
     let max_amount = monthly.iter().map(|m| m.amount).fold(0.0_f64, f64::max);
     let bar_count = monthly.len();
-    let bar_width_pct = if bar_count > 0 { 100.0 / bar_count as f64 } else { 100.0 };
+    let chart_width = (bar_count as f64 * 25.0).max(500.0);
+    let bar_width_pct = if bar_count > 0 { chart_width / bar_count as f64 } else { chart_width };
     let bar_gap_pct = bar_width_pct * 0.25;
     let bar_inner_pct = bar_width_pct - bar_gap_pct;
     let chart_height = 180.0;
@@ -237,12 +260,12 @@ pub fn SalesReportPage() -> Element {
                     }
                     div { class: "sr-chart",
                         svg {
-                            view_box: "0 0 100 200",
-                            preserve_aspect_ratio: "xMidYMid meet",
-                            line { x1: "0", y1: "20", x2: "100", y2: "20", stroke: "#f0f0f0", stroke_width: "0.5" }
-                            line { x1: "0", y1: "60", x2: "100", y2: "60", stroke: "#f0f0f0", stroke_width: "0.5" }
-                            line { x1: "0", y1: "100", x2: "100", y2: "100", stroke: "#f0f0f0", stroke_width: "0.5" }
-                            line { x1: "0", y1: "140", x2: "100", y2: "140", stroke: "#f0f0f0", stroke_width: "0.5" }
+                            view_box: "0 0 {chart_width:.0} 200",
+                            preserve_aspect_ratio: "none",
+                            line { x1: "0", y1: "20", x2: "{chart_width:.0}", y2: "20", stroke: "#f0f0f0", stroke_width: "0.5" }
+                            line { x1: "0", y1: "60", x2: "{chart_width:.0}", y2: "60", stroke: "#f0f0f0", stroke_width: "0.5" }
+                            line { x1: "0", y1: "100", x2: "{chart_width:.0}", y2: "100", stroke: "#f0f0f0", stroke_width: "0.5" }
+                            line { x1: "0", y1: "140", x2: "{chart_width:.0}", y2: "140", stroke: "#f0f0f0", stroke_width: "0.5" }
 
                             {monthly.into_iter().enumerate().map(|(i, m)| {
                                 let bar_height = if max_amount > 0.0 { (m.amount / max_amount) * chart_height } else { 0.0 };

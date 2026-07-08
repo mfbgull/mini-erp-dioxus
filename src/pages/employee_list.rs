@@ -138,10 +138,10 @@ pub fn EmployeeListPage() -> Element {
 
     let on_row_click = {
         let nav = navigator.clone();
-        move |(_i, e): (usize, Employee)| { nav.push(format!("/crm/employees/{}", e.id)); }
+        move |(_i, e): (usize, Employee)| { nav.push(format!("/employees/{}", e.id)); }
     };
 
-    let on_new = { let nav = navigator.clone(); move |_| { nav.push("/crm/employees/new"); } };
+    let on_new = { let nav = navigator.clone(); move |_| { nav.push("/employees/new"); } };
     let on_refresh = { let mut c = refresh_counter.clone(); move |_| c += 1 };
 
     rsx! {

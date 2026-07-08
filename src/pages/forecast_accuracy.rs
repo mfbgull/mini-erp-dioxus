@@ -1,7 +1,7 @@
 //! Forecast Accuracy Page — Model accuracy metrics and per-product accuracy breakdown.
 
 use crate::auth::use_auth;
-use crate::components::common::{StatCard, StatCardVariant, StatTrend, TrendDirection};
+use crate::components::common::{StatCard, StatCardVariant};
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -63,32 +63,6 @@ struct ProductAccuracy {
 }
 
 // ============================================================================
-// Mock Data
-// ============================================================================
-
-fn monthly_mape() -> Vec<AccuracyMetric> {
-    vec![
-        AccuracyMetric { period: "Jan".to_string(), mape: 14.2 },
-        AccuracyMetric { period: "Feb".to_string(), mape: 12.8 },
-        AccuracyMetric { period: "Mar".to_string(), mape: 15.5 },
-        AccuracyMetric { period: "Apr".to_string(), mape: 11.0 },
-        AccuracyMetric { period: "May".to_string(), mape: 10.2 },
-        AccuracyMetric { period: "Jun".to_string(), mape: 11.8 },
-    ]
-}
-
-fn product_accuracy() -> Vec<ProductAccuracy> {
-    vec![
-        ProductAccuracy { product: "Premium Widget Alpha".to_string(), forecast: 1550.0, actual: 1620.0, error: -70.0, mape: 4.3 },
-        ProductAccuracy { product: "Standard Widget Beta".to_string(), forecast: 2200.0, actual: 1950.0, error: 250.0, mape: 12.8 },
-        ProductAccuracy { product: "Steel Rod 12mm".to_string(), forecast: 800.0, actual: 920.0, error: -120.0, mape: 13.0 },
-        ProductAccuracy { product: "Hydraulic Pump HPD-200".to_string(), forecast: 45.0, actual: 38.0, error: 7.0, mape: 18.4 },
-        ProductAccuracy { product: "Rubber Gasket Set".to_string(), forecast: 300.0, actual: 285.0, error: 15.0, mape: 5.3 },
-        ProductAccuracy { product: "LED Panel Light 24W".to_string(), forecast: 500.0, actual: 530.0, error: -30.0, mape: 5.7 },
-    ]
-}
-
-// ============================================================================
 // Component
 // ============================================================================
 
@@ -108,11 +82,13 @@ pub fn ForecastAccuracyPage() -> Element {
     let accuracy_items = accuracy_data.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
 
     let products: Vec<ProductAccuracy> = accuracy_items.iter().filter_map(|item| {
+        let mae = item["mae"].as_f64().unwrap_or(0.0);
+        let mape = item["mape"].as_f64().unwrap_or(0.0);
         Some(ProductAccuracy {
             product: item["item_name"].as_str().unwrap_or("Unknown").to_string(),
-            forecast: item["mae"].as_f64().unwrap_or(0.0),
-            actual: item["mape"].as_f64().unwrap_or(0.0),
-            error: 0.0,
+            forecast: item["mape"].as_f64().unwrap_or(0.0),
+            actual: item["mae"].as_f64().unwrap_or(0.0),
+            error: mae - mape,
             mape: item["mape"].as_f64().unwrap_or(0.0),
         })
     }).collect();
@@ -132,14 +108,21 @@ pub fn ForecastAccuracyPage() -> Element {
 
     let max_mape = monthly.iter().map(|m| m.mape).fold(0.0_f64, f64::max);
     let bar_count = if monthly.is_empty() { 1 } else { monthly.len() };
-    let bar_width_pct = 100.0 / bar_count as f64;
+    let chart_width = (bar_count as f64 * 25.0).max(500.0);
+    let bar_width_pct = chart_width / bar_count as f64;
     let bar_gap_pct = bar_width_pct * 0.25;
     let bar_inner_pct = bar_width_pct - bar_gap_pct;
     let chart_height = 160.0;
 
     let avg_mape: f64 = if monthly.is_empty() { 0.0 } else { monthly.iter().map(|m| m.mape).sum::<f64>() / monthly.len() as f64 };
-    let total_abs_error: f64 = products.iter().map(|p| p.error.abs()).sum();
+    let avg_mae: f64 = if products.is_empty() { 0.0 } else { products.iter().map(|p| p.actual).sum::<f64>() / products.len() as f64 };
+    let _total_abs_error: f64 = products.iter().map(|p| p.error.abs()).sum();
     let avg_error: f64 = if products.is_empty() { 0.0 } else { products.iter().map(|p| p.error).sum::<f64>() / products.len() as f64 };
+    // Compute RMSE from mae values
+    let rmse: f64 = if products.is_empty() { 0.0 } else {
+        let sum_sq: f64 = products.iter().map(|p| p.actual * p.actual).sum();
+        (sum_sq / products.len() as f64).sqrt()
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }
@@ -172,7 +155,7 @@ pub fn ForecastAccuracyPage() -> Element {
             div { class: "fa-kpi-grid",
                 StatCard {
                     title: "MAE".to_string(),
-                    value: format!("{:.1}", total_abs_error / products.len() as f64),
+                    value: format!("{:.1}", avg_mae),
                     icon: "📉".to_string(),
                     variant: StatCardVariant::Primary,
                     footer: Some("Mean Absolute Error".to_string()),
@@ -182,12 +165,11 @@ pub fn ForecastAccuracyPage() -> Element {
                     value: format!("{:.1}%", avg_mape),
                     icon: "🎯".to_string(),
                     variant: if avg_mape < 10.0 { StatCardVariant::Success } else if avg_mape < 15.0 { StatCardVariant::Warning } else { StatCardVariant::Danger },
-                    trend: Some(StatTrend { direction: TrendDirection::Down, label: "Improved 2.4%".to_string() }),
                     footer: Some("Mean Absolute Percentage Error".to_string()),
                 }
                 StatCard {
                     title: "RMSE".to_string(),
-                    value: "138.2".to_string(),
+                    value: format!("{:.1}", rmse),
                     icon: "📊".to_string(),
                     variant: StatCardVariant::Default,
                     footer: Some("Root Mean Squared Error".to_string()),
@@ -208,12 +190,12 @@ pub fn ForecastAccuracyPage() -> Element {
                 }
                 div { class: "fa-chart",
                     svg {
-                        view_box: "0 0 100 180",
-                        preserve_aspect_ratio: "xMidYMid meet",
-                        line { x1: "0", y1: "20", x2: "100", y2: "20", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "60", x2: "100", y2: "60", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "100", x2: "100", y2: "100", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "140", x2: "100", y2: "140", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        view_box: "0 0 {chart_width:.0} 180",
+                        preserve_aspect_ratio: "none",
+                        line { x1: "0", y1: "20", x2: "{chart_width:.0}", y2: "20", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "60", x2: "{chart_width:.0}", y2: "60", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "100", x2: "{chart_width:.0}", y2: "100", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "140", x2: "{chart_width:.0}", y2: "140", stroke: "#f0f0f0", stroke_width: "0.5" }
 
                         {monthly.into_iter().enumerate().map(|(i, m)| {
                             let bar_height = if max_mape > 0.0 { (m.mape / max_mape) * chart_height } else { 0.0 };

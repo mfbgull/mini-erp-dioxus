@@ -58,10 +58,6 @@ pub fn BomEditPage(id: String) -> Element {
         }
     });
 
-    let (bom_data, all_items) = resource.read().clone().unwrap_or((None, vec![]));
-    let item_map: HashMap<String, &Item> = all_items.iter().map(|i| (i.id.to_string(), i)).collect();
-    let item_options: Vec<SelectOption> = all_items.iter().map(|i| SelectOption { value: i.id.to_string(), label: format!("{} - {}", i.item_code, i.item_name) }).collect();
-
     let bom_name = use_signal(String::new);
     let finished_item_id = use_signal(String::new);
     let quantity = use_signal(|| String::new());
@@ -74,7 +70,7 @@ pub fn BomEditPage(id: String) -> Element {
 
     // Parse bom data when it arrives
     {
-        let raw = bom_data.clone();
+        let res = resource.clone();
         let mut bn = bom_name.clone();
         let mut fi = finished_item_id.clone();
         let mut qty = quantity.clone();
@@ -84,35 +80,44 @@ pub fn BomEditPage(id: String) -> Element {
         let mut ld = loaded.clone();
         let mut dr = data_ready.clone();
         use_effect(move || {
-            if let Some(ref val) = raw {
-                if !*ld.read() {
-                    let bom = &val["bom"];
-                    bn.set(bom["bom_name"].as_str().unwrap_or("").to_string());
-                    fi.set(bom["finished_item_id"].as_i64().unwrap_or(0).to_string());
-                    qty.set(bom["quantity"].as_f64().unwrap_or(0.0).to_string());
-                    desc.set(bom.get("description").and_then(|d| d.as_str()).unwrap_or("").to_string());
-                    let mut comps = Vec::new();
-                    if let Some(arr) = val["items"].as_array() {
-                        for (i, item) in arr.iter().enumerate() {
-                            let q = item["quantity"].as_f64().unwrap_or(0.0);
-                            let uc = item["unit_cost"].as_f64().unwrap_or(0.0);
-                            comps.push(EditCompItem {
-                                idx: i as u64,
-                                item_id: item["item_id"].as_i64().unwrap_or(0).to_string(),
-                                item_name: item["item_name"].as_str().unwrap_or("").to_string(),
-                                quantity: q,
-                                unit_cost: uc,
-                            });
+            if !*ld.read() {
+                let guard = res.read();
+                if let Some((ref bom_data_opt, _)) = &*guard {
+                    if let Some(ref val) = bom_data_opt {
+                        if !*ld.read() {
+                            let bom = &val["bom"];
+                            bn.set(bom["bom_name"].as_str().unwrap_or("").to_string());
+                            fi.set(bom["finished_item_id"].as_i64().unwrap_or(0).to_string());
+                            qty.set(bom["quantity"].as_f64().unwrap_or(0.0).to_string());
+                            desc.set(bom.get("description").and_then(|d| d.as_str()).unwrap_or("").to_string());
+                            let mut comps = Vec::new();
+                            if let Some(arr) = val["items"].as_array() {
+                                for (i, item) in arr.iter().enumerate() {
+                                    let q = item["quantity"].as_f64().unwrap_or(0.0);
+                                    let uc = item["unit_cost"].as_f64().unwrap_or(0.0);
+                                    comps.push(EditCompItem {
+                                        idx: i as u64,
+                                        item_id: item["item_id"].as_i64().unwrap_or(0).to_string(),
+                                        item_name: item["item_name"].as_str().unwrap_or("").to_string(),
+                                        quantity: q,
+                                        unit_cost: uc,
+                                    });
+                                }
+                                nidx.set(arr.len() as u64);
+                            }
+                            items.set(comps);
+                            ld.set(true);
+                            dr.set(true);
                         }
-                        nidx.set(arr.len() as u64);
                     }
-                    items.set(comps);
-                    ld.set(true);
-                    dr.set(true);
                 }
             }
         });
     }
+
+    let (bom_data, all_items) = resource.read().clone().unwrap_or((None, vec![]));
+    let item_map: HashMap<String, &Item> = all_items.iter().map(|i| (i.id.to_string(), i)).collect();
+    let item_options: Vec<SelectOption> = all_items.iter().map(|i| SelectOption { value: i.id.to_string(), label: format!("{} - {}", i.item_code, i.item_name) }).collect();
 
     if resource.read().is_none() {
         return rsx! { style { "{EDIT_CSS}" } div { class: "bom-edit-page", div { class: "bom-loading", div { class: "loading-spinner" }, span { "Loading BOM..." } } } };

@@ -1,5 +1,6 @@
 //! Trend Analysis Page — Linear, exponential, and seasonal trend decomposition.
 
+use crate::auth::use_auth;
 use crate::components::common::{StatCard, StatCardVariant};
 use dioxus::prelude::*;
 
@@ -52,25 +53,14 @@ struct DecompositionRow {
     residual: f64,
 }
 
-// ============================================================================
-// Mock Data
-// ============================================================================
-
-fn decomposition_data() -> Vec<DecompositionRow> {
-    vec![
-        DecompositionRow { period: "Jan".to_string(), actual: 1200.0, trend: 1180.0, seasonal: 30.0, residual: -10.0 },
-        DecompositionRow { period: "Feb".to_string(), actual: 1350.0, trend: 1200.0, seasonal: 80.0, residual: 70.0 },
-        DecompositionRow { period: "Mar".to_string(), actual: 1100.0, trend: 1220.0, seasonal: -100.0, residual: -20.0 },
-        DecompositionRow { period: "Apr".to_string(), actual: 1480.0, trend: 1240.0, seasonal: 200.0, residual: 40.0 },
-        DecompositionRow { period: "May".to_string(), actual: 1620.0, trend: 1260.0, seasonal: 300.0, residual: 60.0 },
-        DecompositionRow { period: "Jun".to_string(), actual: 1550.0, trend: 1280.0, seasonal: 220.0, residual: 50.0 },
-        DecompositionRow { period: "Jul".to_string(), actual: 1580.0, trend: 1300.0, seasonal: 250.0, residual: 30.0 },
-        DecompositionRow { period: "Aug".to_string(), actual: 1650.0, trend: 1320.0, seasonal: 280.0, residual: 50.0 },
-        DecompositionRow { period: "Sep".to_string(), actual: 1520.0, trend: 1340.0, seasonal: 150.0, residual: 30.0 },
-        DecompositionRow { period: "Oct".to_string(), actual: 1700.0, trend: 1360.0, seasonal: 300.0, residual: 40.0 },
-        DecompositionRow { period: "Nov".to_string(), actual: 1750.0, trend: 1380.0, seasonal: 320.0, residual: 50.0 },
-        DecompositionRow { period: "Dec".to_string(), actual: 1820.0, trend: 1400.0, seasonal: 370.0, residual: 50.0 },
-    ]
+fn parse_trend_data(val: &serde_json::Value) -> Vec<DecompositionRow> {
+    val.as_array().map(|arr| arr.iter().map(|v| DecompositionRow {
+        period: v.get("period").and_then(|s| s.as_str()).unwrap_or("").to_string(),
+        actual: v.get("actual").and_then(|n| n.as_f64()).unwrap_or(0.0),
+        trend: v.get("trend").and_then(|n| n.as_f64()).unwrap_or(0.0),
+        seasonal: v.get("seasonal").and_then(|n| n.as_f64()).unwrap_or(0.0),
+        residual: v.get("residual").and_then(|n| n.as_f64()).unwrap_or(0.0),
+    }).collect()).unwrap_or_default()
 }
 
 // ============================================================================
@@ -79,9 +69,19 @@ fn decomposition_data() -> Vec<DecompositionRow> {
 
 #[component]
 pub fn TrendAnalysisPage() -> Element {
-    let data = decomposition_data();
+    let api = use_auth().api;
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_trend_decomposition().await.unwrap_or_default()
+        }
+    });
+    let raw = resource.read().clone().unwrap_or_default();
+    let data = parse_trend_data(&raw);
+    let loading = resource.read().is_none();
     let max_val = data.iter().map(|d| d.actual).fold(0.0_f64, f64::max);
-    let width = 100.0;
+    let width = (data.len() as f64 * 40.0).max(500.0);
     let height = 200.0;
     let point_count = data.len();
 
@@ -98,9 +98,22 @@ pub fn TrendAnalysisPage() -> Element {
         format!("{:.1},{:.1}", x, y)
     }).collect::<Vec<_>>().join(" ");
 
-    rsx! {
-        style { "{PAGE_CSS}" }
-        div { class: "page ta-page",
+    if loading {
+        rsx! {
+            style { "{PAGE_CSS}" }
+            div { class: "page ta-page",
+                div { class: "ta-header",
+                    div {
+                        h1 { "Trend Analysis" }
+                        p { class: "page-subtitle", "Loading trend data..." }
+                    }
+                }
+            }
+        }
+    } else {
+        rsx! {
+            style { "{PAGE_CSS}" }
+            div { class: "page ta-page",
 
             div { class: "ta-header",
                 div {
@@ -168,13 +181,13 @@ pub fn TrendAnalysisPage() -> Element {
                 }
                 div { class: "ta-chart",
                     svg {
-                        view_box: "0 0 100 220",
-                        preserve_aspect_ratio: "xMidYMid meet",
-                        line { x1: "0", y1: "20", x2: "100", y2: "20", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "60", x2: "100", y2: "60", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "100", x2: "100", y2: "100", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "140", x2: "100", y2: "140", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "180", x2: "100", y2: "180", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        view_box: "0 0 {width:.0} 220",
+                        preserve_aspect_ratio: "none",
+                        line { x1: "0", y1: "20", x2: "{width:.0}", y2: "20", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "60", x2: "{width:.0}", y2: "60", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "100", x2: "{width:.0}", y2: "100", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "140", x2: "{width:.0}", y2: "140", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "180", x2: "{width:.0}", y2: "180", stroke: "#f0f0f0", stroke_width: "0.5" }
 
                         // Actual data points
                         polyline { points: "{points_actual}", fill: "none", stroke: "#4a90d9", stroke_width: "1.5", opacity: "0.6" }
@@ -226,4 +239,5 @@ pub fn TrendAnalysisPage() -> Element {
             }
         }
     }
+}
 }

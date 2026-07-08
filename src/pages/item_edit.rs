@@ -40,8 +40,6 @@ pub fn ItemEditPage(id: String) -> Element {
         }
     });
 
-    let item_data = item_resource.read().clone().flatten();
-
     let item_code = use_signal(String::new);
     let item_name = use_signal(String::new);
     let category = use_signal(String::new);
@@ -58,10 +56,9 @@ pub fn ItemEditPage(id: String) -> Element {
     let is_saving = use_signal(|| false);
     let data_loaded = use_signal(|| false);
 
-    // Pre-fill when item data loads
-    let mut _data_loaded = data_loaded.clone();
+    // Pre-fill form signals when item data loads
     {
-        let item = item_data.clone();
+        let resource = item_resource.clone();
         let mut ic = item_code.clone();
         let mut iname = item_name.clone();
         let mut cat = category.clone();
@@ -77,8 +74,9 @@ pub fn ItemEditPage(id: String) -> Element {
         let mut act = is_active.clone();
         let mut dl = data_loaded.clone();
         use_effect(move || {
-            if let Some(ref i) = item {
-                if !*dl.read() {
+            if !*dl.read() {
+                let guard = resource.read();
+                if let Some(Some(ref i)) = &*guard {
                     ic.set(i.item_code.clone());
                     iname.set(i.item_name.clone());
                     cat.set(i.category.clone());
@@ -99,6 +97,7 @@ pub fn ItemEditPage(id: String) -> Element {
     }
 
     let is_loading = item_resource.read().is_none();
+    let item_data = item_resource.read().clone().flatten();
 
     if is_loading {
         return rsx! {

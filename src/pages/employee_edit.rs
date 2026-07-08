@@ -63,8 +63,6 @@ pub fn EmployeeEditPage(id: String) -> Element {
         }
     });
 
-    let data = resource.read().clone().flatten();
-
     let employee_code = use_signal(String::new);
     let first_name = use_signal(String::new);
     let last_name = use_signal(String::new);
@@ -84,7 +82,7 @@ pub fn EmployeeEditPage(id: String) -> Element {
     let loaded = use_signal(|| false);
 
     {
-        let item = data.clone();
+        let res = resource.clone();
         let mut ec = employee_code.clone();
         let mut fn_ = first_name.clone();
         let mut ln = last_name.clone();
@@ -102,24 +100,27 @@ pub fn EmployeeEditPage(id: String) -> Element {
         let mut ecp = emergency_contact_phone.clone();
         let mut ld = loaded.clone();
         use_effect(move || {
-            if let Some(ref e) = item {
-                if !*ld.read() {
-                    ec.set(e.employee_code.clone());
-                    fn_.set(e.first_name.clone());
-                    ln.set(e.last_name.clone());
-                    em.set(e.email.clone());
-                    ph.set(e.phone.clone());
-                    cn.set(e.cnic_no.clone());
-                    addr.set(e.address.clone());
-                    ci.set(e.city.clone());
-                    dept.set(e.department.clone());
-                    desig.set(e.designation.clone());
-                    sal.set(e.salary.to_string());
-                    bn.set(e.bank_name.clone());
-                    ba.set(e.bank_account_no.clone());
-                    ecn.set(e.emergency_contact_name.clone());
-                    ecp.set(e.emergency_contact_phone.clone());
-                    ld.set(true);
+            if !*ld.read() {
+                let guard = res.read();
+                if let Some(Some(ref e)) = &*guard {
+                    if !*ld.read() {
+                        ec.set(e.employee_code.clone());
+                        fn_.set(e.first_name.clone());
+                        ln.set(e.last_name.clone());
+                        em.set(e.email.clone());
+                        ph.set(e.phone.clone());
+                        cn.set(e.cnic_no.clone());
+                        addr.set(e.address.clone());
+                        ci.set(e.city.clone());
+                        dept.set(e.department.clone());
+                        desig.set(e.designation.clone());
+                        sal.set(e.salary.to_string());
+                        bn.set(e.bank_name.clone());
+                        ba.set(e.bank_account_no.clone());
+                        ecn.set(e.emergency_contact_name.clone());
+                        ecp.set(e.emergency_contact_phone.clone());
+                        ld.set(true);
+                    }
                 }
             }
         });
@@ -131,6 +132,7 @@ pub fn EmployeeEditPage(id: String) -> Element {
             div { class: "emp-edit-page", div { class: "emp-loading", div { class: "loading-spinner" }, span { "Loading employee..." } } }
         };
     }
+    let data = resource.read().clone().flatten();
     if data.is_none() {
         return rsx! {
             style { "{EDIT_CSS}" }

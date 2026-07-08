@@ -216,39 +216,39 @@ where
 
     // ── Phase 3: Column resize state ──
 
-    /// Overridden column widths (set by user dragging the resize handle).
-    /// Key is the column key, value is the pixel width.
-    /// If a column is not in this map, the calculated width is used instead.
+    // Overridden column widths (set by user dragging the resize handle).
+    // Key is the column key, value is the pixel width.
+    // If a column is not in this map, the calculated width is used instead.
     let resized_widths: Signal<HashMap<&'static str, f64>> = use_signal(HashMap::new);
 
-    /// Tracks an active resize operation: (column_key, start_mouse_x, start_width).
+    // Tracks an active resize operation: (column_key, start_mouse_x, start_width).
     let resize_active: Signal<Option<(&'static str, f64, f64)>> = use_signal(|| None);
 
-    /// The scroll position for virtual scrolling.
+    // The scroll position for virtual scrolling.
     let mut scroll_top: Signal<f64> = use_signal(|| 0.0);
 
     // ── Phase 4: Inline cell editing state ──
 
-    /// Tracks which cell is currently being edited: (row_index, column_key, original_value).
-    /// `None` means no cell is being edited.
+    // Tracks which cell is currently being edited: (row_index, column_key, original_value).
+    // `None` means no cell is being edited.
     let mut editing_cell: Signal<Option<(usize, &'static str, String)>> = use_signal(|| None);
 
-    /// The current value in the inline edit input.
+    // The current value in the inline edit input.
     let mut edit_value: Signal<String> = use_signal(String::new);
 
     // ── Phase 5: Column visibility toggle state ──
 
-    /// Tracks which columns are currently visible (by column key).
-    /// Initialised with all column keys.
+    // Tracks which columns are currently visible (by column key).
+    // Initialised with all column keys.
     let mut visible_columns: Signal<HashSet<&'static str>> = use_signal(|| {
         columns.iter().map(|c| c.key).collect()
     });
 
-    /// Whether the column visibility dropdown menu is open.
+    // Whether the column visibility dropdown menu is open.
     let mut show_column_menu: Signal<bool> = use_signal(|| false);
 
-    /// Resolved columns — if column toggle is enabled, only visible columns;
-    /// otherwise the full column list. Used for rendering.
+    // Resolved columns — if column toggle is enabled, only visible columns;
+    // otherwise the full column list. Used for rendering.
     let display_columns: Vec<ColumnDef<T>> = if column_toggle {
         let vis = visible_columns.read();
         columns.iter().filter(|c| vis.contains(c.key)).cloned().collect()

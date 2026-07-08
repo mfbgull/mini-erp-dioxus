@@ -367,10 +367,8 @@ pub fn WarehouseDetailPage(id: String) -> Element {
     let on_edit = {
         let nav = navigator.clone();
         let wh_id = id.clone();
-        let mut toast = toast.clone();
         move |_| {
-            toast.info("Edit Mode", "Warehouse editing coming soon — opening read-only detail.");
-            nav.push(format!("/inventory/warehouses/{}", wh_id));
+            nav.push(format!("/inventory/warehouses/{}/edit", wh_id));
         }
     };
 

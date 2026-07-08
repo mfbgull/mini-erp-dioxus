@@ -213,15 +213,10 @@ pub fn UserDetailPage(id: String) -> Element {
         _ => "✗",
     };
 
-    // Mock login count
-    let login_count = match user.id {
-        1 => 1245, 2 => 892, 3 => 567, 4 => 423, 5 => 345,
-        6 => 89, 7 => 234, 8 => 45, 9 => 167, 10 => 98,
-        11 => 56, 12 => 78, _ => 0,
-    };
-
     let toggle_label = if user.status == "Disabled" { "Enable User" } else { "Disable User" };
     let toggle_icon = if user.status == "Disabled" { "✅" } else { "⛔" };
+
+    let last_login_display = if user.last_login.is_empty() { "Never".to_string() } else { user.last_login.clone() };
 
     rsx! {
         style { "{PAGE_CSS}" }
@@ -243,15 +238,15 @@ pub fn UserDetailPage(id: String) -> Element {
             // ── KPI Cards ──
             div { class: "user-detail-kpis",
                 StatCard {
-                    title: "Login Count".to_string(),
-                    value: format!("{}", login_count),
+                    title: "Status".to_string(),
+                    value: user.status.clone(),
                     variant: StatCardVariant::Primary,
                     icon: Some("🔑".to_string()),
-                    footer: Some("Total successful logins".to_string()),
+                    footer: Some("Account status".to_string()),
                 }
                 StatCard {
                     title: "Last Login".to_string(),
-                    value: user.last_login.clone(),
+                    value: last_login_display,
                     variant: StatCardVariant::Primary,
                     icon: Some("🕐".to_string()),
                     footer: Some("Most recent session".to_string()),

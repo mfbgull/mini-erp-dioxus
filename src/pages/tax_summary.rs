@@ -1,5 +1,6 @@
 //! Tax Summary Page — Sales Tax, Income Tax, and Withholding Tax summaries by period.
 
+use crate::auth::use_auth;
 use crate::components::common::{Button, ButtonVariant, StatCard, StatCardVariant, use_toast};
 use dioxus::prelude::*;
 
@@ -49,7 +50,7 @@ const PAGE_CSS: &str = r##"
 // Types
 // ============================================================================
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct TaxPeriodRow {
     period: String,
     tax_base: f64,
@@ -59,41 +60,15 @@ struct TaxPeriodRow {
     balance: f64,
 }
 
-// ============================================================================
-// Mock Data
-// ============================================================================
-
-fn sales_tax_data() -> Vec<TaxPeriodRow> {
-    vec![
-        TaxPeriodRow { period: "Jan 2026".to_string(), tax_base: 185_000.0, rate: 15.0, tax_amount: 27_750.0, paid_amount: 27_750.0, balance: 0.0 },
-        TaxPeriodRow { period: "Feb 2026".to_string(), tax_base: 220_000.0, rate: 15.0, tax_amount: 33_000.0, paid_amount: 33_000.0, balance: 0.0 },
-        TaxPeriodRow { period: "Mar 2026".to_string(), tax_base: 195_000.0, rate: 15.0, tax_amount: 29_250.0, paid_amount: 20_000.0, balance: 9_250.0 },
-        TaxPeriodRow { period: "Apr 2026".to_string(), tax_base: 278_000.0, rate: 15.0, tax_amount: 41_700.0, paid_amount: 41_700.0, balance: 0.0 },
-        TaxPeriodRow { period: "May 2026".to_string(), tax_base: 312_000.0, rate: 15.0, tax_amount: 46_800.0, paid_amount: 46_800.0, balance: 0.0 },
-        TaxPeriodRow { period: "Jun 2026".to_string(), tax_base: 289_500.0, rate: 15.0, tax_amount: 43_425.0, paid_amount: 0.0, balance: 43_425.0 },
-    ]
-}
-
-fn income_tax_data() -> Vec<TaxPeriodRow> {
-    vec![
-        TaxPeriodRow { period: "Jan 2026".to_string(), tax_base: 485_000.0, rate: 29.0, tax_amount: 140_650.0, paid_amount: 35_000.0, balance: 105_650.0 },
-        TaxPeriodRow { period: "Feb 2026".to_string(), tax_base: 520_000.0, rate: 29.0, tax_amount: 150_800.0, paid_amount: 35_000.0, balance: 115_800.0 },
-        TaxPeriodRow { period: "Mar 2026".to_string(), tax_base: 495_000.0, rate: 29.0, tax_amount: 143_550.0, paid_amount: 35_000.0, balance: 108_550.0 },
-        TaxPeriodRow { period: "Apr 2026".to_string(), tax_base: 578_000.0, rate: 29.0, tax_amount: 167_620.0, paid_amount: 35_000.0, balance: 132_620.0 },
-        TaxPeriodRow { period: "May 2026".to_string(), tax_base: 612_000.0, rate: 29.0, tax_amount: 177_480.0, paid_amount: 35_000.0, balance: 142_480.0 },
-        TaxPeriodRow { period: "Jun 2026".to_string(), tax_base: 589_500.0, rate: 29.0, tax_amount: 170_955.0, paid_amount: 0.0, balance: 170_955.0 },
-    ]
-}
-
-fn withholding_tax_data() -> Vec<TaxPeriodRow> {
-    vec![
-        TaxPeriodRow { period: "Jan 2026".to_string(), tax_base: 120_000.0, rate: 5.0, tax_amount: 6_000.0, paid_amount: 6_000.0, balance: 0.0 },
-        TaxPeriodRow { period: "Feb 2026".to_string(), tax_base: 145_000.0, rate: 5.0, tax_amount: 7_250.0, paid_amount: 7_250.0, balance: 0.0 },
-        TaxPeriodRow { period: "Mar 2026".to_string(), tax_base: 98_000.0, rate: 5.0, tax_amount: 4_900.0, paid_amount: 4_900.0, balance: 0.0 },
-        TaxPeriodRow { period: "Apr 2026".to_string(), tax_base: 165_000.0, rate: 5.0, tax_amount: 8_250.0, paid_amount: 8_250.0, balance: 0.0 },
-        TaxPeriodRow { period: "May 2026".to_string(), tax_base: 180_000.0, rate: 5.0, tax_amount: 9_000.0, paid_amount: 9_000.0, balance: 0.0 },
-        TaxPeriodRow { period: "Jun 2026".to_string(), tax_base: 135_000.0, rate: 5.0, tax_amount: 6_750.0, paid_amount: 0.0, balance: 6_750.0 },
-    ]
+fn parse_tax_rows(arr: &[serde_json::Value]) -> Vec<TaxPeriodRow> {
+    arr.iter().map(|item| TaxPeriodRow {
+        period: item.get("period").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        tax_base: item.get("tax_base").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        rate: item.get("rate").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        tax_amount: item.get("tax_amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        paid_amount: item.get("paid_amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        balance: item.get("balance").and_then(|v| v.as_f64()).unwrap_or(0.0),
+    }).collect()
 }
 
 fn total_row(data: &[TaxPeriodRow]) -> TaxPeriodRow {
@@ -116,10 +91,22 @@ pub fn TaxSummaryPage() -> Element {
     let toast = use_toast();
     let active_tab = use_signal(|| 0usize);
     let tabs = ["Sales Tax", "Income Tax", "Withholding Tax"];
+    let api = use_auth().api;
 
-    let sales = sales_tax_data();
-    let income = income_tax_data();
-    let withholding = withholding_tax_data();
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_tax_summary().await.unwrap_or_default()
+        }
+    });
+
+    let loading = resource.read().is_none();
+    let data_val = resource.read().clone().unwrap_or_default();
+
+    let sales = parse_tax_rows(&data_val.get("sales_tax").and_then(|v| v.as_array()).cloned().unwrap_or_default());
+    let income = parse_tax_rows(&data_val.get("income_tax").and_then(|v| v.as_array()).cloned().unwrap_or_default());
+    let withholding = parse_tax_rows(&data_val.get("withholding_tax").and_then(|v| v.as_array()).cloned().unwrap_or_default());
 
     let st_total = total_row(&sales);
     let it_total = total_row(&income);
@@ -129,22 +116,18 @@ pub fn TaxSummaryPage() -> Element {
     let all_paid = st_total.paid_amount + it_total.paid_amount + wt_total.paid_amount;
     let all_outstanding = st_total.balance + it_total.balance + wt_total.balance;
 
-    let current_data = move || -> Vec<TaxPeriodRow> {
-        match *active_tab.read() {
-            0 => sales.clone(),
-            1 => income.clone(),
-            2 => withholding.clone(),
-            _ => sales.clone(),
-        }
+    let current_data: Vec<TaxPeriodRow> = match *active_tab.read() {
+        0 => sales.clone(),
+        1 => income.clone(),
+        2 => withholding.clone(),
+        _ => sales.clone(),
     };
 
-    let current_total = move || -> TaxPeriodRow {
-        match *active_tab.read() {
-            0 => st_total.clone(),
-            1 => it_total.clone(),
-            2 => wt_total.clone(),
-            _ => st_total.clone(),
-        }
+    let current_total: TaxPeriodRow = match *active_tab.read() {
+        0 => st_total.clone(),
+        1 => it_total.clone(),
+        2 => wt_total.clone(),
+        _ => st_total.clone(),
     };
 
     let on_export = {
@@ -152,109 +135,109 @@ pub fn TaxSummaryPage() -> Element {
         move |_| { t.info("Export", "Tax summary will be exported as PDF."); }
     };
 
-    rsx! {
-        style { "{PAGE_CSS}" }
-        div { class: "page tx-page",
-
-            div { class: "tx-header",
-                div {
-                    h1 { "Tax Summary" }
-                    p { class: "page-subtitle", "Sales Tax, Income Tax, and Withholding Tax summaries." }
-                }
-                Button { variant: ButtonVariant::Primary, icon: Some("📥".to_string()), onclick: on_export, "Export Report" }
-            }
-
-            // Filter
-            div { class: "tx-filter-bar",
-                label { "Period" }
-                select {
-                    option { value: "monthly", selected: true, "Monthly" }
-                    option { value: "quarterly", "Quarterly" }
-                    option { value: "yearly", "Yearly" }
-                }
-                label { "Year" }
-                select {
-                    option { value: "2026", selected: true, "2026" }
-                    option { value: "2025", "2025" }
-                }
-            }
-
-            // KPI cards
-            div { class: "tx-kpi-grid",
-                StatCard {
-                    title: "Total Tax Liability".to_string(),
-                    value: format!("PKR {:.0}", all_tax_liability),
-                    icon: "🧾".to_string(),
-                    variant: StatCardVariant::Primary,
-                    footer: Some("All tax types".to_string()),
-                }
-                StatCard {
-                    title: "Total Paid".to_string(),
-                    value: format!("PKR {:.0}", all_paid),
-                    icon: "✅".to_string(),
-                    variant: StatCardVariant::Success,
-                    footer: Some(format!("{:.1}% paid", if all_tax_liability > 0.0 { (all_paid / all_tax_liability) * 100.0 } else { 0.0 })),
-                }
-                StatCard {
-                    title: "Outstanding".to_string(),
-                    value: format!("PKR {:.0}", all_outstanding),
-                    icon: "⚠".to_string(),
-                    variant: if all_outstanding > 500_000.0 { StatCardVariant::Danger } else { StatCardVariant::Warning },
-                    footer: Some("Total unpaid".to_string()),
-                }
-            }
-
-            // Tax type tabs
-            div { class: "tx-tabs",
-                {tabs.iter().enumerate().map(|(i, tab)| {
-                    let is_active = *active_tab.read() == i;
-                    let cls = if is_active { "tx-tab tx-tab-active" } else { "tx-tab" };
-                    let mut set_tab = active_tab.clone();
-                    rsx! {
-                        button { key: "{i}", class: "{cls}", r#type: "button",
-                            onclick: move |_| { set_tab.set(i); },
-                            "{tab}"
-                        }
+    if loading {
+        rsx! {
+            style { "{PAGE_CSS}" }
+            div { class: "page tx-page",
+                div { class: "tx-header",
+                    div {
+                        h1 { "Tax Summary" }
+                        p { class: "page-subtitle", "Loading tax data..." }
                     }
-                })}
-            }
-
-            // Tax data table
-            div { class: "tx-section",
-                div { class: "tx-section-header",
-                    h2 { "{tabs[*active_tab.read()]} — H1 2026" }
                 }
-                table { class: "tx-table",
-                    thead { tr {
-                        th { "Period" } th { class: "text-right", "Tax Base (PKR)" }
-                        th { class: "text-right", "Rate (%)" }
-                        th { class: "text-right", "Tax Amount (PKR)" }
-                        th { class: "text-right", "Paid (PKR)" }
-                        th { class: "text-right", "Balance (PKR)" }
-                    }}
-                    tbody {
-                        {current_data().iter().map(|r| {
-                            let bal_cls = if r.balance > 0.0 { "text-danger" } else { "text-success" };
-                            rsx! {
-                                tr {
-                                    td { "{r.period}" }
-                                    td { class: "text-right", "PKR {r.tax_base:.0}" }
-                                    td { class: "text-right", "{r.rate:.0}%" }
-                                    td { class: "text-right", "PKR {r.tax_amount:.0}" }
-                                    td { class: "text-right", "PKR {r.paid_amount:.0}" }
-                                    td { class: "text-right {bal_cls}", "PKR {r.balance:.0}" }
-                                }
+                div { "Loading..." }
+            }
+        }
+    } else {
+        rsx! {
+            style { "{PAGE_CSS}" }
+            div { class: "page tx-page",
+
+                div { class: "tx-header",
+                    div {
+                        h1 { "Tax Summary" }
+                        p { class: "page-subtitle", "Sales Tax, Income Tax, and Withholding Tax summaries." }
+                    }
+                    Button { variant: ButtonVariant::Primary, icon: Some("📥".to_string()), onclick: on_export, "Export Report" }
+                }
+
+                // KPI cards
+                div { class: "tx-kpi-grid",
+                    StatCard {
+                        title: "Total Tax Liability".to_string(),
+                        value: format!("PKR {:.0}", all_tax_liability),
+                        icon: "🧾".to_string(),
+                        variant: StatCardVariant::Primary,
+                        footer: Some("All tax types".to_string()),
+                    }
+                    StatCard {
+                        title: "Total Paid".to_string(),
+                        value: format!("PKR {:.0}", all_paid),
+                        icon: "✅".to_string(),
+                        variant: StatCardVariant::Success,
+                        footer: Some(format!("{:.1}% paid", if all_tax_liability > 0.0 { (all_paid / all_tax_liability) * 100.0 } else { 0.0 })),
+                    }
+                    StatCard {
+                        title: "Outstanding".to_string(),
+                        value: format!("PKR {:.0}", all_outstanding),
+                        icon: "⚠".to_string(),
+                        variant: if all_outstanding > 500_000.0 { StatCardVariant::Danger } else { StatCardVariant::Warning },
+                        footer: Some("Total unpaid".to_string()),
+                    }
+                }
+
+                // Tax type tabs
+                div { class: "tx-tabs",
+                    {tabs.iter().enumerate().map(|(i, tab)| {
+                        let is_active = *active_tab.read() == i;
+                        let cls = if is_active { "tx-tab tx-tab-active" } else { "tx-tab" };
+                        let mut set_tab = active_tab.clone();
+                        rsx! {
+                            button { key: "{i}", class: "{cls}", r#type: "button",
+                                onclick: move |_| { set_tab.set(i); },
+                                "{tab}"
                             }
-                        })}
+                        }
+                    })}
+                }
+
+                // Tax data table
+                div { class: "tx-section",
+                    div { class: "tx-section-header",
+                        h2 { "{tabs[*active_tab.read()]}" }
                     }
-                    tfoot {
-                        tr {
-                            td { "{current_total().period}" }
-                            td { class: "text-right", "PKR {current_total().tax_base:.0}" }
-                            td { class: "text-right", "—" }
-                            td { class: "text-right", "PKR {current_total().tax_amount:.0}" }
-                            td { class: "text-right", "PKR {current_total().paid_amount:.0}" }
-                            td { class: "text-right", "PKR {current_total().balance:.0}" }
+                    table { class: "tx-table",
+                        thead { tr {
+                            th { "Period" } th { class: "text-right", "Tax Base (PKR)" }
+                            th { class: "text-right", "Rate (%)" }
+                            th { class: "text-right", "Tax Amount (PKR)" }
+                            th { class: "text-right", "Paid (PKR)" }
+                            th { class: "text-right", "Balance (PKR)" }
+                        }}
+                        tbody {
+                            {current_data.iter().map(|r| {
+                                let bal_cls = if r.balance > 0.0 { "text-danger" } else { "text-success" };
+                                rsx! {
+                                    tr {
+                                        td { "{r.period}" }
+                                        td { class: "text-right", "PKR {r.tax_base:.0}" }
+                                        td { class: "text-right", "{r.rate:.0}%" }
+                                        td { class: "text-right", "PKR {r.tax_amount:.0}" }
+                                        td { class: "text-right", "PKR {r.paid_amount:.0}" }
+                                        td { class: "text-right {bal_cls}", "PKR {r.balance:.0}" }
+                                    }
+                                }
+                            })}
+                        }
+                        tfoot {
+                            tr {
+                                td { "{current_total.period}" }
+                                td { class: "text-right", "PKR {current_total.tax_base:.0}" }
+                                td { class: "text-right", "—" }
+                                td { class: "text-right", "PKR {current_total.tax_amount:.0}" }
+                                td { class: "text-right", "PKR {current_total.paid_amount:.0}" }
+                                td { class: "text-right", "PKR {current_total.balance:.0}" }
+                            }
                         }
                     }
                 }

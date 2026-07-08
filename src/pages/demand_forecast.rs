@@ -1,6 +1,7 @@
 //! Demand Forecast Page — Historical and forecasted demand with confidence intervals.
 
-use crate::components::common::{StatCard, StatCardVariant, StatTrend, TrendDirection};
+use crate::auth::use_auth;
+use crate::components::common::{StatCard, StatCardVariant};
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -53,7 +54,7 @@ const PAGE_CSS: &str = r##"
 // Types
 // ============================================================================
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct DemandPeriod {
     period: String,
     historical: Option<f64>,
@@ -62,25 +63,14 @@ struct DemandPeriod {
     upper_bound: Option<f64>,
 }
 
-// ============================================================================
-// Mock Data
-// ============================================================================
-
-fn demand_data() -> Vec<DemandPeriod> {
-    vec![
-        DemandPeriod { period: "Jan".to_string(), historical: Some(1200.0), forecasted: None, lower_bound: None, upper_bound: None },
-        DemandPeriod { period: "Feb".to_string(), historical: Some(1350.0), forecasted: None, lower_bound: None, upper_bound: None },
-        DemandPeriod { period: "Mar".to_string(), historical: Some(1100.0), forecasted: None, lower_bound: None, upper_bound: None },
-        DemandPeriod { period: "Apr".to_string(), historical: Some(1480.0), forecasted: None, lower_bound: None, upper_bound: None },
-        DemandPeriod { period: "May".to_string(), historical: Some(1620.0), forecasted: None, lower_bound: None, upper_bound: None },
-        DemandPeriod { period: "Jun".to_string(), historical: Some(1550.0), forecasted: None, lower_bound: None, upper_bound: None },
-        DemandPeriod { period: "Jul".to_string(), historical: None, forecasted: Some(1580.0), lower_bound: Some(1420.0), upper_bound: Some(1740.0) },
-        DemandPeriod { period: "Aug".to_string(), historical: None, forecasted: Some(1650.0), lower_bound: Some(1480.0), upper_bound: Some(1820.0) },
-        DemandPeriod { period: "Sep".to_string(), historical: None, forecasted: Some(1520.0), lower_bound: Some(1350.0), upper_bound: Some(1690.0) },
-        DemandPeriod { period: "Oct".to_string(), historical: None, forecasted: Some(1700.0), lower_bound: Some(1520.0), upper_bound: Some(1880.0) },
-        DemandPeriod { period: "Nov".to_string(), historical: None, forecasted: Some(1750.0), lower_bound: Some(1560.0), upper_bound: Some(1940.0) },
-        DemandPeriod { period: "Dec".to_string(), historical: None, forecasted: Some(1820.0), lower_bound: Some(1620.0), upper_bound: Some(2020.0) },
-    ]
+fn parse_timeline(data: &serde_json::Value) -> Vec<DemandPeriod> {
+    data.as_array().map(|arr| arr.iter().map(|item| DemandPeriod {
+        period: item.get("period").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        historical: item.get("historical").and_then(|v| v.as_f64()),
+        forecasted: item.get("forecasted").and_then(|v| v.as_f64()),
+        lower_bound: item.get("lower_bound").and_then(|v| v.as_f64()),
+        upper_bound: item.get("upper_bound").and_then(|v| v.as_f64()),
+    }).collect()).unwrap_or_default()
 }
 
 // ============================================================================
@@ -89,18 +79,52 @@ fn demand_data() -> Vec<DemandPeriod> {
 
 #[component]
 pub fn DemandForecastPage() -> Element {
-    let data = demand_data();
+    let api = use_auth().api;
+
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            client.get_demand_timeline().await.unwrap_or_default()
+        }
+    });
+
+    let loading = resource.read().is_none();
+    let data_val = resource.read().clone().unwrap_or_default();
+    let data = parse_timeline(&data_val);
+
+    if loading {
+        return rsx! {
+            style { "{PAGE_CSS}" }
+            div { class: "page df-page",
+                div { class: "df-header",
+                    div {
+                        h1 { "Demand Forecast" }
+                        p { class: "page-subtitle", "Loading demand forecast data..." }
+                    }
+                }
+                div { "Loading..." }
+            }
+        };
+    }
+
     let max_val = data.iter()
         .map(|d| d.historical.unwrap_or(0.0).max(d.upper_bound.unwrap_or(0.0)))
         .fold(0.0_f64, f64::max);
 
     let total_hist: f64 = data.iter().filter_map(|d| d.historical).sum();
     let total_fc: f64 = data.iter().filter_map(|d| d.forecasted).sum();
+    let hist_count = data.iter().filter(|d| d.historical.is_some()).count();
+    let fc_count = data.iter().filter(|d| d.forecasted.is_some()).count();
     let bar_count = data.len();
-    let bar_width_pct = 100.0 / bar_count as f64;
+    let chart_width = (bar_count as f64 * 25.0).max(500.0);
+    let bar_width_pct = if bar_count > 0 { chart_width / bar_count as f64 } else { chart_width };
     let bar_gap_pct = bar_width_pct * 0.2;
     let bar_inner_pct = bar_width_pct - bar_gap_pct;
     let chart_height = 200.0;
+    let sep_x = if bar_count > 0 && hist_count > 0 {
+        (hist_count as f64 * bar_width_pct + bar_width_pct / 2.0).max(bar_width_pct)
+    } else { chart_width / 2.0 };
 
     rsx! {
         style { "{PAGE_CSS}" }
@@ -109,62 +133,25 @@ pub fn DemandForecastPage() -> Element {
             div { class: "df-header",
                 div {
                     h1 { "Demand Forecast" }
-                    p { class: "page-subtitle", "Historical demand and forecasted quantities for Premium Widget Alpha" }
-                }
-            }
-
-            // Filters
-            div { class: "df-filter-bar",
-                label { "Product" }
-                select { style: "min-width: 220px;",
-                    option { value: "alpha", selected: true, "Premium Widget Alpha (ITM-0001)" }
-                    option { value: "beta", "Standard Widget Beta (ITM-0002)" }
-                    option { value: "gamma", "Economy Widget Gamma (ITM-0003)" }
-                }
-                label { "Horizon" }
-                select {
-                    option { value: "3", "3 Months" }
-                    option { value: "6", selected: true, "6 Months" }
-                    option { value: "12", "12 Months" }
-                }
-                label { "Model" }
-                select {
-                    option { value: "arima", selected: true, "ARIMA(2,1,2)" }
-                    option { value: "prophet", "Prophet" }
-                    option { value: "ets", "ETS" }
+                    p { class: "page-subtitle", "Historical demand and forecasted quantities" }
                 }
             }
 
             // KPI cards
             div { class: "df-kpi-grid",
                 StatCard {
-                    title: "MAPE".to_string(),
-                    value: "11.2%".to_string(),
+                    title: "Historical Total".to_string(),
+                    value: format!("{:.0} units", total_hist),
                     icon: "📊".to_string(),
                     variant: StatCardVariant::Primary,
-                    trend: Some(StatTrend { direction: TrendDirection::Down, label: "Improved by 1.3%".to_string() }),
-                    footer: Some("Mean Absolute Percentage Error".to_string()),
-                }
-                StatCard {
-                    title: "RMSE".to_string(),
-                    value: "142".to_string(),
-                    icon: "📉".to_string(),
-                    variant: StatCardVariant::Default,
-                    footer: Some("Root Mean Squared Error".to_string()),
-                }
-                StatCard {
-                    title: "Bias".to_string(),
-                    value: "-2.4%".to_string(),
-                    icon: "⚖".to_string(),
-                    variant: StatCardVariant::Warning,
-                    footer: Some("Slight under-forecast tendency".to_string()),
+                    footer: Some(format!("{} periods", hist_count)),
                 }
                 StatCard {
                     title: "Forecast Total".to_string(),
                     value: format!("{:.0} units", total_fc),
                     icon: "📦".to_string(),
                     variant: StatCardVariant::Success,
-                    footer: Some("Jul — Dec 2026".to_string()),
+                    footer: Some(format!("{} future periods", fc_count)),
                 }
             }
 
@@ -174,63 +161,56 @@ pub fn DemandForecastPage() -> Element {
                     h2 { "📈 Demand — Historical & Forecast" }
                     div { style: "display: flex; gap: 16px;",
                         span { class: "df-chart-legend", span { class: "df-legend-dot", style: "background: var(--accent, #4a90d9);" }, "Historical" }
-                        span { class: "df-chart-legend", span { class: "df-legend-dot", style: "background: #28a745;" }, "Forecast" }
+                        span { class: "df-chart-legend", span { class: "df-legend-dot", style: "background: #28a745; opacity: 0.8;" }, "Forecast" }
                         span { class: "df-chart-legend", span { class: "df-legend-dot", style: "background: #dc3545; opacity: 0.3;" }, "Confidence" }
                     }
                 }
                 div { class: "df-chart",
                     svg {
-                        view_box: "0 0 100 230",
-                        preserve_aspect_ratio: "xMidYMid meet",
+                        view_box: "0 0 {chart_width:.0} 230",
+                        preserve_aspect_ratio: "none",
 
-                        // Grid lines
-                        line { x1: "0", y1: "30", x2: "100", y2: "30", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "70", x2: "100", y2: "70", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "110", x2: "100", y2: "110", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "150", x2: "100", y2: "150", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "190", x2: "100", y2: "190", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "30", x2: "{chart_width:.0}", y2: "30", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "70", x2: "{chart_width:.0}", y2: "70", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "110", x2: "{chart_width:.0}", y2: "110", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "150", x2: "{chart_width:.0}", y2: "150", stroke: "#f0f0f0", stroke_width: "0.5" }
+                        line { x1: "0", y1: "190", x2: "{chart_width:.0}", y2: "190", stroke: "#f0f0f0", stroke_width: "0.5" }
 
-                        // Separator line between historical and forecast
-                        line { x1: "50.0", y1: "20", x2: "50.0", y2: "210", stroke: "#adb5bd", stroke_width: "1", stroke_dasharray: "4,3" }
+                        line { x1: "{sep_x:.1}", y1: "20", x2: "{sep_x:.1}", y2: "210", stroke: "#adb5bd", stroke_width: "1", stroke_dasharray: "4,3" }
 
-                        {data.into_iter().enumerate().map(|(i, d)| {
+                        {data.clone().into_iter().enumerate().map(|(i, d)| {
                             let x = i as f64 * bar_width_pct + bar_gap_pct / 2.0;
                             let bar_class = if d.historical.is_some() { "df-bar" } else { "df-bar df-bar-forecast" };
+                            let bar_val = d.historical.or(d.forecasted).unwrap_or(0.0);
+                            let bar_height = if max_val > 0.0 { (bar_val / max_val) * chart_height } else { 0.0 };
 
                             rsx! {
-                                // Upper bound line
                                 if let Some(ub) = d.upper_bound {
                                     line {
-                                        key: "ub-{i}",
                                         x1: "{x:.1}",
-                                        y1: format!("{:.1}", 210.0 - if max_val > 0.0 { (ub / max_val) * chart_height } else { 0.0 }),
+                                        y1: "{210.0 - (ub / max_val.max(1.0) * chart_height):.1}",
                                         x2: "{x + bar_inner_pct:.1}",
-                                        y2: format!("{:.1}", 210.0 - if max_val > 0.0 { (ub / max_val) * chart_height } else { 0.0 }),
+                                        y2: "{210.0 - (ub / max_val.max(1.0) * chart_height):.1}",
                                         stroke: "#dc3545", stroke_width: "0.5", stroke_dasharray: "2,2"
                                     }
                                 }
-                                // Lower bound line
                                 if let Some(lb) = d.lower_bound {
                                     line {
-                                        key: "lb-{i}",
                                         x1: "{x:.1}",
-                                        y1: format!("{:.1}", 210.0 - if max_val > 0.0 { (lb / max_val) * chart_height } else { 0.0 }),
+                                        y1: "{210.0 - (lb / max_val.max(1.0) * chart_height):.1}",
                                         x2: "{x + bar_inner_pct:.1}",
-                                        y2: format!("{:.1}", 210.0 - if max_val > 0.0 { (lb / max_val) * chart_height } else { 0.0 }),
+                                        y2: "{210.0 - (lb / max_val.max(1.0) * chart_height):.1}",
                                         stroke: "#dc3545", stroke_width: "0.5", stroke_dasharray: "2,2"
                                     }
                                 }
-                                // Bar
                                 rect {
-                                    key: "bar-{i}",
                                     class: "{bar_class}",
                                     x: "{x:.1}",
-                                    y: format!("{:.1}", 210.0 - if max_val > 0.0 { ((d.historical.or(d.forecasted).unwrap_or(0.0)) / max_val) * chart_height } else { 0.0 }),
+                                    y: "{210.0 - bar_height:.1}",
                                     width: "{bar_inner_pct:.1}",
-                                    height: format!("{:.1}", if max_val > 0.0 { ((d.historical.or(d.forecasted).unwrap_or(0.0)) / max_val) * chart_height } else { 0.0 }),
+                                    height: "{bar_height:.1}",
                                     rx: "2",
                                 }
-                                // Label
                                 text {
                                     class: "df-chart-label",
                                     x: "{x + bar_inner_pct / 2.0:.1}",
@@ -256,7 +236,7 @@ pub fn DemandForecastPage() -> Element {
                         th { class: "text-right", "Upper Bound" }
                     }}
                     tbody {
-                        {demand_data().into_iter().map(|d| {
+                        {data.iter().map(|d| {
                             let row_cls = if d.historical.is_none() { "forecast-row" } else { "" };
                             rsx! {
                                 tr { key: "{d.period}", class: "{row_cls}",
@@ -278,7 +258,7 @@ pub fn DemandForecastPage() -> Element {
                         })}
                     }
                     tfoot { tr {
-                        td { "Total (Jul-Dec)" }
+                        td { "Total" }
                         td { class: "text-right", "{total_hist:.0}" }
                         td { class: "text-right", "{total_fc:.0}" }
                         td { class: "text-right", "—" }

@@ -119,7 +119,11 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
     let on_back = move |_| { navigator.push("/purchases/orders"); };
     let on_delete = move |_| { show_delete_modal.set(true); };
     let cancel_delete = move |_| { show_delete_modal.set(false); };
-    let on_edit = { let mut t = toast.clone(); move |_| t.info("Edit Mode", "Edit coming soon.") };
+    let on_edit = {
+        let nav = navigator.clone();
+        let pid = id_display.clone();
+        move |_| { nav.push(format!("/purchases/orders/{}/edit", pid)); }
+    };
     let on_receive = { let mut t = toast.clone(); move |_| t.info("Receipt", "Record receipt coming soon.") };
     let on_print = { let mut t = toast.clone(); move |_| t.info("Print", "Print coming soon.") };
     let confirm_delete = {

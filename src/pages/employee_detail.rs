@@ -109,7 +109,7 @@ pub fn EmployeeDetailPage(id: String) -> Element {
                 rsx! {
                     div { class: "emp-detail-header",
                         div { class: "emp-detail-title-group",
-                            Button { class: Some("emp-detail-back".to_string()), variant: ButtonVariant::Ghost, onclick: move |_| { navigator.push("/crm/employees"); }, "← Back to Employees" }
+                            Button { class: Some("emp-detail-back".to_string()), variant: ButtonVariant::Ghost, onclick: move |_| { navigator.push("/employees"); }, "← Back to Employees" }
                             div { class: "emp-detail-title-row",
                                 h1 { "{emp.full_name}" }
                                 span { class: "emp-detail-code", "{emp.employee_code}" }
@@ -168,7 +168,7 @@ pub fn EmployeeDetailPage(id: String) -> Element {
                     }
 
                     div { class: "emp-actions",
-                        Button { variant: ButtonVariant::Primary, onclick: { let mut t = toast.clone(); move |_| t.info("Coming Soon", "Employee editing coming soon.") }, icon: Some("✏️".to_string()), "Edit Employee" }
+                        Button { variant: ButtonVariant::Primary, onclick: { let nav = navigator.clone(); let eid = id_display.clone(); move |_| { nav.push(format!("/employees/{}/edit", eid)); } }, icon: Some("✏️".to_string()), "Edit Employee" }
                         Button { variant: ButtonVariant::Ghost, onclick: move |_| show_delete_modal.set(true), icon: Some("🗑️".to_string()), "Delete" }
                     }
 
@@ -179,7 +179,7 @@ pub fn EmployeeDetailPage(id: String) -> Element {
                         close_on_backdrop: true, close_on_escape: true,
                         footer: rsx! {
                             Button { variant: ButtonVariant::Secondary, onclick: move |_| show_delete_modal.set(false), "Cancel" }
-                            Button { variant: ButtonVariant::Danger, onclick: { let mut t = toast.clone(); move |_| { show_delete_modal.set(false); t.success("Deleted", "Employee deleted."); navigator.push("/crm/employees"); } }, "Delete Employee" }
+                            Button { variant: ButtonVariant::Danger, onclick: { let mut t = toast.clone(); move |_| { show_delete_modal.set(false); t.success("Deleted", "Employee deleted."); navigator.push("/employees"); } }, "Delete Employee" }
                         },
                         div {
                             p { style: "margin: 0 0 8px 0; color: var(--text-primary); font-size: 14px; font-weight: 500;", "Delete {emp.full_name}?" }

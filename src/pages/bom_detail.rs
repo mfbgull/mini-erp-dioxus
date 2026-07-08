@@ -239,11 +239,10 @@ pub fn BomDetailPage(id: String) -> Element {
     let status_class = status_badge_class(&detail.status);
 
     let on_back = move |_: Event<MouseData>| { navigator.push("/manufacturing/boms"); };
-    let mut t_edit = toast.clone();
     let on_edit = {
         let nav = navigator.clone();
         let id = id.clone();
-        move |_| { nav.push(format!("/manufacturing/boms/{}", id)); t_edit.info("Edit Mode", "BOM editing coming soon."); }
+        move |_| { nav.push(format!("/manufacturing/boms/{}/edit", id)); }
     };
     let on_copy = {
         let mut toast = toast.clone();

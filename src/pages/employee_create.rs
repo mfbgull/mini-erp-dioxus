@@ -155,7 +155,7 @@ pub fn EmployeeCreatePage() -> Element {
                     Ok(emp) => {
                         toast.success("Employee Created", &format!("{} ({}) has been created.", n, emp.employee_code));
                         saving.set(false); dirty.set(false);
-                        nav.push("/crm/employees");
+                        nav.push("/employees");
                     }
                     Err(e) => {
                         toast.error("Error", &format!("Failed to create employee: {}", e));
@@ -244,7 +244,7 @@ pub fn EmployeeCreatePage() -> Element {
         let mut modal = show_discard_modal.clone();
         let mut dirty = is_dirty.clone();
         let mut nav = navigator.clone();
-        move |_| { if *dirty.read() { modal.set(true); } else { nav.push("/crm/employees"); } }
+        move |_| { if *dirty.read() { modal.set(true); } else { nav.push("/employees"); } }
     };
 
     let type_options = ["Permanent", "Contract", "Intern"];
@@ -257,7 +257,7 @@ pub fn EmployeeCreatePage() -> Element {
         div { class: "page emp-create-page",
             div { class: "emp-create-header",
                 div {
-                    a { class: "emp-back-link", href: "/crm/employees", "← Back to Employees" }
+                    a { class: "emp-back-link", href: "/employees", "← Back to Employees" }
                     h1 { "New Employee" }
                 }
                 if *is_dirty.read() { span { style: "font-size: 12px; color: var(--warning); font-weight: 500;", "⚠ Unsaved changes" } }

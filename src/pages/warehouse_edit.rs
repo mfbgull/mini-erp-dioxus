@@ -35,8 +35,6 @@ pub fn WarehouseEditPage(id: String) -> Element {
         }
     });
 
-    let data = resource.read().clone().flatten();
-
     let warehouse_code = use_signal(String::new);
     let warehouse_name = use_signal(String::new);
     let location = use_signal(String::new);
@@ -44,16 +42,18 @@ pub fn WarehouseEditPage(id: String) -> Element {
     let saving = use_signal(|| false);
     let loaded = use_signal(|| false);
 
+    // Pre-fill form signals when warehouse data loads
     {
-        let item = data.clone();
+        let res = resource.clone();
         let mut wc = warehouse_code.clone();
         let mut wn = warehouse_name.clone();
         let mut loc = location.clone();
         let mut act = is_active.clone();
         let mut ld = loaded.clone();
         use_effect(move || {
-            if let Some(ref w) = item {
-                if !*ld.read() {
+            if !*ld.read() {
+                let guard = res.read();
+                if let Some(Some(ref w)) = &*guard {
                     wc.set(w.warehouse_code.clone());
                     wn.set(w.warehouse_name.clone());
                     loc.set(w.location.clone());
@@ -63,6 +63,8 @@ pub fn WarehouseEditPage(id: String) -> Element {
             }
         });
     }
+
+    let data = resource.read().clone().flatten();
 
     if resource.read().is_none() {
         return rsx! {

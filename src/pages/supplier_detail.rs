@@ -302,7 +302,7 @@ pub fn SupplierDetailPage(id: String) -> Element {
 
                     div { class: "supplier-actions",
                         div { class: "supplier-actions-left",
-                            Button { variant: ButtonVariant::Primary, onclick: { let mut t = toast.clone(); move |_| t.info("Coming Soon", "Supplier editing coming soon.") }, icon: Some("✏️".to_string()), "Edit Supplier" }
+                            Button { variant: ButtonVariant::Primary, onclick: { let nav = navigator.clone(); let sid = id_display.clone(); move |_| { nav.push(format!("/suppliers/{}/edit", sid)); } }, icon: Some("✏️".to_string()), "Edit Supplier" }
                             Button { variant: ButtonVariant::Secondary, onclick: { let nav = navigator.clone(); move |_| { nav.push("/purchases/orders/new"); } }, icon: Some("📋".to_string()), "New Purchase Order" }
                         }
                         div { class: "supplier-actions-right",

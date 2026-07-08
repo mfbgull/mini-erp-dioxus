@@ -61,11 +61,6 @@ pub fn PurchaseOrderEditPage(id: String) -> Element {
         }
     });
 
-    let (po_data, suppliers, warehouses, all_items) = resource.read().clone().unwrap_or((None, vec![], vec![], vec![]));
-    let supplier_options: Vec<SelectOption> = suppliers.iter().map(|s| SelectOption { value: s.id.to_string(), label: format!("{} - {}", s.supplier_code, s.supplier_name) }).collect();
-    let warehouse_options: Vec<SelectOption> = warehouses.iter().map(|w| SelectOption { value: w.id.to_string(), label: format!("{} - {}", w.warehouse_code, w.warehouse_name) }).collect();
-    let item_options: Vec<SelectOption> = all_items.iter().map(|i| SelectOption { value: i.id.to_string(), label: format!("{} - {}", i.item_code, i.item_name) }).collect();
-
     let supplier_id = use_signal(String::new);
     let po_date = use_signal(String::new);
     let warehouse_id = use_signal(String::new);
@@ -78,7 +73,7 @@ pub fn PurchaseOrderEditPage(id: String) -> Element {
 
     // Pre-fill when PO data arrives
     {
-        let raw = po_data.clone();
+        let res = resource.clone();
         let mut si = supplier_id.clone();
         let mut pd = po_date.clone();
         let mut wi = warehouse_id.clone();
@@ -88,33 +83,43 @@ pub fn PurchaseOrderEditPage(id: String) -> Element {
         let mut ld = loaded.clone();
         let mut dr = data_ready.clone();
         use_effect(move || {
-            if let Some(ref val) = raw {
-                if !*ld.read() {
-                    si.set(val["supplier_id"].as_i64().unwrap_or(0).to_string());
-                    pd.set(val["po_date"].as_str().unwrap_or("").to_string());
-                    wi.set(val.get("warehouse_id").and_then(|w| w.as_i64()).unwrap_or(0).to_string());
-                    nt.set(val.get("notes").and_then(|n| n.as_str()).unwrap_or("").to_string());
-                    let mut comps = Vec::new();
-                    if let Some(arr) = val["items"].as_array() {
-                        for (i, item) in arr.iter().enumerate() {
-                            comps.push(EditPOItem {
-                                idx: i as u64,
-                                item_id: item["item_id"].as_i64().unwrap_or(0).to_string(),
-                                item_name: item["item_name"].as_str().unwrap_or("").to_string(),
-                                description: item.get("description").and_then(|d| d.as_str()).unwrap_or("").to_string(),
-                                quantity: item["quantity"].as_f64().unwrap_or(0.0),
-                                unit_price: item["unit_price"].as_f64().unwrap_or(0.0),
-                            });
+            if !*ld.read() {
+                let guard = res.read();
+                if let Some((ref po_data_opt, _, _, _)) = &*guard {
+                    if let Some(ref val) = po_data_opt {
+                        if !*ld.read() {
+                            si.set(val["supplier_id"].as_i64().unwrap_or(0).to_string());
+                            pd.set(val["po_date"].as_str().unwrap_or("").to_string());
+                            wi.set(val.get("warehouse_id").and_then(|w| w.as_i64()).unwrap_or(0).to_string());
+                            nt.set(val.get("notes").and_then(|n| n.as_str()).unwrap_or("").to_string());
+                            let mut comps = Vec::new();
+                            if let Some(arr) = val["items"].as_array() {
+                                for (i, item) in arr.iter().enumerate() {
+                                    comps.push(EditPOItem {
+                                        idx: i as u64,
+                                        item_id: item["item_id"].as_i64().unwrap_or(0).to_string(),
+                                        item_name: item["item_name"].as_str().unwrap_or("").to_string(),
+                                        description: item.get("description").and_then(|d| d.as_str()).unwrap_or("").to_string(),
+                                        quantity: item["quantity"].as_f64().unwrap_or(0.0),
+                                        unit_price: item["unit_price"].as_f64().unwrap_or(0.0),
+                                    });
+                                }
+                                nidx.set(arr.len() as u64);
+                            }
+                            items_sig.set(comps);
+                            ld.set(true);
+                            dr.set(true);
                         }
-                        nidx.set(arr.len() as u64);
                     }
-                    items_sig.set(comps);
-                    ld.set(true);
-                    dr.set(true);
                 }
             }
         });
     }
+
+    let (po_data, suppliers, warehouses, all_items) = resource.read().clone().unwrap_or((None, vec![], vec![], vec![]));
+    let supplier_options: Vec<SelectOption> = suppliers.iter().map(|s| SelectOption { value: s.id.to_string(), label: format!("{} - {}", s.supplier_code, s.supplier_name) }).collect();
+    let warehouse_options: Vec<SelectOption> = warehouses.iter().map(|w| SelectOption { value: w.id.to_string(), label: format!("{} - {}", w.warehouse_code, w.warehouse_name) }).collect();
+    let item_options: Vec<SelectOption> = all_items.iter().map(|i| SelectOption { value: i.id.to_string(), label: format!("{} - {}", i.item_code, i.item_name) }).collect();
 
     if resource.read().is_none() {
         return rsx! { style { "{EDIT_CSS}" } div { class: "po-edit-page", div { class: "po-loading", div { class: "loading-spinner" }, span { "Loading purchase order..." } } } };

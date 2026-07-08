@@ -35,8 +35,6 @@ pub fn CustomerEditPage(id: String) -> Element {
         }
     });
 
-    let data = resource.read().clone().flatten();
-
     let customer_code = use_signal(String::new);
     let customer_name = use_signal(String::new);
     let email = use_signal(String::new);
@@ -49,7 +47,7 @@ pub fn CustomerEditPage(id: String) -> Element {
     let loaded = use_signal(|| false);
 
     {
-        let item = data.clone();
+        let res = resource.clone();
         let mut cc = customer_code.clone();
         let mut cn = customer_name.clone();
         let mut em = email.clone();
@@ -60,17 +58,20 @@ pub fn CustomerEditPage(id: String) -> Element {
         let mut cl = credit_limit.clone();
         let mut ld = loaded.clone();
         use_effect(move || {
-            if let Some(ref c) = item {
-                if !*ld.read() {
-                    cc.set(c.customer_code.clone());
-                    cn.set(c.customer_name.clone());
-                    em.set(c.email.clone());
-                    ph.set(c.phone.clone());
-                    ba.set(c.billing_address.clone());
-                    sa.set(c.shipping_address.clone());
-                    pt.set(c.payment_terms.clone());
-                    cl.set(c.credit_limit.to_string());
-                    ld.set(true);
+            if !*ld.read() {
+                let guard = res.read();
+                if let Some(Some(ref c)) = &*guard {
+                    if !*ld.read() {
+                        cc.set(c.customer_code.clone());
+                        cn.set(c.customer_name.clone());
+                        em.set(c.email.clone());
+                        ph.set(c.phone.clone());
+                        ba.set(c.billing_address.clone());
+                        sa.set(c.shipping_address.clone());
+                        pt.set(c.payment_terms.clone());
+                        cl.set(c.credit_limit.to_string());
+                        ld.set(true);
+                    }
                 }
             }
         });
@@ -82,6 +83,7 @@ pub fn CustomerEditPage(id: String) -> Element {
             div { class: "cust-edit-page", div { class: "cust-loading", div { class: "loading-spinner" }, span { "Loading customer..." } } }
         };
     }
+    let data = resource.read().clone().flatten();
     if data.is_none() {
         return rsx! {
             style { "{EDIT_CSS}" }

@@ -393,7 +393,8 @@ pub fn CustomerDetailPage(id: String) -> Element {
                     let nav = navigator.clone();
                     let t = toast.clone();
                     let on_back = move |_| { nav.push("/customers"); };
-                    let on_edit = { let mut t2 = t.clone(); move |_| { t2.info("Edit Mode", "Customer editing coming soon."); } };
+                    let cust_id = customer_opt.as_ref().map(|c| c.id).unwrap_or(0);
+                    let on_edit = { let nav2 = nav.clone(); move |_| { nav2.push(format!("/customers/{}/edit", cust_id)); } };
                     let on_new_invoice = { let nav2 = nav.clone(); move |_| { nav2.push("/sales/invoices/new"); } };
                     let on_delete = { let mut m = show_delete_modal.clone(); move |_| m.set(true) };
                     let cancel_delete = { let mut m = show_delete_modal.clone(); move |_| m.set(false) };

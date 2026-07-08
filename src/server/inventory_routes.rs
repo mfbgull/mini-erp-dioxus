@@ -14,7 +14,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, put},
+    routing::{get, post},
     Json, Router,
 };
 use serde_json::json;
@@ -36,6 +36,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/inventory/warehouses/{id}", get(get_warehouse).put(update_warehouse).delete(delete_warehouse))
         // Stock Movements
         .route("/api/inventory/stock-movements", get(list_stock_movements).post(create_stock_movement))
+        .route("/api/inventory/stock-movements/item/{itemId}", get(list_stock_movements_by_item))
         .route("/api/inventory/stock-balances", get(list_stock_balances))
         .route("/api/inventory/stock-summary", get(stock_summary))
         // Physical Counts
@@ -662,6 +663,54 @@ async fn list_stock_movements(
 
     let movements: Vec<StockMovement> = stmt
         .query_map([], |row| {
+            Ok(StockMovement {
+                id: row.get(0)?,
+                movement_no: row.get(1)?,
+                item_id: row.get(2)?,
+                item_name: row.get(3)?,
+                item_code: row.get(4)?,
+                warehouse_id: row.get(5)?,
+                warehouse_name: row.get(6)?,
+                movement_type: row.get(7)?,
+                quantity: row.get(8)?,
+                unit_cost: row.get(9)?,
+                reference_doctype: row.get(10)?,
+                reference_docno: row.get(11)?,
+                batch_id: row.get(12)?,
+                notes: row.get(13)?,
+                created_by: row.get(14)?,
+                created_at: row.get(15)?,
+            })
+        })
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+
+    (StatusCode::OK, Json(json!({ "success": true, "data": movements })))
+}
+
+async fn list_stock_movements_by_item(
+    State(_state): State<AppState>,
+    Path(item_id): Path<i64>,
+) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let mut stmt = db
+        .prepare(
+            "SELECT sm.id, sm.movement_no, sm.item_id, i.item_name, i.item_code,
+                    sm.warehouse_id, w.warehouse_name, sm.movement_type, sm.quantity,
+                    sm.unit_cost, sm.reference_doctype, sm.reference_docno,
+                    sm.batch_id, sm.notes, sm.created_by, sm.created_at
+             FROM stock_movements sm
+             LEFT JOIN items i ON sm.item_id = i.id
+             LEFT JOIN warehouses w ON sm.warehouse_id = w.id
+             WHERE sm.item_id = ?1
+             ORDER BY sm.created_at DESC
+             LIMIT 50",
+        )
+        .unwrap();
+
+    let movements: Vec<StockMovement> = stmt
+        .query_map([item_id], |row| {
             Ok(StockMovement {
                 id: row.get(0)?,
                 movement_no: row.get(1)?,

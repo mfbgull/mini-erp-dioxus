@@ -56,7 +56,7 @@ pub fn UserEditPage(id: String) -> Element {
 
     // Populate form when user data arrives
     {
-        let user_data = user_resource.read().as_ref().cloned().flatten();
+        let res = user_resource.clone();
         let mut username = username.clone();
         let mut full_name = full_name.clone();
         let mut email = email.clone();
@@ -64,14 +64,17 @@ pub fn UserEditPage(id: String) -> Element {
         let mut is_active = is_active.clone();
         let mut data_loaded = data_loaded.clone();
         use_effect(move || {
-            if let Some(ref user) = user_data {
-                if !*data_loaded.read() {
-                    username.set(user.username.clone());
-                    full_name.set(user.full_name.clone());
-                    email.set(user.email.clone());
-                    role_id.set(user.role_id.map(|r| r.to_string()).unwrap_or_else(|| "3".to_string()));
-                    is_active.set(user.is_active);
-                    data_loaded.set(true);
+            if !*data_loaded.read() {
+                let guard = res.read();
+                if let Some(Some(ref user)) = &*guard {
+                    if !*data_loaded.read() {
+                        username.set(user.username.clone());
+                        full_name.set(user.full_name.clone());
+                        email.set(user.email.clone());
+                        role_id.set(user.role_id.map(|r| r.to_string()).unwrap_or_else(|| "3".to_string()));
+                        is_active.set(user.is_active);
+                        data_loaded.set(true);
+                    }
                 }
             }
         });

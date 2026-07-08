@@ -35,8 +35,6 @@ pub fn SupplierEditPage(id: String) -> Element {
         }
     });
 
-    let data = resource.read().clone().flatten();
-
     let supplier_code = use_signal(String::new);
     let supplier_name = use_signal(String::new);
     let email = use_signal(String::new);
@@ -46,7 +44,7 @@ pub fn SupplierEditPage(id: String) -> Element {
     let loaded = use_signal(|| false);
 
     {
-        let item = data.clone();
+        let res = resource.clone();
         let mut sc = supplier_code.clone();
         let mut sn = supplier_name.clone();
         let mut em = email.clone();
@@ -54,14 +52,17 @@ pub fn SupplierEditPage(id: String) -> Element {
         let mut addr = address.clone();
         let mut ld = loaded.clone();
         use_effect(move || {
-            if let Some(ref s) = item {
-                if !*ld.read() {
-                    sc.set(s.supplier_code.clone());
-                    sn.set(s.supplier_name.clone());
-                    em.set(s.email.clone());
-                    ph.set(s.phone.clone());
-                    addr.set(s.address.clone());
-                    ld.set(true);
+            if !*ld.read() {
+                let guard = res.read();
+                if let Some(Some(ref s)) = &*guard {
+                    if !*ld.read() {
+                        sc.set(s.supplier_code.clone());
+                        sn.set(s.supplier_name.clone());
+                        em.set(s.email.clone());
+                        ph.set(s.phone.clone());
+                        addr.set(s.address.clone());
+                        ld.set(true);
+                    }
                 }
             }
         });
@@ -73,6 +74,7 @@ pub fn SupplierEditPage(id: String) -> Element {
             div { class: "sp-edit-page", div { class: "sp-loading", div { class: "loading-spinner" }, span { "Loading supplier..." } } }
         };
     }
+    let data = resource.read().clone().flatten();
     if data.is_none() {
         return rsx! {
             style { "{EDIT_CSS}" }
