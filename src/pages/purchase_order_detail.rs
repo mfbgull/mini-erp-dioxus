@@ -81,7 +81,7 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
             let parsed = pid.parse::<i64>().ok()?;
             let client = api.with(|c| c.clone());
             let result = client.get_purchase_order(parsed).await.ok()?;
-            let po: models::PurchaseOrder = serde_json::from_value(result.get("po")?.clone()).ok()?;
+            let po: models::PurchaseOrder = serde_json::from_value(result.get("purchase_order")?.clone()).ok()?;
             let items: Vec<models::PurchaseOrderItem> = serde_json::from_value(result.get("items")?.clone()).ok()?;
             let line_items: Vec<PoLineItem> = items.into_iter().map(|i| PoLineItem {
                 item_code: i.item_code.unwrap_or_default(),
