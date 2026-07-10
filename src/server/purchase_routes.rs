@@ -134,63 +134,122 @@ async fn next_supplier_code(State(_state): State<AppState>) -> impl IntoResponse
 
 async fn list_purchase_orders(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    let mut stmt = db.prepare(
-        "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, s.supplier_code, po.po_date, po.status,
-                po.total_amount, po.expected_date, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at,
-                (SELECT COUNT(*) FROM purchase_order_items poi WHERE poi.po_id = po.id) AS item_count
-         FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id
-         ORDER BY po.created_at DESC"
-    ).unwrap();
-    let items: Vec<PurchaseOrder> = stmt.query_map([], |row| {
-        Ok(PurchaseOrder {
-            id: row.get(0)?, po_no: row.get(1)?, supplier_id: row.get(2)?,
-            supplier_name: row.get(3)?, supplier_code: row.get(4)?, po_date: row.get(5)?, status: row.get(6)?,
-            total_amount: row.get(7)?, expected_date: row.get(8)?,
-            warehouse_id: row.get(9)?, notes: row.get(10)?,
-            created_by: row.get(11)?, created_at: row.get(12)?, updated_at: row.get(13)?,
-            item_count: row.get(14)?,
-        })
-    }).unwrap().filter_map(|r| r.ok()).collect();
-    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
+    let result = db.prepare(
+        "SELECT po.id, po.po_no, po.supplier_id, po.po_date, po.status,
+                po.total_amount, po.warehouse_id, po.notes, po.created_at, po.updated_at
+         FROM purchase_orders po ORDER BY po.created_at DESC"
+    ).and_then(|mut stmt| {
+        stmt.query_map([], |row| {
+            let id: i64 = row.get(0)?;
+            let po_no: String = row.get(1)?;
+            let supplier_id: i64 = row.get(2)?;
+            let po_date: String = row.get(3)?;
+            let status: String = row.get(4)?;
+            let total_amount: f64 = row.get(5)?;
+            let warehouse_id: Option<i64> = row.get(6)?;
+            let notes: Option<String> = row.get(7)?;
+            let created_at: String = row.get(8)?;
+            let updated_at: String = row.get(9)?;
+            let (supplier_name, supplier_code): (Option<String>, Option<String>) = db.query_row(
+                "SELECT supplier_name, supplier_code FROM suppliers WHERE id = ?1",
+                [supplier_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            ).unwrap_or((None, None));
+            let item_count: i64 = db.query_row(
+                "SELECT COUNT(*) FROM purchase_order_items WHERE po_id = ?1",
+                [id],
+                |r| r.get(0),
+            ).unwrap_or(0);
+            Ok(PurchaseOrder {
+                id, po_no, supplier_id, supplier_name, supplier_code,
+                po_date, status, total_amount,
+                expected_date: None, warehouse_id, notes,
+                created_by: None, created_at, updated_at, item_count,
+            })
+        }).map(|iter| iter.filter_map(|r| r.ok()).collect::<Vec<PurchaseOrder>>())
+    });
+    match result {
+        Ok(items) => (StatusCode::OK, Json(json!({ "success": true, "data": items }))),
+        Err(e) => {
+            tracing::error!("Failed to list POs: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to list purchase orders." })))
+        }
+    }
 }
 
 async fn get_purchase_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    let result = db.query_row(
-        "SELECT po.id, po.po_no, po.supplier_id, s.supplier_name, s.supplier_code, po.po_date, po.status,
-                po.total_amount, po.expected_date, po.warehouse_id, po.notes, po.created_by, po.created_at, po.updated_at,
-                (SELECT COUNT(*) FROM purchase_order_items poi WHERE poi.po_id = po.id) AS item_count
-         FROM purchase_orders po LEFT JOIN suppliers s ON po.supplier_id = s.id WHERE po.id = ?1",
+
+    // First check if PO exists
+    let exists: bool = db.query_row(
+        "SELECT COUNT(*) > 0 FROM purchase_orders WHERE id = ?1", [id],
+        |row| row.get(0),
+    ).unwrap_or(false);
+    if !exists {
+        return (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Purchase order not found." })));
+    }
+
+    // Build PO from simple columns (avoid query issues with missing columns)
+    let po = db.query_row(
+        "SELECT po.id, po.po_no, po.supplier_id, po.po_date, po.status,
+                po.total_amount, po.warehouse_id, po.notes, po.created_at, po.updated_at
+         FROM purchase_orders po WHERE po.id = ?1",
         [id],
-        |row| Ok(PurchaseOrder {
-            id: row.get(0)?, po_no: row.get(1)?, supplier_id: row.get(2)?,
-            supplier_name: row.get(3)?, supplier_code: row.get(4)?, po_date: row.get(5)?, status: row.get(6)?,
-            total_amount: row.get(7)?, expected_date: row.get(8)?,
-            warehouse_id: row.get(9)?, notes: row.get(10)?,
-            created_by: row.get(11)?, created_at: row.get(12)?, updated_at: row.get(13)?,
-            item_count: row.get(14)?,
-        }),
+        |row| {
+            let id: i64 = row.get(0)?;
+            let po_no: String = row.get(1)?;
+            let supplier_id: i64 = row.get(2)?;
+            let po_date: String = row.get(3)?;
+            let status: String = row.get(4)?;
+            let total_amount: f64 = row.get(5)?;
+            let warehouse_id: Option<i64> = row.get(6)?;
+            let notes: Option<String> = row.get(7)?;
+            let created_at: String = row.get(8)?;
+            let updated_at: String = row.get(9)?;
+            // Get supplier info separately
+            let (supplier_name, supplier_code): (Option<String>, Option<String>) = db.query_row(
+                "SELECT supplier_name, supplier_code FROM suppliers WHERE id = ?1",
+                [supplier_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            ).unwrap_or((None, None));
+            let item_count: i64 = db.query_row(
+                "SELECT COUNT(*) FROM purchase_order_items WHERE po_id = ?1",
+                [id],
+                |r| r.get(0),
+            ).unwrap_or(0);
+            Ok(PurchaseOrder {
+                id, po_no, supplier_id, supplier_name, supplier_code,
+                po_date, status, total_amount,
+                expected_date: None, warehouse_id, notes,
+                created_by: None, created_at, updated_at, item_count,
+            })
+        },
     );
-    match result {
+
+    match po {
         Ok(po) => {
-            let mut stmt = db.prepare(
+            let items: Vec<PurchaseOrderItem> = db.prepare(
                 "SELECT poi.id, poi.po_id, poi.item_id, i.item_name, i.item_code,
                         poi.description, poi.quantity, poi.received_quantity, poi.returned_quantity,
                         poi.unit_price, poi.amount
                  FROM purchase_order_items poi LEFT JOIN items i ON poi.item_id = i.id
                  WHERE poi.po_id = ?1"
-            ).unwrap();
-            let items: Vec<PurchaseOrderItem> = stmt.query_map([id], |row| {
-                Ok(PurchaseOrderItem {
-                    id: row.get(0)?, po_id: row.get(1)?, item_id: row.get(2)?,
-                    item_name: row.get(3)?, item_code: row.get(4)?, description: row.get(5)?,
-                    quantity: row.get(6)?, received_quantity: row.get(7)?,
-                    returned_quantity: row.get(8)?, unit_price: row.get(9)?, amount: row.get(10)?,
-                })
-            }).unwrap().filter_map(|r| r.ok()).collect();
+            ).and_then(|mut stmt| {
+                stmt.query_map([id], |row| {
+                    Ok(PurchaseOrderItem {
+                        id: row.get(0)?, po_id: row.get(1)?, item_id: row.get(2)?,
+                        item_name: row.get(3)?, item_code: row.get(4)?, description: row.get(5)?,
+                        quantity: row.get(6)?, received_quantity: row.get(7)?,
+                        returned_quantity: row.get(8)?, unit_price: row.get(9)?, amount: row.get(10)?,
+                    })
+                }).map(|iter| iter.filter_map(|r| r.ok()).collect::<Vec<PurchaseOrderItem>>())
+            }).unwrap_or_default();
             (StatusCode::OK, Json(json!({ "success": true, "data": { "purchase_order": po, "items": items } })))
         }
-        Err(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Purchase order not found." }))),
+        Err(e) => {
+            tracing::error!("Failed to get PO {}: {}", id, e);
+            (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Purchase order not found." })))
+        }
     }
 }
 
