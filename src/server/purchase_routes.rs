@@ -219,7 +219,24 @@ async fn create_purchase_order(State(_state): State<AppState>, Json(form): Json<
                     rusqlite::params![po_id, item.item_id, item.description.as_deref().unwrap_or(""), item.quantity, item.unit_price, amount],
                 ).ok();
             }
-            (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": po_id, "po_no": po_no } })))
+            let total_items = form.items.len() as i64;
+            let item_count_result = db.query_row(
+                "SELECT COUNT(*) FROM purchase_order_items WHERE po_id = ?1",
+                [po_id],
+                |row| row.get::<_, i64>(0),
+            ).unwrap_or(total_items);
+            let po = json!({
+                "id": po_id,
+                "po_no": po_no,
+                "supplier_id": form.supplier_id,
+                "po_date": form.po_date,
+                "status": "Draft",
+                "total_amount": total,
+                "warehouse_id": form.warehouse_id,
+                "notes": form.notes,
+                "item_count": item_count_result,
+            });
+            (StatusCode::CREATED, Json(json!({ "success": true, "data": po })))
         }
         Err(e) => { tracing::error!("Failed to create PO: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create purchase order." }))) }
     }

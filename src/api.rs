@@ -1939,7 +1939,7 @@ impl ApiClient {
     }
 
     /// POST /api/purchase-orders
-    pub async fn create_purchase_order(&self, form: &PurchaseOrderForm) -> Result<PurchaseOrder, String> {
+    pub async fn create_purchase_order(&self, form: &PurchaseOrderForm) -> Result<serde_json::Value, String> {
         let url = format!("{}/api/purchase-orders", base_url());
         let resp = self
             .inner
@@ -1957,9 +1957,7 @@ impl ApiClient {
         }
 
         let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
-        let order: PurchaseOrder = serde_json::from_value(body["data"].clone())
-            .map_err(|e| format!("Parse error: {}", e))?;
-        Ok(order)
+        Ok(body)
     }
 
     /// PUT /api/purchase-orders/:id

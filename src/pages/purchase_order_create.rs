@@ -181,8 +181,9 @@ pub fn PurchaseOrderCreatePage() -> Element {
             spawn(async move {
                 let form = PurchaseOrderForm { supplier_id, po_date, warehouse_id: None, notes: if notes_val.is_empty() { None } else { Some(notes_val) }, items: order_items };
                 match api.read().create_purchase_order(&form).await {
-                    Ok(po) => {
-                        toast.success("PO Created", &format!("PO {} created.", po.po_no));
+                    Ok(body) => {
+                        let po_no = body["data"]["po_no"].as_str().unwrap_or("N/A");
+                        toast.success("PO Created", &format!("PO {} created.", po_no));
                         saving.set(false); dirty.set(false);
                         nav.push("/purchases/orders");
                     }
@@ -231,8 +232,9 @@ pub fn PurchaseOrderCreatePage() -> Element {
             spawn(async move {
                 let form = PurchaseOrderForm { supplier_id, po_date, warehouse_id: None, notes: if notes_val.is_empty() { None } else { Some(notes_val) }, items: order_items };
                 match api.read().create_purchase_order(&form).await {
-                    Ok(po) => {
-                        toast.success("PO Created", &format!("PO {} created. Creating another…", po.po_no));
+                    Ok(body) => {
+                        let po_no = body["data"]["po_no"].as_str().unwrap_or("N/A");
+                        toast.success("PO Created", &format!("PO {} created. Creating another…", po_no));
                         c_code.set(String::new());
                         its.write().clear();
                         for _ in 0..3 { its.write().push(PoLineItem::default()); }
