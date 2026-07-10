@@ -67,47 +67,20 @@ impl PoLineItem {
     }
 }
 
-fn supplier_options() -> Vec<SelectOption> {
-    vec![
-        SelectOption { value: "SUPP-001".to_string(), label: "SteelMart Industries".to_string() },
-        SelectOption { value: "SUPP-002".to_string(), label: "Pak Hardware Supplies".to_string() },
-        SelectOption { value: "SUPP-003".to_string(), label: "Rawal Electricals".to_string() },
-        SelectOption { value: "SUPP-004".to_string(), label: "United Traders Lahore".to_string() },
-        SelectOption { value: "SUPP-005".to_string(), label: "ChemiCorp Pakistan".to_string() },
-        SelectOption { value: "SUPP-006".to_string(), label: "Faisalabad Pipe Mills".to_string() },
-        SelectOption { value: "SUPP-007".to_string(), label: "Karachi Steel Traders".to_string() },
-        SelectOption { value: "SUPP-008".to_string(), label: "Premium Packaging Co".to_string() },
-        SelectOption { value: "SUPP-009".to_string(), label: "Islamabad Chemical Supply".to_string() },
-        SelectOption { value: "SUPP-010".to_string(), label: "Sialkot Leather Works".to_string() },
-    ]
+fn build_supplier_options(suppliers: &[crate::models::Supplier]) -> Vec<SelectOption> {
+    suppliers.iter().map(|s| SelectOption { value: s.id.to_string(), label: format!("{} - {}", s.supplier_code, s.supplier_name) }).collect()
 }
 
-fn item_options() -> Vec<SelectOption> {
-    vec![
-        SelectOption { value: "ITM-0001".to_string(), label: "Premium Widget Alpha".to_string() },
-        SelectOption { value: "ITM-0002".to_string(), label: "Industrial Bolt M12".to_string() },
-        SelectOption { value: "ITM-0003".to_string(), label: "Steel Rod 12mm x 6m".to_string() },
-        SelectOption { value: "ITM-0004".to_string(), label: "Hydraulic Pump HPD-200".to_string() },
-        SelectOption { value: "ITM-0005".to_string(), label: "Rubber Gasket Set".to_string() },
-        SelectOption { value: "ITM-0006".to_string(), label: "Copper Wire 2.5mm (100m)".to_string() },
-        SelectOption { value: "ITM-0007".to_string(), label: "LED Panel Light 24W".to_string() },
-        SelectOption { value: "ITM-0008".to_string(), label: "Packaging Box 40x30x20cm".to_string() },
-        SelectOption { value: "ITM-0009".to_string(), label: "Safety Helmet (Yellow)".to_string() },
-        SelectOption { value: "ITM-0010".to_string(), label: "PVC Pipe 2-inch (20ft)".to_string() },
-    ]
+fn build_item_options(items: &[crate::models::Item]) -> Vec<SelectOption> {
+    items.iter().map(|i| SelectOption { value: i.id.to_string(), label: format!("{} - {}", i.item_code, i.item_name) }).collect()
 }
 
-fn item_price(code: &str) -> f64 {
-    match code {
-        "ITM-0001" => 29.99, "ITM-0002" => 0.45, "ITM-0003" => 15.75,
-        "ITM-0004" => 1250.00, "ITM-0005" => 8.99, "ITM-0006" => 45.00,
-        "ITM-0007" => 18.50, "ITM-0008" => 1.20, "ITM-0009" => 12.00,
-        "ITM-0010" => 22.50, _ => 0.0,
-    }
+fn item_price_from_catalog(items: &[crate::models::Item], code: &str) -> f64 {
+    items.iter().find(|i| i.id.to_string() == code).map(|i| i.standard_cost).unwrap_or(0.0)
 }
 
-fn item_name(code: &str) -> String {
-    item_options().into_iter().find(|o| o.value == code).map(|o| o.label).unwrap_or_default()
+fn item_name_from_catalog(items: &[crate::models::Item], code: &str) -> String {
+    items.iter().find(|i| i.id.to_string() == code).map(|i| i.item_name.clone()).unwrap_or_default()
 }
 
 #[component]
@@ -116,7 +89,17 @@ pub fn PurchaseOrderCreatePage() -> Element {
     let navigator = use_navigator();
     let api = use_auth().api;
 
-    let items = use_signal(|| { let mut v = Vec::new(); for _ in 0..3 { v.push(PoLineItem::default()); } v });
+    let resource = use_resource(move || {
+        let api = api.clone();
+        async move {
+            let client = api.with(|c| c.clone());
+            let suppliers = client.list_suppliers().await.unwrap_or_default();
+            let items = client.list_items_catalog().await.unwrap_or_default();
+            (suppliers, items)
+        }
+    });
+
+    let line_items = use_signal(|| { let mut v = Vec::new(); for _ in 0..3 { v.push(PoLineItem::default()); } v });
     let supplier_code = use_signal(String::new);
     let supplier_name = use_signal(String::new);
     let order_date = use_signal(|| chrono::Local::now().date_naive().to_string());
@@ -128,8 +111,12 @@ pub fn PurchaseOrderCreatePage() -> Element {
     let is_dirty = use_signal(|| false);
     let mut show_discard_modal = use_signal(|| false);
 
-    let subtotal: f64 = items.read().iter().map(|li| li.quantity * li.rate).sum();
-    let discount_amt: f64 = items.read().iter().map(|li| (li.quantity * li.rate) * (li.discount_pct / 100.0)).sum();
+    let resource_data = resource.read().clone().unwrap_or_default();
+    let supplier_opts = build_supplier_options(&resource_data.0);
+    let item_opts = build_item_options(&resource_data.1);
+
+    let subtotal: f64 = line_items.read().iter().map(|li| li.quantity * li.rate).sum();
+    let discount_amt: f64 = line_items.read().iter().map(|li| (li.quantity * li.rate) * (li.discount_pct / 100.0)).sum();
     let taxable = subtotal - discount_amt;
     let disc_pct: f64 = discount_pct.read().parse().unwrap_or(0.0);
     let tax_rate: f64 = tax_rate_str.read().parse().unwrap_or(0.0);
@@ -142,17 +129,18 @@ pub fn PurchaseOrderCreatePage() -> Element {
         let mut code = supplier_code.clone();
         let mut name = supplier_name.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { code.set(v.clone()); name.set(supplier_options().into_iter().find(|o| o.value == v).map(|o| o.label).unwrap_or_default()); dirty.set(true); }
+        let opts = supplier_opts.clone();
+        move |v: String| { code.set(v.clone()); name.set(opts.iter().find(|o| o.value == v).map(|o| o.label.clone()).unwrap_or_default()); dirty.set(true); }
     };
 
     let add_item = {
-        let mut its = items.clone();
+        let mut its = line_items.clone();
         let mut dirty = is_dirty.clone();
         move |_| { its.write().push(PoLineItem::default()); dirty.set(true); }
     };
 
     let mut remove_item = {
-        let mut its = items.clone();
+        let mut its = line_items.clone();
         let mut dirty = is_dirty.clone();
         move |id: u64| { its.write().retain(|li| li.id != id); dirty.set(true); }
     };
@@ -162,7 +150,7 @@ pub fn PurchaseOrderCreatePage() -> Element {
         let mut toast = toast.clone();
         let mut c_code = supplier_code.clone();
         let c_name = supplier_name.clone();
-        let its = items.clone();
+        let its = line_items.clone();
         let o_date = order_date.clone();
         let nts = notes.clone();
         let mut dirty = is_dirty.clone();
@@ -212,7 +200,7 @@ pub fn PurchaseOrderCreatePage() -> Element {
         let mut toast = toast.clone();
         let mut c_code = supplier_code.clone();
         let c_name = supplier_name.clone();
-        let mut its = items.clone();
+        let mut its = line_items.clone();
         let o_date = order_date.clone();
         let nts = notes.clone();
         let mut dp = discount_pct.clone();
@@ -287,7 +275,7 @@ pub fn PurchaseOrderCreatePage() -> Element {
             div { class: "po-section",
                 h2 { "Order Details" }
                 div { class: "po-form-row",
-                    SearchableSelect { options: supplier_options(), selected_value: Some(supplier_code.read().clone()).filter(|s| !s.is_empty()), on_select: on_supplier_select, placeholder: "Select supplier…", searchable: true }
+                    SearchableSelect { options: supplier_opts.clone(), selected_value: Some(supplier_code.read().clone()).filter(|s| !s.is_empty()), on_select: on_supplier_select, placeholder: "Select supplier…", searchable: true }
                     FormInput { label: Some("Order Date".to_string()), value: order_date.read().clone(), oninput: { let mut d = order_date.clone(); let mut dirty = is_dirty.clone(); move |v| { d.set(v); dirty.set(true); } }, r#type: InputType::Date }
                     FormInput { label: Some("Expected Delivery".to_string()), value: expected_date.read().clone(), oninput: { let mut d = expected_date.clone(); let mut dirty = is_dirty.clone(); move |v| { d.set(v); dirty.set(true); } }, r#type: InputType::Date }
                 }
@@ -301,40 +289,40 @@ pub fn PurchaseOrderCreatePage() -> Element {
                             th { style: "width: 30px;", "#" } th { style: "min-width: 180px;", "Item" } th { style: "width: 70px;", "Qty" } th { style: "width: 90px;", "Rate" } th { style: "width: 70px;", "Disc %" } th { style: "width: 60px;", "Tax %" } th { style: "text-align: right; width: 100px;", "Amount" } th { style: "width: 40px;" }
                         } }
                         tbody {
-                            {items.read().iter().map(|li| {
+                            {line_items.read().iter().map(|li| {
                                 let item = li.clone();
-                                let idx = items.read().iter().position(|x| x.id == li.id).unwrap_or(0);
+                                let idx = line_items.read().iter().position(|x| x.id == li.id).unwrap_or(0);
                                 let amt = li.line_total();
                                 rsx! {
                                     tr { key: "po-item-{li.id}",
                                         td { class: "po-item-num", "{idx + 1}" }
                                         td { class: "po-item-cell-wide",
-                                            SearchableSelect { options: item_options(), selected_value: (!item.item_code.is_empty()).then(|| item.item_code.clone()), on_select: {
-                                                let mut its = items.clone(); let mut dirty = is_dirty.clone();
-                                                move |v: String| { let mut w = its.write(); if let Some(line) = w.iter_mut().find(|x| x.id == item.id) { line.item_code = v.clone(); line.item_name = item_name(&v); line.rate = item_price(&v); } dirty.set(true); }
+                                            SearchableSelect { options: item_opts.clone(), selected_value: (!item.item_code.is_empty()).then(|| item.item_code.clone()), on_select: {
+                                                let mut its = line_items.clone(); let mut dirty = is_dirty.clone(); let cat = resource_data.1.clone();
+                                                move |v: String| { let mut w = its.write(); if let Some(line) = w.iter_mut().find(|x| x.id == item.id) { line.item_code = v.clone(); line.item_name = item_name_from_catalog(&cat, &v); line.rate = item_price_from_catalog(&cat, &v); } dirty.set(true); }
                                             }, placeholder: "Search item…", searchable: true }
                                         }
                                         td { class: "po-item-cell-narrow",
                                             FormInput { value: if item.quantity == 0.0 { String::new() } else { format!("{:.0}", item.quantity) }, oninput: {
-                                                let mut its = items.clone(); let mut dirty = is_dirty.clone(); let id = li.id;
+                                                let mut its = line_items.clone(); let mut dirty = is_dirty.clone(); let id = li.id;
                                                 move |v: String| { let val = v.parse::<f64>().unwrap_or(0.0); let mut w = its.write(); if let Some(line) = w.iter_mut().find(|x| x.id == id) { line.quantity = val.max(0.0); } dirty.set(true); }
                                             }, r#type: InputType::Number, min: Some(0.0), step: Some(1.0) }
                                         }
                                         td { class: "po-item-cell-narrow",
                                             FormInput { value: if item.rate == 0.0 { String::new() } else { format!("{:.2}", item.rate) }, oninput: {
-                                                let mut its = items.clone(); let mut dirty = is_dirty.clone(); let id = li.id;
+                                                let mut its = line_items.clone(); let mut dirty = is_dirty.clone(); let id = li.id;
                                                 move |v: String| { let val = v.parse::<f64>().unwrap_or(0.0); let mut w = its.write(); if let Some(line) = w.iter_mut().find(|x| x.id == id) { line.rate = val.max(0.0); } dirty.set(true); }
                                             }, r#type: InputType::Number, min: Some(0.0), step: Some(0.01) }
                                         }
                                         td { class: "po-item-cell-narrow",
                                             FormInput { value: if item.discount_pct == 0.0 { String::new() } else { format!("{:.0}", item.discount_pct) }, oninput: {
-                                                let mut its = items.clone(); let mut dirty = is_dirty.clone(); let id = li.id;
+                                                let mut its = line_items.clone(); let mut dirty = is_dirty.clone(); let id = li.id;
                                                 move |v: String| { let val = v.parse::<f64>().unwrap_or(0.0); let mut w = its.write(); if let Some(line) = w.iter_mut().find(|x| x.id == id) { line.discount_pct = val.max(0.0).min(100.0); } dirty.set(true); }
                                             }, r#type: InputType::Number, min: Some(0.0), max: Some(100.0), step: Some(1.0) }
                                         }
                                         td { class: "po-item-cell-narrow",
                                             FormInput { value: if item.tax_rate == 0.0 { String::new() } else { format!("{:.0}", item.tax_rate) }, oninput: {
-                                                let mut its = items.clone(); let mut dirty = is_dirty.clone(); let id = li.id;
+                                                let mut its = line_items.clone(); let mut dirty = is_dirty.clone(); let id = li.id;
                                                 move |v: String| { let val = v.parse::<f64>().unwrap_or(0.0); let mut w = its.write(); if let Some(line) = w.iter_mut().find(|x| x.id == id) { line.tax_rate = val.max(0.0); } dirty.set(true); }
                                             }, r#type: InputType::Number, min: Some(0.0), step: Some(1.0) }
                                         }
