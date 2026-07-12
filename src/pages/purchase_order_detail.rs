@@ -120,6 +120,7 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
     let mut show_receive_modal = use_signal(|| false);
     let mut receive_notes = use_signal(String::new);
     let mut receive_saving = use_signal(|| false);
+    let mut receive_qtys = use_signal(Vec::<f64>::new);
     let detail_ready = detail_opt.is_some();
 
     let on_back = move |_| { navigator.push("/purchases/orders"); };
@@ -130,7 +131,17 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
         let pid = id_display.clone();
         move |_| { nav.push(format!("/purchases/orders/{}/edit", pid)); }
     };
-    let on_receive = { let mut show = show_receive_modal.clone(); move |_| show.set(true) };
+    let on_receive = {
+        let mut show = show_receive_modal.clone();
+        let mut qtys = receive_qtys.clone();
+        let items_snapshot = detail_opt.as_ref().map(|d| d.items.clone()).unwrap_or_default();
+        move |_| {
+            // Initialize quantities to remaining for each item
+            let init: Vec<f64> = items_snapshot.iter().map(|i| (i.quantity - i.received).max(0.0)).collect();
+            qtys.set(init);
+            show.set(true);
+        }
+    };
     let on_print = { let mut t = toast.clone(); move |_| t.info("Print", "Print coming soon.") };
     let toast_for_receive = toast.clone();
     let confirm_delete = {
@@ -149,25 +160,28 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
         let mut show = show_receive_modal.clone();
         let mut saving = receive_saving.clone();
         let notes_sig = receive_notes.clone();
+        let qtys_sig = receive_qtys.clone();
         let api = api.clone();
         let po_id = id_display.clone();
         let items_data = detail_opt.as_ref().map(|d| d.items.clone()).unwrap_or_default();
         let toast2 = toast_for_receive.clone();
         move |_| {
-            // Build receipt items from PO items (receive full remaining qty for each)
-            let receipt_items: Vec<serde_json::Value> = items_data.iter()
-                .filter(|i| i.received < i.quantity)
-                .map(|i| {
-                    let remaining = i.quantity - i.received;
-                    json!({
-                        "po_item_id": i.po_item_id,
-                        "item_id": i.item_id,
-                        "received_quantity": remaining,
-                    })
+            let qtys = qtys_sig.read().clone();
+            // Build receipt items using editable quantities
+            let receipt_items: Vec<serde_json::Value> = items_data.iter().enumerate()
+                .filter_map(|(idx, i)| {
+                    let qty = qtys.get(idx).copied().unwrap_or(0.0);
+                    if qty > 0.0 && i.received < i.quantity {
+                        Some(json!({
+                            "po_item_id": i.po_item_id,
+                            "item_id": i.item_id,
+                            "received_quantity": qty,
+                        }))
+                    } else { None }
                 }).collect();
             if receipt_items.is_empty() {
                 let mut t = toast2.clone();
-                t.info("Nothing to Receive", "All items have already been fully received.");
+                t.info("Nothing to Receive", "Enter a quantity greater than 0 for at least one item.");
                 return;
             }
             saving.set(true);
@@ -311,7 +325,7 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
             },
             div { style: "margin-bottom: 12px;",
                 p { style: "margin: 0 0 4px 0; font-size: 13px; color: var(--text-secondary);",
-                    "Remaining items will be fully received. Items already fully received are skipped."
+                    "Edit the receiving quantity for each item. Set to 0 to skip an item. Items already fully received are disabled."
                 }
             }
             table { style: "width: 100%; border-collapse: collapse; font-size: 13px;",
@@ -322,10 +336,12 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
                     th { style: "text-align: right; padding: 6px 8px; border-bottom: 2px solid var(--border-color, #e0e0e0); font-size: 11px; text-transform: uppercase; color: var(--text-secondary);", "Receiving" }
                 }}
                 tbody {
-                    {d.items.iter().map(|li| {
+                    {d.items.iter().enumerate().map(|(idx, li)| {
                         let remaining = li.quantity - li.received;
                         let fully_received = remaining <= 0.0;
                         let row_style = if fully_received { "opacity: 0.5;" } else { "" };
+                        let qty_val = receive_qtys.read();
+                        let current_qty = qty_val.get(idx).copied().unwrap_or(0.0);
                         rsx! {
                             tr { style: "{row_style}",
                                 td { style: "padding: 6px 8px; border-bottom: 1px solid var(--border-color, #e0e0e0);",
@@ -336,9 +352,29 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
                                     "{li.quantity:.0}" }
                                 td { style: "padding: 6px 8px; border-bottom: 1px solid var(--border-color, #e0e0e0); text-align: right; font-family: monospace;",
                                     "{li.received:.0}" }
-                                td { style: "padding: 6px 8px; border-bottom: 1px solid var(--border-color, #e0e0e0); text-align: right; font-family: monospace; font-weight: 600; color: var(--accent, #4a90d9);",
-                                    if fully_received { span { style: "color: var(--success, #28a745);", "✓ Complete" } }
-                                    else { span { "+{remaining:.0}" } }
+                                td { style: "padding: 6px 8px; border-bottom: 1px solid var(--border-color, #e0e0e0); text-align: right;",
+                                    if fully_received { span { style: "color: var(--success, #28a745); font-size: 12px;", "✓ Complete" } }
+                                    else {
+                                        input {
+                                            r#type: "number",
+                                            style: "width: 70px; padding: 4px 6px; border: 1px solid var(--border-color, #e0e0e0); border-radius: 4px; font-size: 13px; font-family: monospace; text-align: right;",
+                                            min: "0",
+                                            max: "{remaining:.0}",
+                                            step: "1",
+                                            value: "{current_qty:.0}",
+                                            oninput: {
+                                                let mut qtys = receive_qtys.clone();
+                                                let i = idx;
+                                                let max_val: f64 = remaining;
+                                                move |e| {
+                                                    let val: f64 = e.value().parse::<f64>().unwrap_or(0.0).min(max_val).max(0.0);
+                                                    let mut q: Vec<f64> = qtys.read().clone();
+                                                    if q.len() > i { q[i] = val; }
+                                                    qtys.set(q);
+                                                }
+                                            },
+                                        }
+                                    }
                                 }
                             }
                         }
