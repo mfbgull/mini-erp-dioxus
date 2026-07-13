@@ -1,5 +1,6 @@
 //! Goods Receipt List Page — DataGrid-backed list view for goods receipt notes.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
@@ -8,15 +9,14 @@ use dioxus::prelude::*;
 use std::collections::HashSet;
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct GoodsReceipt {
+pub struct GoodsReceiptRow {
     pub id: i64,
-    pub grn_no: String,
+    pub receipt_no: String,
     pub po_ref: String,
-    pub supplier_name: String,
     pub received_date: String,
-    pub status: String,
-    pub total_items: i32,
     pub warehouse: String,
+    pub notes: String,
+    pub created_at: String,
 }
 
 
@@ -25,56 +25,60 @@ pub struct GoodsReceipt {
 pub fn GoodsReceiptListPage() -> Element {
     let navigator = use_navigator();
     let refresh_counter = use_signal(|| 0u32);
-    // ponytail: no standalone receipts endpoint -- add when server exposes GET /api/receipts
-    let resource = use_resource(move || async move {
+    let api = use_auth().api;
+
+    let resource = use_resource(move || {
+        let api = api.clone();
         let _ = *refresh_counter.read();
-        Vec::new()
+        async move {
+            let client = api.with(|c| c.clone());
+            match client.list_receipts().await {
+                Ok(receipts) => {
+                    let rows: Vec<GoodsReceiptRow> = receipts.iter().map(|r| {
+                        let po_id = r.get("po_id").and_then(|v| v.as_i64()).unwrap_or(0);
+                        GoodsReceiptRow {
+                            id: r.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
+                            receipt_no: r.get("receipt_no").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                            po_ref: format!("PO-{}", po_id),
+                            received_date: r.get("receipt_date").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                            warehouse: r.get("warehouse_name").and_then(|v| v.as_str()).unwrap_or("—").to_string(),
+                            notes: r.get("notes").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                            created_at: r.get("created_at").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        }
+                    }).collect();
+                    rows
+                }
+                Err(_) => Vec::new(),
+            }
+        }
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
     let is_loading = resource.read().is_none();
-    let items: Vec<GoodsReceipt> = resource.read().cloned().unwrap_or_default();
+    let items: Vec<GoodsReceiptRow> = resource.read().cloned().unwrap_or_default();
 
-    let columns: Vec<ColumnDef<GoodsReceipt>> = vec![
-        ColumnDef::text("grn", "GRN #", |g: &GoodsReceipt| g.grn_no.clone())
+    let columns: Vec<ColumnDef<GoodsReceiptRow>> = vec![
+        ColumnDef::text("grn", "Receipt #", |g: &GoodsReceiptRow| g.receipt_no.clone())
             .with_width(ColumnWidth::Px(140))
             .with_filter(FilterType::Text),
-        ColumnDef::text("po_ref", "PO Ref", |g: &GoodsReceipt| g.po_ref.clone())
+        ColumnDef::text("po_ref", "PO Ref", |g: &GoodsReceiptRow| g.po_ref.clone())
             .with_width(ColumnWidth::Px(120)),
-        ColumnDef::text("supplier", "Supplier", |g: &GoodsReceipt| g.supplier_name.clone())
-            .with_width(ColumnWidth::Fr(1.0))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("date", "Received", |g: &GoodsReceipt| g.received_date.clone())
+        ColumnDef::text("date", "Received", |g: &GoodsReceiptRow| g.received_date.clone())
             .with_width(ColumnWidth::Px(120))
             .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
             .with_filter(FilterType::Date),
-        ColumnDef::text("warehouse", "Warehouse", |g: &GoodsReceipt| g.warehouse.clone())
+        ColumnDef::text("warehouse", "Warehouse", |g: &GoodsReceiptRow| g.warehouse.clone())
             .with_width(ColumnWidth::Px(150)),
-        ColumnDef::text("status", "Status", |g: &GoodsReceipt| g.status.clone())
-            .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Badge {
-                color_map: vec![
-                    ("Draft", BadgeColor::Gray),
-                    ("Completed", BadgeColor::Green),
-                    ("Cancelled", BadgeColor::Red),
-                ],
-                default_color: BadgeColor::Gray,
-            })
-            .with_filter(FilterType::Select {
-                options: vec!["Draft".to_string(), "Completed".to_string(), "Cancelled".to_string()],
-            }),
-        ColumnDef::text("items", "Items", |g: &GoodsReceipt| g.total_items.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(80))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 }),
+        ColumnDef::text("notes", "Notes", |g: &GoodsReceiptRow| g.notes.clone())
+            .with_width(ColumnWidth::Fr(1.0)),
     ];
 
-    let total_items: i32 = items.iter().map(|g| g.total_items).sum();
-    let pending = items.iter().filter(|g| g.status == "Draft").count();
-
-    let on_row_click = move |(_idx, g): (usize, GoodsReceipt)| {
-        tracing::info!("Clicked GRN: {}", g.grn_no);
+    let on_row_click = move |(_idx, g): (usize, GoodsReceiptRow)| {
+        tracing::info!("Clicked Receipt: {}", g.receipt_no);
     };
+
+    let this_month = chrono::Local::now().format("%Y-%m").to_string();
+    let this_month_count = items.iter().filter(|g| g.received_date.starts_with(&this_month)).count();
 
     let on_refresh = {
         let mut counter = refresh_counter.clone();
@@ -97,16 +101,8 @@ pub fn GoodsReceiptListPage() -> Element {
                         span { class: "summary-value", "{items.len()}" }
                     }
                     div { class: "summary-item",
-                        span { class: "summary-label", "Total Items" }
-                        span { class: "summary-value", "{total_items}" }
-                    }
-                    div { class: "summary-item",
-                        span { class: "summary-label", "Completed" }
-                        span { class: "summary-value", "{items.iter().filter(|g| g.status == \"Completed\").count()}" }
-                    }
-                    div { class: "summary-item summary-warning",
-                        span { class: "summary-label", "Pending (Draft)" }
-                        span { class: "summary-value", "{pending}" }
+                        span { class: "summary-label", "This Month" }
+                        span { class: "summary-value", "{this_month_count}" }
                     }
                 }
             }
