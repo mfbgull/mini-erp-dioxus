@@ -2004,6 +2004,27 @@ impl ApiClient {
         Ok(body)
     }
 
+    /// DELETE /api/purchases/:id
+    pub async fn delete_direct_purchase(&self, id: i64) -> Result<serde_json::Value, String> {
+        let url = format!("{}/api/purchases/{}", base_url(), id);
+        let resp = self
+            .inner
+            .delete(&url)
+            .headers(self.headers())
+            .send()
+            .await
+            .map_err(|e| format!("Connection failed: {}", e))?;
+
+        if !resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await.unwrap_or_default();
+            let msg = body["error"].as_str().unwrap_or("Request failed");
+            return Err(msg.to_string());
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
+        Ok(body)
+    }
+
     /// POST /api/purchase-orders/:id/status
     pub async fn update_po_status(&self, id: i64, status: &str) -> Result<serde_json::Value, String> {
         let url = format!("{}/api/purchase-orders/{}/status", base_url(), id);

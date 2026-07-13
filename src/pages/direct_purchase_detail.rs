@@ -5,6 +5,7 @@ use crate::auth::use_auth;
 use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
+use crate::models;
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r##"
@@ -141,7 +142,28 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
         let mut m = show_delete_modal.clone();
         let mut t = toast.clone();
         let nav = navigator.clone();
-        move |_| { m.set(false); t.success("Deleted", "Direct purchase deleted."); nav.push("/purchases/direct"); }
+        let api = api.clone();
+        let pid = id_display.clone();
+        move |_| {
+            m.set(false);
+            let mut t = t.clone();
+            let nav = nav.clone();
+            let api = api.clone();
+            let pid = pid.clone();
+            spawn(async move {
+                let parsed = pid.parse::<i64>().unwrap_or(0);
+                let client = api.with(|c| c.clone());
+                match client.delete_direct_purchase(parsed).await {
+                    Ok(_) => {
+                        t.success("Deleted", "Direct purchase deleted.");
+                        nav.push("/purchases/direct");
+                    }
+                    Err(e) => {
+                        t.error("Error", &format!("Failed to delete: {}", e));
+                    }
+                }
+            });
+        }
     };
 
 
@@ -184,6 +206,8 @@ fn render_detail(
     mut show_delete_modal: Signal<bool>,
 ) -> Element {
     rsx! {
+        style { "{PAGE_CSS}" }
+        div { class: "page dp-detail-page",
         div { class: "dp-detail-header",
             div { class: "dp-detail-title-group",
                 Button { class: Some("dp-detail-back".to_string()), variant: ButtonVariant::Ghost, onclick: on_back, "← Back to Direct Purchases" }
@@ -261,6 +285,7 @@ fn render_detail(
         Modal { is_open: show_delete_modal, title: Some("Delete Purchase".to_string()), size: ModalSize::Sm, close_on_backdrop: true, close_on_escape: true,
             footer: rsx! { Button { variant: ButtonVariant::Secondary, onclick: move |_| show_delete_modal.set(false), "Cancel" } Button { variant: ButtonVariant::Danger, onclick: confirm_delete, "Delete" } },
             p { style: "margin: 0; color: var(--text-secondary); font-size: 14px;", "This action cannot be undone. Delete {d.dp_no}?" }
+        }
         }
     }
 }
