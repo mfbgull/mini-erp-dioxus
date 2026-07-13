@@ -189,8 +189,9 @@ pub fn DirectPurchaseCreatePage() -> Element {
             spawn(async move {
                 let form = DirectPurchaseForm { item_id, warehouse_id: 1, quantity: first_item.quantity, unit_cost: first_item.rate, supplier_name: supplier_name_val, purchase_date: purchase_date_val, notes: if notes_val.is_empty() { None } else { Some(notes_val) } };
                 match api.read().create_direct_purchase(&form).await {
-                    Ok(dp) => {
-                        toast.success("Direct Purchase Created", &format!("Purchase {} created.", dp.purchase_no));
+                    Ok(body) => {
+                        let pno = body["data"]["purchase_no"].as_str().unwrap_or("N/A");
+                        toast.success("Direct Purchase Created", &format!("Purchase {} created.", pno));
                         saving.set(false); dirty.set(false);
                         nav.push("/purchases/direct");
                     }
@@ -232,8 +233,9 @@ pub fn DirectPurchaseCreatePage() -> Element {
             spawn(async move {
                 let form = DirectPurchaseForm { item_id, warehouse_id: 1, quantity: first_item.quantity, unit_cost: first_item.rate, supplier_name: supplier_name_val, purchase_date: purchase_date_val, notes: if notes_val.is_empty() { None } else { Some(notes_val) } };
                 match api.read().create_direct_purchase(&form).await {
-                    Ok(result) => {
-                        toast.success("Direct Purchase Created", &format!("Purchase {} created. Creating another…", result.purchase_no));
+                    Ok(body) => {
+                        let pno = body["data"]["purchase_no"].as_str().unwrap_or("N/A");
+                        toast.success("Direct Purchase Created", &format!("Purchase {} created. Creating another…", pno));
                         c_code.set(String::new());
                         its.write().clear();
                         for _ in 0..3 { its.write().push(LineItem::default()); }

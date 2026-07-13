@@ -1983,7 +1983,7 @@ impl ApiClient {
     }
 
     /// POST /api/purchases
-    pub async fn create_direct_purchase(&self, form: &DirectPurchaseForm) -> Result<DirectPurchase, String> {
+    pub async fn create_direct_purchase(&self, form: &DirectPurchaseForm) -> Result<serde_json::Value, String> {
         let url = format!("{}/api/purchases", base_url());
         let resp = self
             .inner
@@ -2001,9 +2001,7 @@ impl ApiClient {
         }
 
         let body: serde_json::Value = resp.json().await.map_err(|e| format!("Parse error: {}", e))?;
-        let purchase: DirectPurchase = serde_json::from_value(body["data"].clone())
-            .map_err(|e| format!("Parse error: {}", e))?;
-        Ok(purchase)
+        Ok(body)
     }
 
     /// POST /api/purchase-orders/:id/status
