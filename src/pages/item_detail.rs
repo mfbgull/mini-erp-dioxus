@@ -466,9 +466,8 @@ pub fn ItemDetailPage(id: String) -> Element {
 
     let on_stock_ledger = {
         let nav = navigator.clone();
-        let id_for_nav = id.clone();
         move |_| {
-            nav.push(format!("/inventory/stock-ledger/{}", id_for_nav));
+            nav.push("/inventory/stock-movements");
         }
     };
 

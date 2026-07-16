@@ -139,6 +139,78 @@ async fn create_invoice(State(_state): State<AppState>, Json(form): Json<Invoice
                         item.quantity, item.unit_price, amount, item.tax_rate.unwrap_or(0.0),
                         item.discount_type, item.discount_value],
                 ).ok();
+
+                // Create stock movement (OUT) for this item
+                let warehouse_id = form.warehouse_id.unwrap_or(1);
+                let unit_cost: f64 = db.query_row(
+                    "SELECT COALESCE(standard_cost, 0) FROM items WHERE id = ?1",
+                    [item.item_id],
+                    |row| row.get(0),
+                ).unwrap_or(0.0);
+
+                // Get movement number
+                let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+                let mno = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
+
+                db.execute(
+                    "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+                     VALUES (?1, ?2, ?3, 'OUT', ?4, ?5, 'INVOICE', ?6, ?7)",
+                    rusqlite::params![mno, item.item_id, warehouse_id, item.quantity, unit_cost, invoice_no, format!("Invoice {}", invoice_no)],
+                ).ok();
+
+                // Update stock_balances
+                let exists: bool = db.query_row(
+                    "SELECT COUNT(*) > 0 FROM stock_balances WHERE item_id = ?1 AND warehouse_id = ?2",
+                    rusqlite::params![item.item_id, warehouse_id],
+                    |row| row.get(0),
+                ).unwrap_or(false);
+
+                if exists {
+                    db.execute(
+                        "UPDATE stock_balances SET quantity = quantity - ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+                        rusqlite::params![item.quantity, item.item_id, warehouse_id],
+                    ).ok();
+                }
+
+                // Update items.current_stock
+                db.execute(
+                    "UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
+                    rusqlite::params![item.quantity, item.item_id],
+                ).ok();
+            }
+            // Insert customer ledger entry for invoice
+            {
+                let last_balance: f64 = db.query_row(
+                    "SELECT COALESCE(balance, 0) FROM customer_ledger WHERE customer_id = ?1 ORDER BY id DESC LIMIT 1",
+                    [form.customer_id],
+                    |row| row.get(0),
+                ).unwrap_or(0.0);
+                let new_balance = last_balance + total_amount;
+                db.execute(
+                    "INSERT INTO customer_ledger (customer_id, transaction_date, type, reference_no, debit, credit, balance)
+                     VALUES (?1, ?2, 'INVOICE', ?3, ?4, 0, ?5)",
+                    rusqlite::params![form.customer_id, &form.invoice_date,
+                        invoice_no, total_amount, new_balance],
+                ).ok();
+                // Update customer current_balance
+                db.execute(
+                    "UPDATE customers SET current_balance = current_balance + ?1 WHERE id = ?2",
+                    rusqlite::params![total_amount, form.customer_id],
+                ).ok();
+            }
+            // Auto-journal: debit AR (account_id=2), credit Revenue (account_id=11)
+            {
+                db.execute(
+                    "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('invoice', ?1, ?2)",
+                    rusqlite::params![inv_id, &form.invoice_date],
+                ).ok();
+                let je_id = db.last_insert_rowid();
+                db.execute(
+                    "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
+                     VALUES (?1, 2, ?2, 0, ?3, ?4),
+                            (?1, 11, 0, ?2, ?5, ?4)",
+                    rusqlite::params![je_id, total_amount, format!("Invoice {}", invoice_no), &form.invoice_date, format!("Revenue - Invoice {}", invoice_no)],
+                ).ok();
             }
             // Record payment if provided
             if form.record_payment.unwrap_or(false) {
@@ -157,6 +229,25 @@ async fn create_invoice(State(_state): State<AppState>, Json(form): Json<Invoice
                         let status = if bal <= 0.0 { "Paid" } else { "Partially Paid" };
                         db.execute("UPDATE invoices SET paid_amount=?1, balance_amount=?2, status=?3 WHERE id=?4",
                             rusqlite::params![paid, bal, status, inv_id]).ok();
+                        // Insert customer ledger entry for payment
+                        {
+                            let last_balance: f64 = db.query_row(
+                                "SELECT COALESCE(balance, 0) FROM customer_ledger WHERE customer_id = ?1 ORDER BY id DESC LIMIT 1",
+                                [form.customer_id],
+                                |row| row.get(0),
+                            ).unwrap_or(0.0);
+                            let new_balance = last_balance - pay_amt;
+                            db.execute(
+                                "INSERT INTO customer_ledger (customer_id, transaction_date, type, reference_no, debit, credit, balance)
+                                 VALUES (?1, ?2, 'PAYMENT', ?3, 0, ?4, ?5)",
+                                rusqlite::params![form.customer_id, &form.invoice_date,
+                                    pno, pay_amt, new_balance],
+                            ).ok();
+                            db.execute(
+                                "UPDATE customers SET current_balance = current_balance - ?1 WHERE id = ?2",
+                                rusqlite::params![pay_amt, form.customer_id],
+                            ).ok();
+                        }
                     }
                 }
             }
@@ -264,18 +355,87 @@ async fn cancel_invoice(State(_state): State<AppState>, Path(id): Path<i64>) -> 
 
 async fn return_invoice(State(_state): State<AppState>, Path(id): Path<i64>, Json(req): Json<InvoiceReturnRequest>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+
+    // Get invoice details
+    let invoice_no: String = db.query_row("SELECT invoice_no FROM invoices WHERE id = ?1", [id], |row| row.get(0)).unwrap_or_default();
+    let warehouse_id: i64 = db.query_row("SELECT COALESCE(warehouse_id, 1) FROM invoices WHERE id = ?1", [id], |row| row.get(0)).unwrap_or(1);
+
     for ret_item in &req.items {
+        // Update returned_qty
         db.execute(
             "UPDATE invoice_items SET returned_qty = returned_qty + ?1 WHERE invoice_id = ?2 AND item_id = ?3",
             rusqlite::params![ret_item.quantity, id, ret_item.item_id],
         ).ok();
+
+        // Get unit cost
+        let unit_cost: f64 = db.query_row(
+            "SELECT COALESCE(standard_cost, 0) FROM items WHERE id = ?1",
+            [ret_item.item_id],
+            |row| row.get(0),
+        ).unwrap_or(0.0);
+
+        // Create stock movement (IN - goods returning from customer)
+        let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+        let mno = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
+        db.execute(
+            "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+             VALUES (?1, ?2, ?3, 'IN', ?4, ?5, 'INVOICE_RETURN', ?6, ?7)",
+            rusqlite::params![mno, ret_item.item_id, warehouse_id, ret_item.quantity, unit_cost, invoice_no, format!("Invoice Return {}", invoice_no)],
+        ).ok();
+
+        // Update stock_balances
+        let exists: bool = db.query_row(
+            "SELECT COUNT(*) > 0 FROM stock_balances WHERE item_id = ?1 AND warehouse_id = ?2",
+            rusqlite::params![ret_item.item_id, warehouse_id],
+            |row| row.get(0),
+        ).unwrap_or(false);
+
+        if exists {
+            db.execute(
+                "UPDATE stock_balances SET quantity = quantity + ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+                rusqlite::params![ret_item.quantity, ret_item.item_id, warehouse_id],
+            ).ok();
+        } else {
+            db.execute(
+                "INSERT INTO stock_balances (item_id, warehouse_id, quantity) VALUES (?1, ?2, ?3)",
+                rusqlite::params![ret_item.item_id, warehouse_id, ret_item.quantity],
+            ).ok();
+        }
+
+        // Update items.current_stock
+        db.execute(
+            "UPDATE items SET current_stock = current_stock + ?1, updated_at = datetime('now') WHERE id = ?2",
+            rusqlite::params![ret_item.quantity, ret_item.item_id],
+        ).ok();
     }
+
     let total_returned: f64 = db.query_row(
         "SELECT COALESCE(SUM(returned_qty * unit_price), 0) FROM invoice_items WHERE invoice_id = ?1",
         [id],
         |row| row.get(0),
     ).unwrap_or(0.0);
     db.execute("UPDATE invoices SET returned_amount = ?1, updated_at = datetime('now') WHERE id = ?2", rusqlite::params![total_returned, id]).ok();
+
+    // Insert customer ledger entry for return
+    if total_returned > 0.0 {
+        let customer_id: i64 = db.query_row("SELECT customer_id FROM invoices WHERE id = ?1", [id], |row| row.get(0)).unwrap_or(0);
+        let last_balance: f64 = db.query_row(
+            "SELECT COALESCE(balance, 0) FROM customer_ledger WHERE customer_id = ?1 ORDER BY id DESC LIMIT 1",
+            [customer_id],
+            |row| row.get(0),
+        ).unwrap_or(0.0);
+        let new_balance = last_balance - total_returned;
+        db.execute(
+            "INSERT INTO customer_ledger (customer_id, transaction_date, type, reference_no, debit, credit, balance)
+             VALUES (?1, datetime('now'), 'RETURN', ?2, 0, ?3, ?4)",
+            rusqlite::params![customer_id, format!("RET-{}", invoice_no), total_returned, new_balance],
+        ).ok();
+        db.execute(
+            "UPDATE customers SET current_balance = current_balance - ?1 WHERE id = ?2",
+            rusqlite::params![total_returned, customer_id],
+        ).ok();
+    }
+
     (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Return recorded.", "returned_amount": total_returned } })))
 }
 

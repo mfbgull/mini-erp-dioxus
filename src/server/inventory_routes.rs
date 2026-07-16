@@ -10,11 +10,12 @@
 use crate::models::*;
 use crate::server::auth_routes::AppState;
 use crate::server::db;
+use crate::calculations::stock::{StockBatch, consume_fifo_batches};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{get, post, put},
     Json, Router,
 };
 use serde_json::json;
@@ -41,8 +42,9 @@ pub fn router() -> Router<AppState> {
         .route("/api/inventory/stock-summary", get(stock_summary))
         // Physical Counts
         .route("/api/inventory/physical-counts", get(list_physical_counts).post(create_physical_count))
-        .route("/api/inventory/physical-counts/{id}", get(get_physical_count).put(update_physical_count))
+        .route("/api/inventory/physical-counts/{id}", get(get_physical_count).put(update_physical_count).delete(delete_physical_count))
         .route("/api/inventory/physical-counts/{id}/items", post(add_count_item))
+        .route("/api/inventory/physical-counts/{id}/items/{item_id}", put(update_count_item))
         .route("/api/inventory/physical-counts/{id}/complete", post(complete_physical_count))
         .route("/api/inventory/physical-counts/{id}/cancel", post(cancel_physical_count))
 }
@@ -753,25 +755,68 @@ async fn create_stock_movement(
         .unwrap_or(1);
     let movement_no = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
 
-    let result = db.execute(
+    // For OUT movements, do FIFO consumption from batches
+    let (fifo_unit_cost, batch_id) = if form.movement_type == "OUT" {
+        // Load existing batches ordered FIFO (oldest first)
+        let mut stmt = db.prepare(
+            "SELECT id, quantity_remaining, unit_cost FROM stock_batches
+             WHERE item_id = ?1 AND warehouse_id = ?2 AND quantity_remaining > 0
+             ORDER BY received_date ASC, id ASC"
+        ).unwrap();
+        let batches: Vec<StockBatch> = stmt.query_map(
+            rusqlite::params![form.item_id, form.warehouse_id],
+            |row| Ok(StockBatch {
+                id: row.get(0)?,
+                quantity_remaining: row.get(1)?,
+                unit_cost: row.get(2)?,
+            }),
+        ).unwrap().filter_map(|r| r.ok()).collect();
+
+        let fifo_result = consume_fifo_batches(&batches, form.quantity);
+
+        // Update batch quantities in DB
+        for updated in &fifo_result.updated_batches {
+            db.execute(
+                "UPDATE stock_batches SET quantity_remaining = ?1 WHERE id = ?2",
+                rusqlite::params![updated.quantity_remaining, updated.id],
+            ).ok();
+        }
+
+        let last_batch_id = batches.last().map(|b| b.id);
+        (fifo_result.weighted_avg_cost, last_batch_id)
+    } else {
+        (form.unit_cost.unwrap_or(0.0), None)
+    };
+
+    // Use FIFO cost for OUT, provided cost for IN
+    let effective_unit_cost = if form.movement_type == "OUT" {
+        fifo_unit_cost
+    } else {
+        form.unit_cost.unwrap_or(0.0)
+    };
+
+    let movement_result = db.execute(
         "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type,
-            quantity, unit_cost, reference_doctype, reference_docno, notes)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            quantity, unit_cost, reference_doctype, reference_docno, batch_id, notes)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         rusqlite::params![
             movement_no,
             form.item_id,
             form.warehouse_id,
             form.movement_type,
             form.quantity,
-            form.unit_cost.unwrap_or(0.0),
+            effective_unit_cost,
             form.reference_doctype,
             form.reference_docno,
+            batch_id,
             form.notes.as_deref().unwrap_or(""),
         ],
     );
 
-    match result {
+    match movement_result {
         Ok(_) => {
+            let movement_id = db.last_insert_rowid();
+
             // Update stock_balances
             let exists: bool = db
                 .query_row(
@@ -817,7 +862,18 @@ async fn create_stock_movement(
             )
             .ok();
 
-            let id = db.last_insert_rowid();
+            // For IN movements, create a stock batch
+            if form.movement_type == "IN" {
+                let batch_no = format!("{}-BATCH", movement_no);
+                db.execute(
+                    "INSERT INTO stock_batches (batch_no, item_id, warehouse_id, source_type, source_id,
+                        quantity_original, quantity_remaining, unit_cost, received_date)
+                     VALUES (?1, ?2, ?3, 'MOVEMENT', ?4, ?5, ?5, ?6, datetime('now'))",
+                    rusqlite::params![batch_no, form.item_id, form.warehouse_id, movement_id,
+                        form.quantity, effective_unit_cost],
+                ).ok();
+            }
+
             let movement = db.query_row(
                 "SELECT sm.id, sm.movement_no, sm.item_id, i.item_name, i.item_code,
                         sm.warehouse_id, w.warehouse_name, sm.movement_type, sm.quantity,
@@ -827,7 +883,7 @@ async fn create_stock_movement(
                  LEFT JOIN items i ON sm.item_id = i.id
                  LEFT JOIN warehouses w ON sm.warehouse_id = w.id
                  WHERE sm.id = ?1",
-                [id],
+                [movement_id],
                 |row| {
                     Ok(StockMovement {
                         id: row.get(0)?,
@@ -1019,7 +1075,8 @@ async fn get_physical_count(
             let mut stmt = db
                 .prepare(
                     "SELECT pci.id, pci.count_id, pci.item_id, i.item_name, i.item_code,
-                            pci.system_quantity, pci.counted_quantity, pci.variance
+                            pci.system_quantity, pci.counted_quantity, pci.variance,
+                            COALESCE(i.standard_cost, 0) as unit_cost
                      FROM physical_count_items pci
                      LEFT JOIN items i ON pci.item_id = i.id
                      WHERE pci.count_id = ?1
@@ -1038,6 +1095,7 @@ async fn get_physical_count(
                         system_quantity: row.get(5)?,
                         counted_quantity: row.get(6)?,
                         variance: row.get(7)?,
+                        unit_cost: row.get(8)?,
                     })
                 })
                 .unwrap()
@@ -1161,26 +1219,150 @@ async fn add_count_item(
     }
 }
 
+async fn update_count_item(
+    State(_state): State<AppState>,
+    Path((count_id, item_id)): Path<(i64, i64)>,
+    Json(form): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let counted_qty = form["counted_quantity"].as_f64().unwrap_or(0.0);
+
+    let result = db.execute(
+        "UPDATE physical_count_items
+         SET counted_quantity = ?1,
+             variance = ?1 - system_quantity
+         WHERE count_id = ?2 AND id = ?3",
+        rusqlite::params![counted_qty, count_id, item_id],
+    );
+
+    match result {
+        Ok(rows) if rows > 0 => (
+            StatusCode::OK,
+            Json(json!({ "success": true, "data": { "message": "Count item updated." } })),
+        ),
+        Ok(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "Count item not found." })),
+        ),
+        Err(e) => {
+            tracing::error!("Failed to update count item: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "error": "Failed to update count item." })),
+            )
+        }
+    }
+}
+
 async fn complete_physical_count(
     State(_state): State<AppState>,
     Path(id): Path<i64>,
 ) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
+    // Check status
+    let status: String = db.query_row(
+        "SELECT status FROM physical_counts WHERE id = ?1",
+        [id],
+        |row| row.get(0),
+    ).unwrap_or_default();
+
+    if status != "Draft" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "error": "Count not found or not in Draft status." })),
+        );
+    }
+
+    // Get warehouse_id
+    let warehouse_id: i64 = db.query_row(
+        "SELECT warehouse_id FROM physical_counts WHERE id = ?1",
+        [id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    // Get all items with variance
+    let mut stmt = db.prepare(
+        "SELECT pci.item_id, pci.system_quantity, pci.counted_quantity, pci.variance,
+                COALESCE(i.standard_cost, 0) as unit_cost
+         FROM physical_count_items pci
+         LEFT JOIN items i ON pci.item_id = i.id
+         WHERE pci.count_id = ?1 AND pci.counted_quantity IS NOT NULL AND pci.variance != 0"
+    ).unwrap();
+
+    let variance_items: Vec<(i64, f64, f64, f64, f64)> = stmt.query_map([id], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, f64>(1)?,
+            row.get::<_, f64>(2)?,
+            row.get::<_, f64>(3)?,
+            row.get::<_, f64>(4)?,
+        ))
+    }).unwrap().filter_map(|r| r.ok()).collect();
+
+    // Post stock adjustments for each variance item
+    for (item_id, _system_qty, _counted_qty, variance, unit_cost) in &variance_items {
+        // Create stock movement
+        let movement_type = if *variance > 0.0 { "IN" } else { "OUT" };
+
+        // Get movement number
+        let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+        let mno = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
+
+        db.execute(
+            "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'PHYSICAL_COUNT', ?7, 'Stock adjustment from physical count')",
+            rusqlite::params![mno, item_id, warehouse_id, movement_type, variance.abs(), unit_cost, id],
+        ).ok();
+
+        let movement_id = db.last_insert_rowid();
+
+        // Update or insert stock_balances
+        let exists: bool = db.query_row(
+            "SELECT COUNT(*) > 0 FROM stock_balances WHERE item_id = ?1 AND warehouse_id = ?2",
+            rusqlite::params![item_id, warehouse_id],
+            |row| row.get(0),
+        ).unwrap_or(false);
+
+        if exists {
+            db.execute(
+                "UPDATE stock_balances SET quantity = quantity + ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+                rusqlite::params![variance, item_id, warehouse_id],
+            ).ok();
+        } else {
+            db.execute(
+                "INSERT INTO stock_balances (item_id, warehouse_id, quantity) VALUES (?1, ?2, ?3)",
+                rusqlite::params![item_id, warehouse_id, variance],
+            ).ok();
+        }
+
+        // Update items.current_stock
+        db.execute(
+            "UPDATE items SET current_stock = current_stock + ?1, updated_at = datetime('now') WHERE id = ?2",
+            rusqlite::params![variance, item_id],
+        ).ok();
+
+        // Update physical_count_items
+        db.execute(
+            "UPDATE physical_count_items SET adjustment_movement_id = ?1 WHERE count_id = ?2 AND item_id = ?3",
+            rusqlite::params![movement_id, id, item_id],
+        ).ok();
+    }
+
+    // Mark count as completed
     let result = db.execute(
-        "UPDATE physical_counts SET status = 'Completed', completed_at = datetime('now')
-         WHERE id = ?1 AND status = 'Draft'",
+        "UPDATE physical_counts SET status = 'Completed', completed_at = datetime('now') WHERE id = ?1",
         [id],
     );
 
     match result {
         Ok(rows) if rows > 0 => (
             StatusCode::OK,
-            Json(json!({ "success": true, "data": { "message": "Physical count completed." } })),
+            Json(json!({ "success": true, "data": { "message": "Physical count completed and stock adjustments posted.", "adjustments": variance_items.len() } })),
         ),
         Ok(_) => (
             StatusCode::BAD_REQUEST,
-            Json(json!({ "success": false, "error": "Count not found or not in Draft status." })),
+            Json(json!({ "success": false, "error": "Failed to update count status." })),
         ),
         Err(e) => {
             tracing::error!("Failed to complete physical count: {}", e);
@@ -1230,6 +1412,49 @@ async fn cancel_physical_count(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "success": false, "error": "Failed to cancel count." })),
+            )
+        }
+    }
+}
+
+async fn delete_physical_count(
+    State(_state): State<AppState>,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+
+    // Only allow delete for Draft or Cancelled counts
+    let status: String = db.query_row(
+        "SELECT status FROM physical_counts WHERE id = ?1",
+        [id],
+        |row| row.get(0),
+    ).unwrap_or_default();
+
+    if status != "Draft" && status != "Cancelled" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "error": "Only Draft or Cancelled counts can be deleted." })),
+        );
+    }
+
+    // Delete items first
+    db.execute("DELETE FROM physical_count_items WHERE count_id = ?1", [id]).ok();
+    let result = db.execute("DELETE FROM physical_counts WHERE id = ?1", [id]);
+
+    match result {
+        Ok(rows) if rows > 0 => (
+            StatusCode::OK,
+            Json(json!({ "success": true, "data": { "message": "Physical count deleted." } })),
+        ),
+        Ok(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "Count not found." })),
+        ),
+        Err(e) => {
+            tracing::error!("Failed to delete physical count: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "error": "Failed to delete count." })),
             )
         }
     }

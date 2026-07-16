@@ -63,27 +63,53 @@ struct PnlLine {
 // ============================================================================
 
 fn parse_pnl_lines(data: &serde_json::Value) -> Vec<PnlLine> {
-    let items = data.get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-    items.iter().map(|item| {
-        PnlLine {
-            label: item.get("label").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            amount: item.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            is_header: item.get("is_header").and_then(|v| v.as_bool()).unwrap_or(false),
-            is_total: item.get("is_total").and_then(|v| v.as_bool()).unwrap_or(false),
-        }
-    }).collect()
+    // Backend returns flat structure: { revenue, cogs, gross_profit, expenses, net_profit }
+    let revenue = data.get("revenue").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let cogs = data.get("cogs").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let gross_profit = data.get("gross_profit").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let expenses = data.get("expenses").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let net_profit = data.get("net_profit").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+    vec![
+        PnlLine { label: "Revenue".to_string(), amount: revenue, is_header: true, is_total: false },
+        PnlLine { label: "Cost of Goods Sold".to_string(), amount: cogs, is_header: false, is_total: false },
+        PnlLine { label: "Gross Profit".to_string(), amount: gross_profit, is_header: false, is_total: true },
+        PnlLine { label: "Operating Expenses".to_string(), amount: expenses, is_header: true, is_total: false },
+        PnlLine { label: "Net Profit".to_string(), amount: net_profit, is_header: false, is_total: true },
+    ]
 }
 
 fn parse_balance_lines(data: &serde_json::Value) -> Vec<PnlLine> {
-    let items = data.get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-    items.iter().map(|item| {
-        PnlLine {
-            label: item.get("label").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            amount: item.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            is_header: item.get("is_header").and_then(|v| v.as_bool()).unwrap_or(false),
-            is_total: item.get("is_total").and_then(|v| v.as_bool()).unwrap_or(false),
+    // Backend returns array of accounts: [{ code, name, type, balance }]
+    let items = data.as_array().cloned().unwrap_or_default();
+    let mut lines = Vec::new();
+    let mut current_type = String::new();
+
+    for item in &items {
+        let acc_type = item.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let code = item.get("code").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let balance = item.get("balance").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+        if acc_type != current_type {
+            lines.push(PnlLine {
+                label: format!("{} Accounts", acc_type),
+                amount: 0.0,
+                is_header: true,
+                is_total: false,
+            });
+            current_type = acc_type;
         }
-    }).collect()
+
+        lines.push(PnlLine {
+            label: format!("{} - {}", code, name),
+            amount: balance,
+            is_header: false,
+            is_total: false,
+        });
+    }
+
+    lines
 }
 
 // ============================================================================
@@ -96,20 +122,37 @@ pub fn FinancialReportPage() -> Element {
     let api = use_auth().api;
     let active_tab = use_signal(|| 0usize);
     let tabs = ["Profit & Loss", "Balance Sheet"];
+    let mut period = use_signal(|| "h1-2026".to_string());
+
+    // Map period to date ranges
+    let get_date_range = |p: &str| -> (&str, &str) {
+        match p {
+            "h1-2026" => ("2026-01-01", "2026-06-30"),
+            "q2-2026" => ("2026-04-01", "2026-06-30"),
+            "2025" => ("2025-01-01", "2025-12-31"),
+            _ => ("2000-01-01", "2099-12-31"),
+        }
+    };
+
+    let (from_date, to_date) = get_date_range(&period.read());
 
     let pnl_resource = use_resource(move || {
         let api = api.clone();
+        let from = from_date.to_string();
+        let to = to_date.to_string();
         async move {
             let client = api.with(|c| c.clone());
-            client.get_profit_loss().await.unwrap_or_default()
+            client.get_profit_loss(&from, &to).await.unwrap_or_default()
         }
     });
 
     let bs_resource = use_resource(move || {
         let api = api.clone();
+        let from = from_date.to_string();
+        let to = to_date.to_string();
         async move {
             let client = api.with(|c| c.clone());
-            client.get_balance_sheet().await.unwrap_or_default()
+            client.get_balance_sheet(&from, &to).await.unwrap_or_default()
         }
     });
 
@@ -124,10 +167,16 @@ pub fn FinancialReportPage() -> Element {
     let net_profit = pnl_data.get("net_profit").and_then(|v| v.as_f64()).unwrap_or(
         income.last().map(|l| l.amount).unwrap_or(0.0)
     );
-    let total_revenue = pnl_data.get("total_revenue").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let total_assets = bs_data.get("total_assets").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let total_liabilities = bs_data.get("total_liabilities").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let total_equity = bs_data.get("total_equity").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let total_revenue = pnl_data.get("revenue").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let total_assets = bs_data.as_array().map(|arr| {
+        arr.iter().filter(|i| i["type"].as_str() == Some("Asset")).map(|i| i["balance"].as_f64().unwrap_or(0.0)).sum()
+    }).unwrap_or(0.0);
+    let total_liabilities = bs_data.as_array().map(|arr| {
+        arr.iter().filter(|i| i["type"].as_str() == Some("Liability")).map(|i| i["balance"].as_f64().unwrap_or(0.0)).sum()
+    }).unwrap_or(0.0);
+    let total_equity = bs_data.as_array().map(|arr| {
+        arr.iter().filter(|i| i["type"].as_str() == Some("Equity")).map(|i| i["balance"].as_f64().unwrap_or(0.0)).sum()
+    }).unwrap_or(0.0);
     let profit_margin = if total_revenue > 0.0 { (net_profit / total_revenue) * 100.0 } else { 0.0 };
 
     let on_export = {
@@ -173,13 +222,15 @@ pub fn FinancialReportPage() -> Element {
                 div { class: "fr-filter-bar",
                     label { "Period" }
                     select {
-                        option { value: "h1-2026", selected: true, "H1 2026 (Jan — Jun)" }
+                        value: "{period}",
+                        onchange: move |e| period.set(e.value()),
+                        option { value: "h1-2026", "H1 2026 (Jan — Jun)" }
                         option { value: "q2-2026", "Q2 2026 (Apr — Jun)" }
                         option { value: "2025", "FY 2025" }
                     }
                     label { "Comparison" }
                     select {
-                        option { value: "none", selected: true, "No Comparison" }
+                        option { value: "none", "No Comparison" }
                         option { value: "prev", "vs Previous Period" }
                     }
                 }

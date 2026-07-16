@@ -56,6 +56,7 @@ struct DisplayEmployee {
     phone: String,
     employment_type: String,
     join_date: String,
+    salary: f64,
 }
 
 #[component]
@@ -63,7 +64,11 @@ pub fn EmployeeDetailPage(id: String) -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
     let id_display = id.clone();
+    let id_for_salary = id.clone();
+    let id_for_pay = id.clone();
     let api = use_auth().api;
+    let api_for_salary = use_auth().api;
+    let salary_counter = use_signal(|| 0u32);
 
     let resource = use_resource(move || {
         let api = api.clone();
@@ -81,14 +86,69 @@ pub fn EmployeeDetailPage(id: String) -> Element {
                 phone: server.phone,
                 employment_type: "Permanent".to_string(),
                 join_date: server.created_at,
+                salary: server.salary,
             })
         }
     });
+
+    // Fetch salary payment history
+    let salary_resource = use_resource(move || {
+        let api = api_for_salary.clone();
+        let id = id_for_salary.clone();
+        let _ = *salary_counter.read();
+        async move {
+            let parsed = id.parse::<i64>().unwrap_or(0);
+            if parsed == 0 { return vec![]; }
+            let client = api.read().clone();
+            match client.list_salary_payments(parsed).await {
+                Ok(payments) => payments,
+                Err(_) => vec![],
+            }
+        }
+    });
+    let salary_payments = salary_resource.read().cloned().unwrap_or_default();
 
     let snap = resource.read();
     let is_loading = snap.is_none();
     let emp_opt = snap.as_ref().and_then(|e| e.clone());
     let mut show_delete_modal = use_signal(|| false);
+    let mut show_salary_modal = use_signal(|| false);
+    let mut salary_amount = use_signal(|| String::new());
+    let mut salary_date = use_signal(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
+
+    let pay_salary = {
+        let mut toast = toast.clone();
+        let api = use_auth().api;
+        move |_| {
+            let amount: f64 = salary_amount.read().parse().unwrap_or(0.0);
+            if amount <= 0.0 {
+                toast.error("Error", "Amount must be greater than 0.");
+                return;
+            }
+            let date = salary_date.read().clone();
+            let emp_id: i64 = id_for_pay.parse().unwrap_or(0);
+            if emp_id == 0 { return; }
+            let api = api.clone();
+            let mut toast = toast.clone();
+            let mut show = show_salary_modal.clone();
+            let mut amt = salary_amount.clone();
+            let mut counter = salary_counter.clone();
+            let body = serde_json::json!({ "amount": amount, "payment_date": date });
+            spawn(async move {
+                let client = api.read().clone();
+                match client.pay_salary(emp_id, &body).await {
+                    Ok(_) => {
+                        toast.success("Recorded", "Salary payment recorded.");
+                        show.set(false);
+                        amt.set(String::new());
+                        let current = *counter.read();
+                        counter.set(current + 1);
+                    }
+                    Err(e) => toast.error("Error", &e),
+                }
+            });
+        }
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }
@@ -167,6 +227,48 @@ pub fn EmployeeDetailPage(id: String) -> Element {
                         }
                     }
 
+                    div { class: "emp-section",
+                        div { class: "emp-section-header",
+                            h2 { "Salary Payment History" }
+                            Button { variant: ButtonVariant::Primary, onclick: { let mut amt = salary_amount.clone(); let emp_salary = emp.salary; move |_| { amt.set(emp_salary.to_string()); show_salary_modal.set(true); } }, "＋ Pay Salary" }
+                        }
+                        if salary_payments.is_empty() {
+                            div { style: "text-align: center; padding: 20px; color: var(--text-secondary);", "No salary payments recorded." }
+                        } else {{
+                            let total_paid: f64 = salary_payments.iter().filter_map(|p| p["amount"].as_f64()).sum();
+                            rsx! {
+                                table { class: "customer-table",
+                                    thead { tr {
+                                        th { "Date" }
+                                        th { class: "text-right", "Amount" }
+                                    }}
+                                    tbody {
+                                        for payment in salary_payments.iter() {
+                                            {let date = payment["payment_date"].as_str().unwrap_or("").to_string();
+                                            let amount = payment["amount"].as_f64().unwrap_or(0.0);
+                                            rsx! {
+                                                tr {
+                                                    td { "{date}" }
+                                                    td { class: "text-right", style: "font-family: monospace;", "PKR {amount:.2}" }
+                                                }
+                                            }}
+                                        }
+                                    }
+                                }
+                                div { style: "display: flex; gap: 24px; padding: 12px 16px; background: var(--bg-muted, #f8f9fa); border-top: 2px solid var(--border-color, #e0e0e0); font-size: 13px;",
+                                    div { style: "display: flex; gap: 6px;",
+                                        span { style: "color: var(--text-secondary);", "Total Payments:" }
+                                        span { style: "font-weight: 600;", "{salary_payments.len()}" }
+                                    }
+                                    div { style: "display: flex; gap: 6px;",
+                                        span { style: "color: var(--text-secondary);", "Total Paid:" }
+                                        span { style: "font-weight: 600;", "PKR {total_paid:.2}" }
+                                    }
+                                }
+                            }
+                        }}
+                    }
+
                     div { class: "emp-actions",
                         Button { variant: ButtonVariant::Primary, onclick: { let nav = navigator.clone(); let eid = id_display.clone(); move |_| { nav.push(format!("/employees/{}/edit", eid)); } }, icon: Some("✏️".to_string()), "Edit Employee" }
                         Button { variant: ButtonVariant::Ghost, onclick: move |_| show_delete_modal.set(true), icon: Some("🗑️".to_string()), "Delete" }
@@ -184,6 +286,38 @@ pub fn EmployeeDetailPage(id: String) -> Element {
                         div {
                             p { style: "margin: 0 0 8px 0; color: var(--text-primary); font-size: 14px; font-weight: 500;", "Delete {emp.full_name}?" }
                             p { style: "margin: 0; color: var(--text-secondary); font-size: 13px;", "This action cannot be undone." }
+                        }
+                    }
+
+                    Modal {
+                        is_open: show_salary_modal,
+                        title: Some("Record Salary Payment".to_string()),
+                        size: ModalSize::Sm,
+                        close_on_backdrop: true, close_on_escape: true,
+                        footer: rsx! {
+                            Button { variant: ButtonVariant::Secondary, onclick: move |_| show_salary_modal.set(false), "Cancel" }
+                            Button { variant: ButtonVariant::Primary, onclick: pay_salary, "Record Payment" }
+                        },
+                        div { style: "display: flex; flex-direction: column; gap: 14px;",
+                            div { style: "display: flex; flex-direction: column; gap: 4px;",
+                                label { style: "font-size: 12px; font-weight: 600; color: var(--text-secondary);", "Amount (PKR)" }
+                                input {
+                                    r#type: "number",
+                                    step: "0.01",
+                                    min: "0",
+                                    placeholder: "0.00",
+                                    value: "{salary_amount}",
+                                    onchange: move |e| salary_amount.set(e.value()),
+                                }
+                            }
+                            div { style: "display: flex; flex-direction: column; gap: 4px;",
+                                label { style: "font-size: 12px; font-weight: 600; color: var(--text-secondary);", "Payment Date" }
+                                input {
+                                    r#type: "date",
+                                    value: "{salary_date}",
+                                    onchange: move |e| salary_date.set(e.value()),
+                                }
+                            }
                         }
                     }
                 }

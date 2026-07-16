@@ -26,6 +26,8 @@ pub fn router() -> Router<AppState> {
         .route("/api/purchase-orders/summary/supplier/{id}", get(po_summary_by_supplier))
         .route("/api/purchase-orders/suppliers/{id}/balance", get(supplier_po_balance))
         .route("/api/purchase-orders/suppliers/{id}/transactions", get(supplier_po_transactions))
+        .route("/api/suppliers/{id}/ledger", get(supplier_ledger))
+        .route("/api/suppliers/{id}/payments", post(create_supplier_payment))
         .route("/api/purchase-orders/{id}/items", post(add_po_item))
         .route("/api/purchase-orders/{id}/items/{item_id}", put(update_po_item).delete(delete_po_item))
         // Direct Purchases
@@ -279,6 +281,34 @@ async fn create_purchase_order(State(_state): State<AppState>, Json(form): Json<
                 ).ok();
             }
             let total_items = form.items.len() as i64;
+            // Insert supplier ledger entry for PO
+            {
+                let last_balance: f64 = db.query_row(
+                    "SELECT COALESCE(balance, 0) FROM supplier_ledger WHERE supplier_id = ?1 ORDER BY id DESC LIMIT 1",
+                    [form.supplier_id],
+                    |row| row.get(0),
+                ).unwrap_or(0.0);
+                let new_balance = last_balance + total;
+                db.execute(
+                    "INSERT INTO supplier_ledger (supplier_id, transaction_date, type, reference_no, debit, credit, balance)
+                     VALUES (?1, ?2, 'PURCHASE', ?3, ?4, 0, ?5)",
+                    rusqlite::params![form.supplier_id, form.po_date, po_no, total, new_balance],
+                ).ok();
+            }
+            // Auto-journal: debit Inventory (account_id=3), credit AP (account_id=6)
+            {
+                db.execute(
+                    "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('purchase_order', ?1, ?2)",
+                    rusqlite::params![po_id, form.po_date],
+                ).ok();
+                let je_id = db.last_insert_rowid();
+                db.execute(
+                    "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
+                     VALUES (?1, 3, ?2, 0, ?3, ?4),
+                            (?1, 6, 0, ?2, ?5, ?4)",
+                    rusqlite::params![je_id, total, format!("PO {} - Inventory", po_no), form.po_date, format!("AP - PO {}", po_no)],
+                ).ok();
+            }
             let item_count_result = db.query_row(
                 "SELECT COUNT(*) FROM purchase_order_items WHERE po_id = ?1",
                 [po_id],
@@ -409,6 +439,14 @@ async fn create_goods_receipt(State(_state): State<AppState>, Path(po_id): Path<
                     "UPDATE purchase_order_items SET received_quantity = received_quantity + ?1 WHERE id = ?2",
                     rusqlite::params![item.received_quantity, item.po_item_id],
                 ).ok();
+
+                // Look up unit cost from PO item
+                let unit_cost: f64 = db.query_row(
+                    "SELECT unit_price FROM purchase_order_items WHERE id = ?1",
+                    [item.po_item_id],
+                    |row| row.get(0),
+                ).unwrap_or(0.0);
+
                 // Add stock
                 if let Some(wh_id) = form.warehouse_id {
                     let exists: bool = db.query_row("SELECT COUNT(*) > 0 FROM stock_balances WHERE item_id = ?1 AND warehouse_id = ?2",
@@ -422,6 +460,50 @@ async fn create_goods_receipt(State(_state): State<AppState>, Path(po_id): Path<
                     }
                     db.execute("UPDATE items SET current_stock = current_stock + ?1, updated_at = datetime('now') WHERE id = ?2",
                         rusqlite::params![item.received_quantity, item.item_id]).ok();
+
+                    // Create stock batch for FIFO tracking
+                    let batch_no = format!("{}-BATCH-{}", rn, item.po_item_id);
+                    db.execute(
+                        "INSERT INTO stock_batches (batch_no, item_id, warehouse_id, source_type, source_id,
+                            quantity_original, quantity_remaining, unit_cost, received_date)
+                         VALUES (?1, ?2, ?3, 'GRN', ?4, ?5, ?5, ?6, ?7)",
+                        rusqlite::params![batch_no, item.item_id, wh_id, gr_id,
+                            item.received_quantity, unit_cost, form.receipt_date],
+                    ).ok();
+
+                    // Create stock movement (IN)
+                    let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+                    let mno = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
+                    db.execute(
+                        "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+                         VALUES (?1, ?2, ?3, 'IN', ?4, ?5, 'GRN', ?6, ?7)",
+                        rusqlite::params![mno, item.item_id, wh_id, item.received_quantity, unit_cost, rn, format!("Goods Receipt {}", rn)],
+                    ).ok();
+                }
+            }
+            // Insert supplier ledger entry for goods receipt
+            {
+                let supplier_id: i64 = db.query_row("SELECT supplier_id FROM purchase_orders WHERE id = ?1", [po_id], |row| row.get(0)).unwrap_or(0);
+                let receipt_total: f64 = db.query_row(
+                    "SELECT COALESCE(SUM(gri.received_quantity * poi.unit_price), 0)
+                     FROM goods_receipt_items gri
+                     JOIN purchase_order_items poi ON gri.po_item_id = poi.id
+                     WHERE gri.receipt_id = ?1",
+                    [gr_id],
+                    |row| row.get(0),
+                ).unwrap_or(0.0);
+                if supplier_id > 0 && receipt_total > 0.0 {
+                    let last_balance: f64 = db.query_row(
+                        "SELECT COALESCE(balance, 0) FROM supplier_ledger WHERE supplier_id = ?1 ORDER BY id DESC LIMIT 1",
+                        [supplier_id],
+                        |row| row.get(0),
+                    ).unwrap_or(0.0);
+                    let new_balance = last_balance + receipt_total;
+                    db.execute(
+                        "INSERT INTO supplier_ledger (supplier_id, transaction_date, type, reference_no, debit, credit, balance)
+                         VALUES (?1, ?2, 'RECEIPT', ?3, ?4, 0, ?5)",
+                        rusqlite::params![supplier_id, form.receipt_date, rn, receipt_total, new_balance],
+                    ).ok();
                 }
             }
             (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": gr_id, "receipt_no": rn } })))
@@ -430,8 +512,60 @@ async fn create_goods_receipt(State(_state): State<AppState>, Path(po_id): Path<
     }
 }
 
-async fn return_receipt(State(_state): State<AppState>, Path(_id): Path<i64>, Json(_form): Json<serde_json::Value>) -> impl IntoResponse {
-    (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Return receipt recorded." } })))
+async fn return_receipt(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<serde_json::Value>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+
+    // Get receipt details
+    let receipt: Option<(i64, String, i64)> = db.query_row(
+        "SELECT id, receipt_no, warehouse_id FROM goods_receipts WHERE id = ?1",
+        [id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    ).ok();
+
+    let (receipt_id, receipt_no, warehouse_id) = match receipt {
+        Some(r) => r,
+        None => return (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Receipt not found." }))),
+    };
+
+    // Get items to return
+    let mut stmt = db.prepare(
+        "SELECT item_id, received_quantity FROM goods_receipt_items WHERE receipt_id = ?1"
+    ).unwrap();
+    let items_to_return: Vec<(i64, f64)> = stmt.query_map([receipt_id], |row| {
+        Ok((row.get(0)?, row.get(1)?))
+    }).unwrap().filter_map(|r| r.ok()).collect();
+
+    for (item_id, quantity) in &items_to_return {
+        // Get unit cost
+        let unit_cost: f64 = db.query_row(
+            "SELECT COALESCE(standard_cost, 0) FROM items WHERE id = ?1",
+            [item_id],
+            |row| row.get(0),
+        ).unwrap_or(0.0);
+
+        // Create stock movement (OUT - goods returning to supplier)
+        let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+        let mno = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
+        db.execute(
+            "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+             VALUES (?1, ?2, ?3, 'OUT', ?4, ?5, 'RECEIPT_RETURN', ?6, ?7)",
+            rusqlite::params![mno, item_id, warehouse_id, quantity, unit_cost, receipt_no, format!("Receipt Return {}", receipt_no)],
+        ).ok();
+
+        // Update stock_balances
+        db.execute(
+            "UPDATE stock_balances SET quantity = quantity - ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+            rusqlite::params![quantity, item_id, warehouse_id],
+        ).ok();
+
+        // Update items.current_stock
+        db.execute(
+            "UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
+            rusqlite::params![quantity, item_id],
+        ).ok();
+    }
+
+    (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Receipt return recorded.", "items_returned": items_to_return.len() } })))
 }
 
 // ============================================================================
@@ -502,6 +636,9 @@ async fn create_direct_purchase(State(_state): State<AppState>, Json(form): Json
     );
     match result {
         Ok(_) => {
+            let purchase_id = db.last_insert_rowid();
+
+            // Update stock balances
             let exists: bool = db.query_row("SELECT COUNT(*) > 0 FROM stock_balances WHERE item_id = ?1 AND warehouse_id = ?2",
                 rusqlite::params![form.item_id, form.warehouse_id], |row| row.get(0)).unwrap_or(false);
             if exists {
@@ -513,7 +650,34 @@ async fn create_direct_purchase(State(_state): State<AppState>, Json(form): Json
             }
             db.execute("UPDATE items SET current_stock = current_stock + ?1, updated_at = datetime('now') WHERE id = ?2",
                 rusqlite::params![form.quantity, form.item_id]).ok();
-            (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": db.last_insert_rowid(), "purchase_no": pno } })))
+
+            // Create stock batch for FIFO tracking
+            let batch_no = format!("{}-BATCH", pno);
+            db.execute(
+                "INSERT INTO stock_batches (batch_no, item_id, warehouse_id, source_type, source_id,
+                    quantity_original, quantity_remaining, unit_cost, received_date)
+                 VALUES (?1, ?2, ?3, 'PURCHASE', ?4, ?5, ?5, ?6, ?7)",
+                rusqlite::params![batch_no, form.item_id, form.warehouse_id, purchase_id,
+                    form.quantity, form.unit_cost, form.purchase_date],
+            ).ok();
+            let batch_id = db.last_insert_rowid();
+            db.execute("UPDATE purchases SET batch_id = ?1 WHERE id = ?2",
+                rusqlite::params![batch_id, purchase_id]).ok();
+
+            // Create stock movement (IN)
+            let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+            let mno = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
+            db.execute(
+                "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+                 VALUES (?1, ?2, ?3, 'IN', ?4, ?5, 'PURCHASE', ?6, ?7)",
+                rusqlite::params![mno, form.item_id, form.warehouse_id, form.quantity, form.unit_cost, pno, format!("Direct Purchase {}", pno)],
+            ).ok();
+
+            // Note: Direct purchases use supplier_name (not supplier_id), so ledger entry
+            // is only created if a supplier_id can be resolved. For now, skip ledger entry
+            // for direct purchases without a linked supplier record.
+
+            (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": purchase_id, "purchase_no": pno } })))
         }
         Err(e) => { tracing::error!("Failed to create direct purchase: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create purchase." }))) }
     }
@@ -521,6 +685,23 @@ async fn create_direct_purchase(State(_state): State<AppState>, Json(form): Json
 
 async fn delete_direct_purchase(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+
+    // Reverse stock before deleting
+    let old: Option<(f64, i64, i64)> = db.query_row(
+        "SELECT quantity, item_id, warehouse_id FROM purchases WHERE id = ?1",
+        [id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    ).ok();
+    if let Some((qty, item_id, warehouse_id)) = old {
+        db.execute("UPDATE stock_balances SET quantity = quantity - ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+            rusqlite::params![qty, item_id, warehouse_id]).ok();
+        db.execute("UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
+            rusqlite::params![qty, item_id]).ok();
+    }
+
+    // Delete the stock batch
+    db.execute("DELETE FROM stock_batches WHERE source_type = 'PURCHASE' AND source_id = ?1", [id]).ok();
+
     let result = db.execute("DELETE FROM purchases WHERE id = ?1", [id]);
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Purchase deleted." } }))),
@@ -532,6 +713,18 @@ async fn delete_direct_purchase(State(_state): State<AppState>, Path(id): Path<i
 async fn update_direct_purchase(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<DirectPurchaseForm>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let total = form.quantity * form.unit_cost;
+
+    // Get the old quantities for stock adjustment
+    let old: Option<(f64, i64, i64)> = db.query_row(
+        "SELECT quantity, item_id, warehouse_id FROM purchases WHERE id = ?1",
+        [id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+    ).ok();
+    let (old_qty, old_item_id, old_warehouse_id) = match old {
+        Some(v) => v,
+        None => return (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Purchase not found." }))),
+    };
+
     let result = db.execute(
         "UPDATE purchases SET item_id=?1, warehouse_id=?2, quantity=?3, unit_cost=?4, total_cost=?5,
          supplier_name=?6, purchase_date=?7, notes=?8 WHERE id=?9",
@@ -539,14 +732,98 @@ async fn update_direct_purchase(State(_state): State<AppState>, Path(id): Path<i
             form.supplier_name, form.purchase_date, form.notes.as_deref().unwrap_or(""), id],
     );
     match result {
-        Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Purchase updated." } }))),
+        Ok(rows) if rows > 0 => {
+            // Adjust stock balances: reverse old, apply new
+            if old_item_id == form.item_id && old_warehouse_id == form.warehouse_id {
+                let delta = form.quantity - old_qty;
+                db.execute("UPDATE stock_balances SET quantity = quantity + ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+                    rusqlite::params![delta, form.item_id, form.warehouse_id]).ok();
+                db.execute("UPDATE items SET current_stock = current_stock + ?1, updated_at = datetime('now') WHERE id = ?2",
+                    rusqlite::params![delta, form.item_id]).ok();
+            } else {
+                // Different item or warehouse: reverse old, add new
+                db.execute("UPDATE stock_balances SET quantity = quantity - ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+                    rusqlite::params![old_qty, old_item_id, old_warehouse_id]).ok();
+                db.execute("UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
+                    rusqlite::params![old_qty, old_item_id]).ok();
+                let exists: bool = db.query_row("SELECT COUNT(*) > 0 FROM stock_balances WHERE item_id = ?1 AND warehouse_id = ?2",
+                    rusqlite::params![form.item_id, form.warehouse_id], |row| row.get(0)).unwrap_or(false);
+                if exists {
+                    db.execute("UPDATE stock_balances SET quantity = quantity + ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+                        rusqlite::params![form.quantity, form.item_id, form.warehouse_id]).ok();
+                } else {
+                    db.execute("INSERT INTO stock_balances (item_id, warehouse_id, quantity) VALUES (?1, ?2, ?3)",
+                        rusqlite::params![form.item_id, form.warehouse_id, form.quantity]).ok();
+                }
+                db.execute("UPDATE items SET current_stock = current_stock + ?1, updated_at = datetime('now') WHERE id = ?2",
+                    rusqlite::params![form.quantity, form.item_id]).ok();
+            }
+
+            // Update the stock batch
+            db.execute(
+                "UPDATE stock_batches SET item_id=?1, warehouse_id=?2, quantity_original=?3,
+                    quantity_remaining=quantity_remaining + (?3 - quantity_original), unit_cost=?4, received_date=?5
+                 WHERE source_type='PURCHASE' AND source_id=?6",
+                rusqlite::params![form.item_id, form.warehouse_id, form.quantity, form.unit_cost, form.purchase_date, id],
+            ).ok();
+
+            (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Purchase updated." } })))
+        }
         Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Purchase not found." }))),
         Err(e) => { tracing::error!("Failed to update purchase: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update purchase." }))) }
     }
 }
 
-async fn return_direct_purchase(State(_state): State<AppState>, Path(_id): Path<i64>) -> impl IntoResponse {
-    (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Purchase return recorded." } })))
+async fn return_direct_purchase(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+
+    // Get the purchase details
+    let purchase: Option<(i64, f64, i64, i64, String)> = db.query_row(
+        "SELECT id, quantity, item_id, warehouse_id, purchase_no FROM purchases WHERE id = ?1 AND status != 'Returned'",
+        [id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+    ).ok();
+
+    let (purchase_id, quantity, item_id, warehouse_id, purchase_no) = match purchase {
+        Some(p) => p,
+        None => return (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Purchase not found or already returned." }))),
+    };
+
+    // Get unit cost
+    let unit_cost: f64 = db.query_row(
+        "SELECT COALESCE(standard_cost, 0) FROM items WHERE id = ?1",
+        [item_id],
+        |row| row.get(0),
+    ).unwrap_or(0.0);
+
+    // Create stock movement (OUT - goods leaving back to supplier)
+    let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+    let mno = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
+    db.execute(
+        "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+         VALUES (?1, ?2, ?3, 'OUT', ?4, ?5, 'PURCHASE_RETURN', ?6, ?7)",
+        rusqlite::params![mno, item_id, warehouse_id, quantity, unit_cost, purchase_no, format!("Purchase Return {}", purchase_no)],
+    ).ok();
+
+    // Update stock_balances
+    db.execute(
+        "UPDATE stock_balances SET quantity = quantity - ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+        rusqlite::params![quantity, item_id, warehouse_id],
+    ).ok();
+
+    // Update items.current_stock
+    db.execute(
+        "UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
+        rusqlite::params![quantity, item_id],
+    ).ok();
+
+    // Mark purchase as returned
+    db.execute(
+        "UPDATE purchases SET status = 'Returned', updated_at = datetime('now') WHERE id = ?1",
+        [purchase_id],
+    ).ok();
+
+    (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Purchase return recorded.", "movement_no": mno } })))
 }
 
 async fn list_receipts(State(_state): State<AppState>) -> impl IntoResponse {
@@ -613,7 +890,7 @@ async fn supplier_po_balance(State(_state): State<AppState>, Path(supplier_id): 
         |row| row.get(0),
     ).unwrap_or(0.0);
     let paid: f64 = db.query_row(
-        "SELECT COALESCE(SUM(amount), 0) FROM supplier_ledger WHERE supplier_id = ?1 AND type = 'PAYMENT'",
+        "SELECT COALESCE(SUM(credit), 0) FROM supplier_ledger WHERE supplier_id = ?1 AND type = 'PAYMENT'",
         [supplier_id],
         |row| row.get(0),
     ).unwrap_or(0.0);
@@ -718,6 +995,61 @@ async fn delete_po_item(
         Err(e) => {
             tracing::error!("Failed to delete PO item: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to delete item." })))
+        }
+    }
+}
+
+async fn supplier_ledger(
+    State(_state): State<AppState>,
+    Path(supplier_id): Path<i64>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let from_date = params.get("from_date").map(|s| s.as_str()).unwrap_or("2000-01-01");
+    let to_date = params.get("to_date").map(|s| s.as_str()).unwrap_or("2099-12-31");
+    let mut stmt = db.prepare(
+        "SELECT id, supplier_id, transaction_date, type, reference_no, debit, credit, balance
+         FROM supplier_ledger WHERE supplier_id = ?1 AND transaction_date BETWEEN ?2 AND ?3 ORDER BY id"
+    ).unwrap();
+    let entries: Vec<SupplierLedgerEntry> = stmt.query_map(rusqlite::params![supplier_id, from_date, to_date], |row| {
+        Ok(SupplierLedgerEntry {
+            id: row.get(0)?, supplier_id: row.get(1)?, transaction_date: row.get(2)?,
+            transaction_type: row.get(3)?, reference_no: row.get(4)?,
+            debit: row.get(5)?, credit: row.get(6)?, balance: row.get(7)?,
+        })
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    (StatusCode::OK, Json(json!({ "success": true, "data": entries })))
+}
+
+async fn create_supplier_payment(
+    State(_state): State<AppState>,
+    Path(supplier_id): Path<i64>,
+    Json(form): Json<SupplierPaymentForm>,
+) -> impl IntoResponse {
+    if form.amount <= 0.0 {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Payment amount must be positive." })));
+    }
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let last_balance: f64 = db.query_row(
+        "SELECT COALESCE(balance, 0) FROM supplier_ledger WHERE supplier_id = ?1 ORDER BY id DESC LIMIT 1",
+        [supplier_id],
+        |row| row.get(0),
+    ).unwrap_or(0.0);
+    let new_balance = last_balance - form.amount;
+    let ref_no = format!("SPAY-{}-{}", chrono::Utc::now().format("%Y%m%d%H%M%S"), supplier_id);
+    let result = db.execute(
+        "INSERT INTO supplier_ledger (supplier_id, transaction_date, type, reference_no, debit, credit, balance)
+         VALUES (?1, ?2, 'PAYMENT', ?3, 0, ?4, ?5)",
+        rusqlite::params![supplier_id, form.payment_date, ref_no, form.amount, new_balance],
+    );
+    match result {
+        Ok(_) => {
+            let id = db.last_insert_rowid();
+            (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": id, "reference_no": ref_no } })))
+        }
+        Err(e) => {
+            tracing::error!("Failed to create supplier payment: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to record payment." })))
         }
     }
 }

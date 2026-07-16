@@ -1670,5 +1670,108 @@ fn seed_data(conn: &Connection) -> Result<()> {
         )?;
     }
 
+    // ── Seed Journal Entries ──
+    // Chart of Accounts IDs (auto-incremented): 1=Cash, 2=AR, 3=Inventory, 4=Prepaid, 5=Fixed,
+    // 6=AP, 7=Tax Payable, 8=Accrued, 9=Equity, 10=Retained, 11=Revenue, 12=Service Rev,
+    // 13=COGS, 14=Salary Exp, 15=Rent Exp, 16=Utilities Exp, 17=Office Supplies Exp
+    let je_count: i64 = conn.query_row("SELECT COUNT(*) FROM journal_entries", [], |row| row.get(0))?;
+    if je_count == 0 {
+        tracing::info!("Seeding journal entries…");
+
+        // Invoice 1: INV-2026-0001 — debit AR, credit Revenue for 4498.50
+        conn.execute(
+            "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('invoice', 1, '2026-06-01')",
+            [],
+        )?;
+        let je1_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
+             VALUES (?1, 2, 4498.50, 0, 'Invoice INV-2026-0001 - AR', '2026-06-01'),
+                    (?1, 11, 0, 4498.50, 'Invoice INV-2026-0001 - Revenue', '2026-06-01')",
+            [je1_id],
+        )?;
+
+        // Invoice 2: INV-2026-0002 — debit AR, credit Revenue for 569.50
+        conn.execute(
+            "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('invoice', 2, '2026-06-15')",
+            [],
+        )?;
+        let je2_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
+             VALUES (?1, 2, 569.50, 0, 'Invoice INV-2026-0002 - AR', '2026-06-15'),
+                    (?1, 11, 0, 569.50, 'Invoice INV-2026-0002 - Revenue', '2026-06-15')",
+            [je2_id],
+        )?;
+
+        // Payment 1: PAY-2026-0001 — debit Cash, credit AR for 569.50
+        conn.execute(
+            "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('payment', 1, '2026-06-16')",
+            [],
+        )?;
+        let je3_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
+             VALUES (?1, 1, 569.50, 0, 'Payment PAY-2026-0001 - Cash', '2026-06-16'),
+                    (?1, 2, 0, 569.50, 'Payment PAY-2026-0001 - AR', '2026-06-16')",
+            [je3_id],
+        )?;
+
+        // Purchase Order 1: PO-2026-0001 — debit Inventory, credit AP for 7200.00
+        conn.execute(
+            "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('purchase_order', 1, '2026-06-15')",
+            [],
+        )?;
+        let je4_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
+             VALUES (?1, 3, 7200.00, 0, 'PO-2026-0001 - Inventory', '2026-06-15'),
+                    (?1, 6, 0, 7200.00, 'PO-2026-0001 - Accounts Payable', '2026-06-15')",
+            [je4_id],
+        )?;
+
+        // Purchase Order 2: PO-2026-0002 — debit Inventory, credit AP for 3420.00
+        conn.execute(
+            "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('purchase_order', 2, '2026-06-20')",
+            [],
+        )?;
+        let je5_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
+             VALUES (?1, 3, 3420.00, 0, 'PO-2026-0002 - Inventory', '2026-06-20'),
+                    (?1, 6, 0, 3420.00, 'PO-2026-0002 - Accounts Payable', '2026-06-20')",
+            [je5_id],
+        )?;
+
+        // Seed customer ledger entries
+        conn.execute(
+            "INSERT INTO customer_ledger (customer_id, transaction_date, type, reference_no, debit, credit, balance)
+             VALUES (1, '2026-06-01', 'INVOICE', 'INV-2026-0001', 4498.50, 0, 4498.50)",
+            [],
+        )?;
+        conn.execute(
+            "INSERT INTO customer_ledger (customer_id, transaction_date, type, reference_no, debit, credit, balance)
+             VALUES (2, '2026-06-15', 'INVOICE', 'INV-2026-0002', 569.50, 0, 569.50)",
+            [],
+        )?;
+        conn.execute(
+            "INSERT INTO customer_ledger (customer_id, transaction_date, type, reference_no, debit, credit, balance)
+             VALUES (2, '2026-06-16', 'PAYMENT', 'PAY-2026-0001', 0, 569.50, 0)",
+            [],
+        )?;
+
+        // Seed supplier ledger entries
+        conn.execute(
+            "INSERT INTO supplier_ledger (supplier_id, transaction_date, type, reference_no, debit, credit, balance)
+             VALUES (1, '2026-06-15', 'PURCHASE', 'PO-2026-0001', 7200.00, 0, 7200.00)",
+            [],
+        )?;
+        conn.execute(
+            "INSERT INTO supplier_ledger (supplier_id, transaction_date, type, reference_no, debit, credit, balance)
+             VALUES (2, '2026-06-20', 'PURCHASE', 'PO-2026-0002', 3420.00, 0, 3420.00)",
+            [],
+        )?;
+    }
+
     Ok(())
 }

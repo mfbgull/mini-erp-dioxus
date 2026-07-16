@@ -157,8 +157,8 @@ pub fn AccountingDashboardPage() -> Element {
                         div { class: "dashboard-section-body",
                             div { class: "dashboard-actions",
                                 button { class: "toolbar-btn toolbar-btn-primary", onclick: move |_| { navigator.push("/accounting/chart-of-accounts"); }, "📋 Chart of Accounts" }
-                                button { class: "toolbar-btn", onclick: move |_| { navigator.push("/accounting/journal/new"); }, "📝 Journal Entry" }
-                                button { class: "toolbar-btn", onclick: move |_| { navigator.push("/accounting/trial-balance"); }, "📊 Trial Balance" }
+                                button { class: "toolbar-btn", onclick: move |_| { navigator.push("/accounting/journal-entries/new"); }, "📝 Journal Entry" }
+                                button { class: "toolbar-btn", onclick: move |_| { navigator.push("/reports/financial"); }, "📊 Trial Balance" }
                             }
                         }
                     }

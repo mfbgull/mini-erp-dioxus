@@ -1,278 +1,60 @@
-//! Physical Count Detail Page — A detail view for a physical inventory count,
-//! showing count information, status, and counted items.
+//! Physical Count Detail Page — Detail view with per-item counting workflow.
 
 use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
 use crate::auth::use_auth;
-use crate::pages::physical_count_list::PhysicalCountItem;
 use dioxus::prelude::*;
 
-// ============================================================================
-// Constants & CSS
-// ============================================================================
-
 const PAGE_CSS: &str = r##"
-.pc-detail-page {
-    max-width: 960px;
-    margin: 0 auto;
-}
-
-.pc-detail-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.pc-detail-title-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.pc-detail-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 13px;
-    color: var(--accent, #4a90d9);
-    text-decoration: none;
-    margin-bottom: 6px;
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 0;
-}
-
-.pc-detail-back:hover { text-decoration: underline; }
-
-.pc-detail-title-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-.pc-detail-title-row h1 {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
-}
-
-.pc-detail-code {
-    font-family: monospace;
-    font-size: 13px;
-    color: var(--text-secondary);
-    background: var(--bg-muted, #f5f5f5);
-    padding: 2px 8px;
-    border-radius: 4px;
-}
-
-.pc-detail-status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1;
-}
-
-.pc-detail-status-draft {
-    background: rgba(255, 193, 7, 0.15);
-    color: #d4a017;
-}
-
-.pc-detail-status-completed {
-    background: rgba(40, 167, 69, 0.1);
-    color: #28a745;
-}
-
-.pc-detail-status-cancelled {
-    background: rgba(220, 53, 69, 0.1);
-    color: #dc3545;
-}
-
-.pc-detail-kpis {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
-    margin-bottom: 20px;
-}
-
-.pc-detail-section {
-    background: #fff;
-    border: 1px solid var(--border-color, #e0e0e0);
-    border-radius: var(--radius, 8px);
-    padding: 20px;
-    margin-bottom: 16px;
-}
-
-.pc-detail-section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-color, #e0e0e0);
-}
-
-.pc-detail-section-header h2 {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
-}
-
-.pc-detail-section-header .section-badge {
-    font-size: 11px;
-    color: var(--text-secondary);
-    background: var(--bg-muted, #f5f5f5);
-    padding: 2px 8px;
-    border-radius: 10px;
-}
-
-.pc-detail-info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 14px;
-}
-
-.pc-detail-field {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-
-.pc-detail-field-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
-
-.pc-detail-field-value {
-    font-size: 14px;
-    color: var(--text-primary);
-}
-
-.pc-detail-field-value.monospace {
-    font-family: monospace;
-    font-size: 13px;
-}
-
-.pc-detail-field-value.text-success { color: #28a745; }
-.pc-detail-field-value.text-danger { color: #dc3545; }
-
-.pc-detail-counted-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-
-.pc-detail-counted-table thead th {
-    text-align: left;
-    padding: 8px 10px;
-    font-weight: 600;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--text-secondary);
-    border-bottom: 2px solid var(--border-color, #e0e0e0);
-    white-space: nowrap;
-}
-
-.pc-detail-counted-table thead th.text-right {
-    text-align: right;
-}
-
-.pc-detail-counted-table tbody td {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border-color, #e0e0e0);
-    color: var(--text-primary);
-}
-
-.pc-detail-counted-table tbody td.text-right {
-    text-align: right;
-    font-family: monospace;
-    font-size: 12px;
-}
-
-.pc-detail-counted-table tbody td.text-danger { color: #dc3545; }
-.pc-detail-counted-table tbody td.text-success { color: #28a745; }
-
-.pc-detail-counted-table tbody tr:last-child td { border-bottom: none; }
-.pc-detail-counted-table tbody tr:hover { background: rgba(74, 144, 217, 0.03); }
-
-.pc-detail-empty {
-    text-align: center;
-    padding: 30px 20px;
-    color: var(--text-secondary);
-    font-size: 14px;
-}
-
-.pc-detail-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 40vh;
-    gap: 16px;
-    color: var(--text-secondary);
-}
-
-.pc-detail-loading .loading-spinner {
-    width: 36px;
-    height: 36px;
-    border: 3px solid var(--border-color, #e0e0e0);
-    border-top-color: var(--accent, #4a90d9);
-    border-radius: 50%;
-    animation: pc-detail-spin 0.8s linear infinite;
-}
-
-@keyframes pc-detail-spin {
-    to { transform: rotate(360deg); }
-}
-
-.pc-detail-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border-color, #e0e0e0);
-    flex-wrap: wrap;
-}
-
-.pc-detail-actions-left,
-.pc-detail-actions-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.pc-draft-actions {
-    display: flex;
-    gap: 8px;
-}
-
-@media (max-width: 768px) {
-    .pc-detail-header { flex-direction: column; }
-    .pc-detail-title-row { flex-direction: column; align-items: flex-start; }
-    .pc-detail-kpis { grid-template-columns: 1fr 1fr; }
-    .pc-detail-info-grid { grid-template-columns: 1fr; }
-    .pc-detail-actions { flex-direction: column; align-items: stretch; }
-    .pc-detail-actions-left,
-    .pc-detail-actions-right,
-    .pc-draft-actions { justify-content: center; }
-}
+.pc-page { max-width: 1100px; margin: 0 auto; padding: 20px; }
+.pc-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; gap: 16px; flex-wrap: wrap; }
+.pc-title-group { display: flex; flex-direction: column; gap: 4px; }
+.pc-back { font-size: 13px; color: var(--accent, #4a90d9); cursor: pointer; background: none; border: none; padding: 0; }
+.pc-back:hover { text-decoration: underline; }
+.pc-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pc-title-row h1 { font-size: 22px; font-weight: 700; color: var(--text-primary); margin: 0; }
+.pc-code { font-family: monospace; font-size: 13px; color: var(--text-secondary); background: var(--bg-muted, #f5f5f5); padding: 2px 8px; border-radius: 4px; }
+.pc-status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.pc-status-draft { background: rgba(255, 193, 7, 0.15); color: #d4a017; }
+.pc-status-completed { background: rgba(40, 167, 69, 0.1); color: #28a745; }
+.pc-status-cancelled { background: rgba(220, 53, 69, 0.1); color: #dc3545; }
+.pc-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.pc-section { background: #fff; border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+.pc-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+.pc-section-header h2 { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0; }
+.pc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pc-table thead th { text-align: left; padding: 10px 12px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary); background: var(--bg-muted, #f8f9fa); border-bottom: 2px solid var(--border-color); }
+.pc-table thead th.text-right { text-align: right; }
+.pc-table tbody td { padding: 8px 12px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
+.pc-table tbody td.text-right { text-align: right; font-family: monospace; font-size: 12px; }
+.pc-table tbody tr:last-child td { border-bottom: none; }
+.pc-table tbody tr:hover { background: rgba(74, 144, 217, 0.03); }
+.pc-counted-bold { font-weight: 600; }
+.pc-counted-pending { color: var(--text-secondary); font-style: italic; }
+.pc-variance-pos { color: #dc3545; font-weight: 600; }
+.pc-variance-neg { color: #28a745; font-weight: 600; }
+.pc-variance-zero { color: var(--text-secondary); }
+.pc-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; }
+.pc-actions-left, .pc-actions-right { display: flex; align-items: center; gap: 8px; }
+.pc-empty { text-align: center; padding: 30px 20px; color: var(--text-secondary); font-size: 14px; }
+.pc-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 40vh; gap: 16px; color: var(--text-secondary); }
+.pc-loading .spinner { width: 36px; height: 36px; border: 3px solid var(--border-color); border-top-color: var(--accent); border-radius: 50%; animation: pc-spin 0.8s linear infinite; }
+@keyframes pc-spin { to { transform: rotate(360deg); } }
+/* Edit modal */
+.pc-edit-modal { display: flex; flex-direction: column; gap: 16px; }
+.pc-edit-field { display: flex; flex-direction: column; gap: 4px; }
+.pc-edit-field label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.pc-edit-field input, .pc-edit-field textarea { padding: 8px 10px; border: 1px solid var(--border-color, #e0e0e0); border-radius: 6px; font-size: 13px; background: #fff; color: var(--text-primary); }
+.pc-edit-field input[type="number"] { font-family: monospace; font-size: 16px; text-align: right; }
+.pc-edit-preview { padding: 12px; background: var(--bg-muted, #f8f9fa); border-radius: 6px; font-size: 13px; }
+.pc-edit-preview-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.pc-edit-preview-label { color: var(--text-secondary); }
+.pc-edit-preview-value { font-weight: 600; font-family: monospace; }
+.pc-info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.pc-field { display: flex; flex-direction: column; gap: 3px; }
+.pc-field-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; }
+.pc-field-value { font-size: 14px; color: var(--text-primary); }
 "##;
 
 // ============================================================================
@@ -281,45 +63,70 @@ const PAGE_CSS: &str = r##"
 
 #[derive(Clone, Debug)]
 struct CountedItem {
+    id: i64,
+    item_id: i64,
     item_code: String,
     item_name: String,
-    expected_qty: f64,
-    counted_qty: f64,
-    variance: f64,
-    unit: String,
+    system_quantity: f64,
+    counted_quantity: Option<f64>,
+    variance: Option<f64>,
+    unit_cost: f64,
+    variance_value: Option<f64>,
 }
 
-// ponytail: no GET endpoint for count items yet, stays empty until endpoint is added
-fn empty_items() -> Vec<CountedItem> {
-    vec![]
+#[derive(Clone, Debug)]
+struct CountDetail {
+    id: i64,
+    count_no: String,
+    count_date: String,
+    warehouse_id: i64,
+    warehouse_name: String,
+    status: String,
+    notes: String,
+    created_at: String,
+    completed_at: Option<String>,
 }
 
-fn variance_class(v: f64) -> &'static str {
-    if v > 0.0 { "text-success" }
-    else if v < 0.0 { "text-danger" }
-    else { "" }
-}
-
-fn variance_sign(v: f64) -> String {
-    if v > 0.0 { format!("+{}", v) }
-    else { format!("{}", v) }
-}
+// ============================================================================
+// Helpers
+// ============================================================================
 
 fn status_class(status: &str) -> &'static str {
     match status {
-        "Draft" => "pc-detail-status-draft",
-        "Completed" => "pc-detail-status-completed",
-        "Cancelled" => "pc-detail-status-cancelled",
-        _ => "pc-detail-status-draft",
+        "Draft" => "pc-status-draft",
+        "Completed" => "pc-status-completed",
+        "Cancelled" => "pc-status-cancelled",
+        _ => "pc-status-draft",
     }
 }
 
-fn status_icon(status: &str) -> &'static str {
-    match status {
-        "Draft" => "📝",
-        "Completed" => "✓",
-        "Cancelled" => "✗",
-        _ => "—",
+fn format_qty(q: Option<f64>) -> String {
+    match q {
+        Some(v) => format!("{:.2}", v),
+        None => "-".to_string(),
+    }
+}
+
+fn variance_class(v: Option<f64>) -> &'static str {
+    match v {
+        Some(x) if x > 0.0 => "pc-variance-pos",
+        Some(x) if x < 0.0 => "pc-variance-neg",
+        _ => "pc-variance-zero",
+    }
+}
+
+fn format_variance(v: Option<f64>) -> String {
+    match v {
+        Some(x) if x > 0.0 => format!("+{:.2}", x),
+        Some(x) => format!("{:.2}", x),
+        None => "-".to_string(),
+    }
+}
+
+fn format_currency(v: Option<f64>) -> String {
+    match v {
+        Some(x) => format!("PKR {:.2}", x),
+        None => "-".to_string(),
     }
 }
 
@@ -331,359 +138,427 @@ fn status_icon(status: &str) -> &'static str {
 pub fn PhysicalCountDetailPage(id: String) -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
-
-    // ── Async fetch ──
     let api = use_auth().api;
-    let id_for_display = id.clone();
     let id_clone = id.clone();
-    let count_resource = use_resource(move || {
-        let id_fetch = id_clone.clone();
+    let id_for_complete = id.clone();
+    let id_for_delete = id.clone();
+    let id_for_cancel = id.clone();
+
+    // State
+    let mut show_edit_modal = use_signal(|| false);
+    let mut editing_item = use_signal(|| None::<CountedItem>);
+    let mut edit_value = use_signal(|| String::new());
+    let mut edit_notes = use_signal(|| String::new());
+    let mut show_delete_modal = use_signal(|| false);
+    let mut counter = use_signal(|| 0u32);
+
+    // Fetch count + items
+    let resource = use_resource(move || {
         let api = api.clone();
+        let id = id_clone.clone();
+        let _ = *counter.read();
         async move {
-            let parsed = id_fetch.parse::<i64>().unwrap_or(0);
+            let parsed = id.parse::<i64>().unwrap_or(0);
             if parsed == 0 { return None; }
             let client = api.read().clone();
-            client.get_physical_count(parsed).await.ok().map(|c| PhysicalCountItem {
-                id: c.id,
-                count_no: c.count_no,
-                count_date: c.count_date,
-                warehouse_name: c.warehouse_name.unwrap_or_default(),
-                status: c.status,
-                notes: c.notes,
-                created_at: c.created_at,
-                completed_at: c.completed_at,
-            })
+            match client.get_physical_count_with_items(parsed).await {
+                Ok((count, items_json)) => {
+                    let items: Vec<CountedItem> = items_json.into_iter().map(|item| {
+                        let sq = item["system_quantity"].as_f64().unwrap_or(0.0);
+                        let cq = item["counted_quantity"].as_f64();
+                        let variance = cq.map(|v| v - sq);
+                        let uc = item["unit_cost"].as_f64().unwrap_or(0.0);
+                        let vv = variance.map(|v| v * uc);
+                        CountedItem {
+                            id: item["id"].as_i64().unwrap_or(0),
+                            item_id: item["item_id"].as_i64().unwrap_or(0),
+                            item_code: item["item_code"].as_str().unwrap_or("").to_string(),
+                            item_name: item["item_name"].as_str().unwrap_or("").to_string(),
+                            system_quantity: sq,
+                            counted_quantity: cq,
+                            variance,
+                            unit_cost: uc,
+                            variance_value: vv,
+                        }
+                    }).collect();
+                    Some((CountDetail {
+                        id: count.id,
+                        count_no: count.count_no,
+                        count_date: count.count_date,
+                        warehouse_id: count.warehouse_id,
+                        warehouse_name: count.warehouse_name.unwrap_or_default(),
+                        status: count.status,
+                        notes: count.notes,
+                        created_at: count.created_at,
+                        completed_at: count.completed_at,
+                    }, items))
+                }
+                Err(_) => None,
+            }
         }
     });
 
-    let is_loading = count_resource.read().is_none();
-    let count_opt = count_resource.read().as_ref().cloned().flatten();
+    let snap = resource.read();
+    let is_loading = snap.is_none();
+    let data = snap.as_ref().and_then(|d| d.clone());
+    let is_draft = data.as_ref().map(|(c, _)| c.status == "Draft").unwrap_or(false);
 
-    // ── Delete modal ──
-    let mut show_delete_modal = use_signal(|| false);
-
-    // ── Pre-compute ──
-    let detail = count_opt.as_ref().map(|count| {
-        // ponytail: counted items endpoint not available yet
-        let items = empty_items();
-        let items_counted = items.iter().filter(|i| i.counted_qty > 0.0).count();
-        let total_variance: f64 = items.iter().map(|i| i.variance).sum();
-        let total_expected: f64 = items.iter().map(|i| i.expected_qty).sum();
-        (count.clone(), items, items_counted, total_variance, total_expected)
-    });
-
-    if detail.is_none() {
-        return rsx! { div {} };
-    }
-    let (ref count, ref items, items_counted, total_variance, total_expected) = detail.as_ref().unwrap();
-
-    let is_draft = count.status == "Draft";
-
-    // ── Handlers ──
-
-    let on_back = move |_: Event<MouseData>| {
-        navigator.push("/inventory/physical-counts");
-    };
-
-    let on_edit = {
-        let nav = navigator.clone();
-        let mut toast = toast.clone();
-        let edit_id = id_for_display.clone();
-        move |_| {
-            toast.info("Edit Mode", "Editing coming soon — opening read-only detail.");
-            nav.push(format!("/inventory/physical-counts/{}", edit_id));
+    // Edit handlers
+    let open_edit = {
+        let mut editing_item = editing_item.clone();
+        let mut edit_value = edit_value.clone();
+        let mut edit_notes = edit_notes.clone();
+        let mut show = show_edit_modal.clone();
+        move |item: CountedItem| {
+            edit_value.set(item.counted_quantity.map(|v| format!("{:.2}", v)).unwrap_or_default());
+            edit_notes.set(String::new());
+            editing_item.set(Some(item));
+            show.set(true);
         }
     };
 
-    let on_complete = {
-        let count_id = count.count_no.clone();
+    let save_count = {
+        let api = use_auth().api;
         let mut toast = toast.clone();
+        let mut show = show_edit_modal.clone();
+        let editing = editing_item.clone();
+        let val = edit_value.clone();
+        let notes = edit_notes.clone();
+        let count_id: i64 = id.parse().unwrap_or(0);
+        let mut counter = counter.clone();
         move |_| {
-            toast.success("Count Completed", &format!("{} has been marked as completed.", count_id));
+            let item_opt = editing.read().clone();
+            let item = match item_opt {
+                Some(i) => i,
+                None => return,
+            };
+            let counted_qty: f64 = match val.read().parse() {
+                Ok(v) => v,
+                Err(_) => {
+                    toast.error("Error", "Invalid quantity.");
+                    return;
+                }
+            };
+            let api = api.clone();
+            let mut toast = toast.clone();
+            let item_id = item.id;
+            let n = notes.read().clone();
+            spawn(async move {
+                let client = api.read().clone();
+                match client.update_count_item(count_id, item_id, counted_qty).await {
+                    Ok(_) => {
+                        toast.success("Saved", "Count recorded.");
+                        show.set(false);
+                        let current = *counter.read();
+                        counter.set(current + 1);
+                    }
+                    Err(e) => toast.error("Error", &e),
+                }
+            });
         }
     };
 
-    let on_cancel_count = {
-        let count_id = count.count_no.clone();
+    // Complete handler
+    let complete_count = {
+        let api = use_auth().api;
         let mut toast = toast.clone();
+        let mut navigator = navigator.clone();
+        let mut counter = counter.clone();
+        let count_id: i64 = id_for_complete.parse().unwrap_or(0);
         move |_| {
-            toast.info("Count Cancelled", &format!("{} has been cancelled.", count_id));
+            let api = api.clone();
+            let mut toast = toast.clone();
+            let mut nav = navigator.clone();
+            let mut counter = counter.clone();
+            spawn(async move {
+                let client = api.read().clone();
+                match client.complete_physical_count(count_id).await {
+                    Ok(_) => {
+                        toast.success("Completed", "Physical count completed and stock adjustments posted.");
+                        let current = *counter.read();
+                        counter.set(current + 1);
+                    }
+                    Err(e) => toast.error("Error", &e),
+                }
+            });
         }
     };
 
-    let on_print = {
-        let count_id = count.count_no.clone();
+    // Cancel handler
+    let cancel_count = {
+        let api = use_auth().api;
         let mut toast = toast.clone();
+        let mut counter = counter.clone();
+        let count_id: i64 = id_for_cancel.parse().unwrap_or(0);
         move |_| {
-            toast.info("Print", &format!("Printing {}…", count_id));
+            let api = api.clone();
+            let mut toast = toast.clone();
+            let mut counter = counter.clone();
+            spawn(async move {
+                let client = api.read().clone();
+                match client.cancel_physical_count(count_id).await {
+                    Ok(_) => {
+                        toast.success("Cancelled", "Physical count cancelled.");
+                        let current = *counter.read();
+                        counter.set(current + 1);
+                    }
+                    Err(e) => toast.error("Error", &e),
+                }
+            });
         }
     };
 
-    let on_delete = {
-        let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(true); }
-    };
-
+    // Delete handler
     let confirm_delete = {
+        let api = use_auth().api;
         let mut toast = toast.clone();
-        let nav = navigator.clone();
-        let mut modal = show_delete_modal.clone();
-        let cn = count.count_no.clone();
+        let mut nav = navigator.clone();
+        let mut show = show_delete_modal.clone();
+        let count_id: i64 = id_for_delete.parse().unwrap_or(0);
         move |_| {
-            modal.set(false);
-            toast.success("Count Deleted", &format!("{} has been deleted.", cn));
-            nav.push("/inventory/physical-counts");
+            let api = api.clone();
+            let mut toast = toast.clone();
+            let mut nav = nav.clone();
+            let mut show = show.clone();
+            spawn(async move {
+                let client = api.read().clone();
+                match client.delete_physical_count(count_id).await {
+                    Ok(_) => {
+                        toast.success("Deleted", "Physical count deleted.");
+                        show.set(false);
+                        nav.push("/inventory/physical-counts");
+                    }
+                    Err(e) => toast.error("Error", &e),
+                }
+            });
         }
     };
 
-    let cancel_delete = {
-        let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(false); }
-    };
-
-    // ── Render ──
-
+    // Render
     rsx! {
         style { "{PAGE_CSS}" }
-
-        div { class: "page pc-detail-page",
-
-            // Loading
+        div { class: "pc-page",
             if is_loading {
-                div { class: "pc-detail-loading",
-                    div { class: "loading-spinner" }
-                    span { "Loading count details…" }
+                div { class: "pc-loading",
+                    div { class: "spinner" }
+                    span { "Loading count details..." }
                 }
-            }
+            } else if let Some((count, items)) = data {{
+                let total_items = items.len();
+                let counted_items = items.iter().filter(|i| i.counted_quantity.is_some()).count();
+                let variance_items = items.iter().filter(|i| i.variance.map(|v| v != 0.0).unwrap_or(false)).count();
+                let total_variance_value: f64 = items.iter().filter_map(|i| i.variance_value).sum();
+                let total_system: f64 = items.iter().map(|i| i.system_quantity).sum();
 
-            // Not Found
-            else if count_opt.is_none() {
-                div { class: "pc-detail-loading",
-                    div { style: "font-size: 40px;", "🔢" }
-                    h2 { style: "margin: 0; color: var(--text-primary);", "Count Not Found" }
-                    p { "No physical count with ID \"{id_for_display}\" was found." }
-                    Button {
-                        variant: ButtonVariant::Primary,
-                        onclick: move |_| { navigator.push("/inventory/physical-counts"); },
-                        "← Back to Counts"
-                    }
-                }
-            }
-
-            // Detail
-            else if let Some(ref _detail) = detail {
-                // ── Header ──
-                div { class: "pc-detail-header",
-                    div { class: "pc-detail-title-group",
-                        button {
-                            class: "pc-detail-back",
-                            r#type: "button",
-                            onclick: on_back,
-                            "← Back to Physical Counts"
-                        }
-                        div { class: "pc-detail-title-row",
-                            h1 { "Physical Count {count.count_no}" }
-                            span { class: "pc-detail-code", "ID: {count.id}" }
-                            span {
-                                class: "pc-detail-status-badge {status_class(&count.status)}",
-                                "{status_icon(&count.status)} {count.status}"
+                rsx! {
+                    // Header
+                    div { class: "pc-header",
+                        div { class: "pc-title-group",
+                            button { class: "pc-back", r#type: "button", onclick: move |_| { navigator.push("/inventory/physical-counts"); }, "← Back to Physical Counts" }
+                            div { class: "pc-title-row",
+                                h1 { "Physical Count {count.count_no}" }
+                                span { class: "pc-status-badge {status_class(&count.status)}", "{count.status}" }
                             }
                         }
                     }
-                }
 
-                // ── KPI Cards ──
-                div { class: "pc-detail-kpis",
-                    StatCard {
-                        title: "Total Expected".to_string(),
-                        value: format!("{:.0}", total_expected),
-                        variant: StatCardVariant::Primary,
-                        icon: Some("📦".to_string()),
+                    // KPIs
+                    div { class: "pc-kpis",
+                        StatCard {
+                            title: "Total Items".to_string(),
+                            value: format!("{}", total_items),
+                            variant: StatCardVariant::Primary,
+                            icon: Some("📦".to_string()),
+                        }
+                        StatCard {
+                            title: "Counted".to_string(),
+                            value: format!("{} / {}", counted_items, total_items),
+                            variant: if counted_items == total_items { StatCardVariant::Success } else { StatCardVariant::Warning },
+                            icon: Some("✅".to_string()),
+                            footer: Some(if counted_items == total_items { "All items counted".to_string() } else { "Some items pending".to_string() }),
+                        }
+                        StatCard {
+                            title: "Variances".to_string(),
+                            value: format!("{}", variance_items),
+                            variant: if variance_items == 0 { StatCardVariant::Success } else { StatCardVariant::Danger },
+                            icon: Some("📊".to_string()),
+                            footer: Some(format!("Value: {}", format_currency(Some(total_variance_value)))),
+                        }
                     }
-                    StatCard {
-                        title: "Items Counted".to_string(),
-                        value: format!("{} / {}", items_counted, items.len()),
-                        variant: if *items_counted == items.len() { StatCardVariant::Success }
-                                 else { StatCardVariant::Warning },
-                        icon: Some("✅".to_string()),
-                        footer: Some(if *items_counted == items.len() { "All items counted".to_string() }
-                                       else { "Some items pending".to_string() }),
-                    }
-                    StatCard {
-                        title: "Total Variance".to_string(),
-                        value: format!("{:.0}", total_variance),
-                        variant: if *total_variance == 0.0 { StatCardVariant::Success }
-                                 else if (*total_variance).abs() < 10.0 { StatCardVariant::Warning }
-                                 else { StatCardVariant::Danger },
-                        icon: Some("📊".to_string()),
-                        footer: Some(if *total_variance == 0.0 { "No discrepancies".to_string() }
-                                       else if *total_variance > 0.0 { "Surplus items found".to_string() }
-                                       else { "Shortage detected".to_string() }),
-                    }
-                }
 
-                // ── Section: Count Details ──
-                div { class: "pc-detail-section",
-                    div { class: "pc-detail-section-header",
-                        h2 { "Count Details" }
-                        span { class: "section-badge", "General Information" }
-                    }
-                    div { class: "pc-detail-info-grid",
-                        div { class: "pc-detail-field",
-                            span { class: "pc-detail-field-label", "Count No" }
-                            span { class: "pc-detail-field-value monospace", "{count.count_no}" }
-                        }
-                        div { class: "pc-detail-field",
-                            span { class: "pc-detail-field-label", "Count Date" }
-                            span { class: "pc-detail-field-value", "{count.count_date}" }
-                        }
-                        div { class: "pc-detail-field",
-                            span { class: "pc-detail-field-label", "Warehouse" }
-                            span { class: "pc-detail-field-value", "{count.warehouse_name}" }
-                        }
-                        div { class: "pc-detail-field",
-                            span { class: "pc-detail-field-label", "Status" }
-                            span { class: "pc-detail-field-value",
-                                if count.status == "Draft" {
-                                    span { class: "text-warning", "Draft" }
-                                } else if count.status == "Completed" {
-                                    span { class: "text-success", "Completed" }
-                                } else {
-                                    span { class: "text-danger", "Cancelled" }
-                                }
-                            }
-                        }
-                        div { class: "pc-detail-field",
-                            span { class: "pc-detail-field-label", "Created At" }
-                            span { class: "pc-detail-field-value", "{count.created_at}" }
-                        }
-                        div { class: "pc-detail-field",
-                            span { class: "pc-detail-field-label", "Completed At" }
-                            span { class: "pc-detail-field-value",
-                                if let Some(ref ca) = count.completed_at { "{ca}" }
-                                else { "—" }
+                    // Count Details
+                    div { class: "pc-section",
+                        div { class: "pc-section-header", h2 { "Count Information" } }
+                        div { class: "pc-info-grid",
+                            div { class: "pc-field", span { class: "pc-field-label", "Count No" } span { class: "pc-field-value", style: "font-family: monospace;", "{count.count_no}" } }
+                            div { class: "pc-field", span { class: "pc-field-label", "Date" } span { class: "pc-field-value", "{count.count_date}" } }
+                            div { class: "pc-field", span { class: "pc-field-label", "Warehouse" } span { class: "pc-field-value", "{count.warehouse_name}" } }
+                            div { class: "pc-field", span { class: "pc-field-label", "Status" } span { class: "pc-field-value", "{count.status}" } }
+                            div { class: "pc-field", span { class: "pc-field-label", "Created" } span { class: "pc-field-value", "{count.created_at}" } }
+                            if let Some(ref ca) = count.completed_at {
+                                div { class: "pc-field", span { class: "pc-field-label", "Completed" } span { class: "pc-field-value", "{ca}" } }
                             }
                         }
                     }
-                }
 
-                // ── Section: Notes (if any) ──
-                if !count.notes.is_empty() {
-                    div { class: "pc-detail-section",
-                        div { class: "pc-detail-section-header",
-                            h2 { "Notes" }
+                    // Counted Items
+                    div { class: "pc-section",
+                        div { class: "pc-section-header",
+                            h2 { "Counted Items" }
+                            span { style: "font-size: 11px; color: var(--text-secondary); background: var(--bg-muted, #f5f5f5); padding: 2px 8px; border-radius: 10px;", "{total_items} items" }
                         }
-                        p { style: "margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.6;",
-                            "{count.notes}"
-                        }
-                    }
-                }
-
-                // ── Section: Counted Items ──
-                div { class: "pc-detail-section",
-                    div { class: "pc-detail-section-header",
-                        h2 { "Counted Items" }
-                        span { class: "section-badge", "{items.len()} items" }
-                    }
-                    table { class: "pc-detail-counted-table",
-                        thead {
-                            tr {
-                                th { "Item Code" }
-                                th { "Item Name" }
-                                th { class: "text-right", "Expected Qty" }
-                                th { class: "text-right", "Counted Qty" }
-                                th { class: "text-right", "Variance" }
-                                th { "Unit" }
-                            }
-                        }
-                        tbody {
-                            {items.iter().map(|ci| {
-                                let v_cls = variance_class(ci.variance);
-                                let v_sgn = variance_sign(ci.variance);
-                                rsx! {
-                                    tr {
-                                        td { class: "monospace", "{ci.item_code}" }
-                                        td { "{ci.item_name}" }
-                                        td { class: "text-right", "{ci.expected_qty}" }
-                                        td { class: "text-right", "{ci.counted_qty}" }
-                                        td { class: "text-right {v_cls}", "{v_sgn}" }
-                                        td { "{ci.unit}" }
+                        if items.is_empty() {
+                            div { class: "pc-empty", "No items in this count." }
+                        } else {
+                            table { class: "pc-table",
+                                thead { tr {
+                                    th { "Item Code" }
+                                    th { "Item Name" }
+                                    th { class: "text-right", "System Qty" }
+                                    th { class: "text-right", "Counted Qty" }
+                                    th { class: "text-right", "Variance" }
+                                    th { class: "text-right", "Value" }
+                                    if is_draft { th { style: "text-align: center;", "Action" } }
+                                }}
+                                tbody {
+                                    for item in items.iter() {
+                                        {let item_clone = item.clone();
+                                        let is_counted = item.counted_quantity.is_some();
+                                        rsx! {
+                                            tr {
+                                                td { style: "font-family: monospace;", "{item.item_code}" }
+                                                td { "{item.item_name}" }
+                                                td { class: "text-right", "{item.system_quantity:.2}" }
+                                                td { class: if is_counted { "text-right pc-counted-bold" } else { "text-right pc-counted-pending" },
+                                                    {format_qty(item.counted_quantity)}
+                                                }
+                                                td { class: "text-right {variance_class(item.variance)}", "{format_variance(item.variance)}" }
+                                                td { class: "text-right", "{format_currency(item.variance_value)}" }
+                                                if is_draft {
+                                                    td { style: "text-align: center;",
+                                                        Button {
+                                                            variant: ButtonVariant::Secondary,
+                                                            onclick: { let mut open = open_edit.clone(); move |_| { open(item_clone.clone()); } },
+                                                            if is_counted { "Recount" } else { "Count" }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }}
                                     }
                                 }
-                            })}
+                            }
                         }
                     }
-                }
 
-                // ── Action Bar ──
-                div { class: "pc-detail-actions",
-                    div { class: "pc-detail-actions-left",
-                        Button {
-                            variant: ButtonVariant::Primary,
-                            onclick: on_edit,
-                            icon: Some("✏️".to_string()),
-                            "Edit"
+                    // Actions
+                    div { class: "pc-actions",
+                        div { class: "pc-actions-left",
+                            if is_draft {
+                                Button { variant: ButtonVariant::Danger, onclick: { let mut show = show_delete_modal.clone(); move |_| show.set(true) }, "Delete" }
+                            }
                         }
-                        Button {
-                            variant: ButtonVariant::Secondary,
-                            onclick: on_print,
-                            icon: Some("🖨️".to_string()),
-                            "Print"
-                        }
-                    }
-                    div { class: "pc-detail-actions-right",
-                        if is_draft {
-                            div { class: "pc-draft-actions",
+                        div { class: "pc-actions-right",
+                            if is_draft {
+                                Button { variant: ButtonVariant::Warning, onclick: cancel_count, "Cancel Count" }
                                 Button {
                                     variant: ButtonVariant::Success,
-                                    onclick: on_complete,
-                                    icon: Some("✓".to_string()),
-                                    "Complete Count"
-                                }
-                                Button {
-                                    variant: ButtonVariant::Warning,
-                                    onclick: on_cancel_count,
-                                    icon: Some("✗".to_string()),
-                                    "Cancel"
+                                    onclick: complete_count,
+                                    disabled: counted_items == 0,
+                                    "Complete & Post Adjustments"
                                 }
                             }
                         }
-                        Button {
-                            variant: ButtonVariant::Ghost,
-                            onclick: on_delete,
-                            icon: Some("🗑️".to_string()),
-                            "Delete"
+                    }
+
+                    // Edit Modal
+                    Modal {
+                        is_open: show_edit_modal,
+                        title: Some("Record Count".to_string()),
+                        size: ModalSize::Sm,
+                        close_on_backdrop: true,
+                        close_on_escape: true,
+                        footer: rsx! {
+                            Button { variant: ButtonVariant::Secondary, onclick: move |_| show_edit_modal.set(false), "Cancel" }
+                            Button { variant: ButtonVariant::Primary, onclick: save_count, "Save Count" }
+                        },
+                        if let Some(ref item) = *editing_item.read() {{
+                            let sys_qty = item.system_quantity;
+                            let input_val: f64 = edit_value.read().parse().unwrap_or(0.0);
+                            let variance = input_val - sys_qty;
+                            rsx! {
+                                div { class: "pc-edit-modal",
+                                    div { style: "font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;",
+                                        "{item.item_code} — {item.item_name}"
+                                    }
+                                    div { class: "pc-edit-field",
+                                        label { "System Quantity" }
+                                        div { style: "font-size: 20px; font-weight: 700; font-family: monospace; color: var(--text-primary);",
+                                            "{sys_qty:.2}"
+                                        }
+                                    }
+                                    div { class: "pc-edit-field",
+                                        label { "Counted Quantity" }
+                                        input {
+                                            r#type: "number",
+                                            step: "0.01",
+                                            min: "0",
+                                            placeholder: "Enter counted quantity",
+                                            value: "{edit_value}",
+                                            autofocus: "true",
+                                            onchange: move |e| edit_value.set(e.value()),
+                                        }
+                                    }
+                                    div { class: "pc-edit-preview",
+                                        div { class: "pc-edit-preview-row",
+                                            span { class: "pc-edit-preview-label", "Variance:" }
+                                            span { class: "pc-edit-preview-value {variance_class(Some(variance))}", "{format_variance(Some(variance))}" }
+                                        }
+                                        div { class: "pc-edit-preview-row",
+                                            span { class: "pc-edit-preview-label", "Variance Value:" }
+                                            span { class: "pc-edit-preview-value", "{format_currency(Some(variance * item.unit_cost))}" }
+                                        }
+                                    }
+                                    div { class: "pc-edit-field",
+                                        label { "Notes (optional)" }
+                                        input {
+                                            r#type: "text",
+                                            placeholder: "e.g., Damaged, expired",
+                                            value: "{edit_notes}",
+                                            onchange: move |e| edit_notes.set(e.value()),
+                                        }
+                                    }
+                                }
+                            }
+                        }}
+                    }
+
+                    // Delete Modal
+                    Modal {
+                        is_open: show_delete_modal,
+                        title: Some("Delete Physical Count".to_string()),
+                        size: ModalSize::Sm,
+                        close_on_backdrop: true,
+                        close_on_escape: true,
+                        footer: rsx! {
+                            Button { variant: ButtonVariant::Secondary, onclick: move |_| show_delete_modal.set(false), "Cancel" }
+                            Button { variant: ButtonVariant::Danger, onclick: confirm_delete, "Delete Count" }
+                        },
+                        div {
+                            p { style: "margin: 0 0 8px 0; color: var(--text-primary); font-size: 14px; font-weight: 500;",
+                                "Are you sure you want to delete {count.count_no}?"
+                            }
+                            p { style: "margin: 0; color: var(--text-secondary); font-size: 13px;",
+                                "This action cannot be undone."
+                            }
                         }
                     }
                 }
-
-                // ── Delete Confirmation Modal ──
-                Modal {
-                    is_open: show_delete_modal,
-                    title: Some("Delete Physical Count".to_string()),
-                    size: ModalSize::Sm,
-                    close_on_backdrop: true,
-                    close_on_escape: true,
-                    footer: rsx! {
-                        Button {
-                            variant: ButtonVariant::Secondary,
-                            onclick: cancel_delete,
-                            "Cancel"
-                        }
-                        Button {
-                            variant: ButtonVariant::Danger,
-                            onclick: confirm_delete,
-                            "Delete Count"
-                        }
-                    },
-                    div {
-                        p { style: "margin: 0 0 8px 0; color: var(--text-primary); font-size: 14px; font-weight: 500;",
-                            "Are you sure you want to delete {count.count_no}?"
-                        }
-                        p { style: "margin: 0; color: var(--text-secondary); font-size: 13px;",
-                            "This action cannot be undone. The count record will be permanently removed."
-                        }
-                    }
+            }} else {
+                div { class: "pc-loading",
+                    h2 { style: "margin: 0; color: var(--text-primary);", "Count Not Found" }
+                    p { "No physical count with ID \"{id}\" was found." }
+                    Button { variant: ButtonVariant::Primary, onclick: move |_| { navigator.push("/inventory/physical-counts"); }, "← Back to Counts" }
                 }
             }
         }

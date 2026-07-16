@@ -318,6 +318,8 @@ pub struct PhysicalCountItem {
     pub system_quantity: f64,
     pub counted_quantity: Option<f64>,
     pub variance: Option<f64>,
+    #[serde(default)]
+    pub unit_cost: Option<f64>,
 }
 
 /// Physical count create payload.
@@ -671,6 +673,15 @@ pub struct SupplierLedgerEntry {
     pub debit: f64,
     pub credit: f64,
     pub balance: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SupplierPaymentForm {
+    pub payment_date: String,
+    pub amount: f64,
+    pub payment_method: Option<String>,
+    pub reference: Option<String>,
+    pub notes: Option<String>,
 }
 
 // ============================================================================
@@ -1068,6 +1079,22 @@ pub struct JournalLine {
     pub reference_type: Option<String>,
     pub reference_id: Option<i64>,
     pub voided: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JournalEntryForm {
+    pub entry_date: String,
+    pub reference_type: Option<String>,
+    pub reference_id: Option<i64>,
+    pub lines: Vec<JournalLineForm>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JournalLineForm {
+    pub account_id: i64,
+    pub debit: f64,
+    pub credit: f64,
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

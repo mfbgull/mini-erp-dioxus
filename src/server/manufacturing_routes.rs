@@ -272,6 +272,23 @@ async fn create_production(State(_state): State<AppState>, Json(form): Json<Prod
     match result {
         Ok(_) => {
             let prod_id = db.last_insert_rowid();
+
+            // Get output item unit cost
+            let output_cost: f64 = db.query_row(
+                "SELECT COALESCE(standard_cost, 0) FROM items WHERE id = ?1",
+                [form.output_item_id],
+                |row| row.get(0),
+            ).unwrap_or(0.0);
+
+            // Create stock movement for output (IN)
+            let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+            let mno_out = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
+            db.execute(
+                "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+                 VALUES (?1, ?2, ?3, 'IN', ?4, ?5, 'PRODUCTION', ?6, ?7)",
+                rusqlite::params![mno_out, form.output_item_id, form.warehouse_id, form.output_quantity, output_cost, pno, format!("Production Output {}", pno)],
+            ).ok();
+
             // Add output to stock
             let exists: bool = db.query_row("SELECT COUNT(*) > 0 FROM stock_balances WHERE item_id = ?1 AND warehouse_id = ?2",
                 rusqlite::params![form.output_item_id, form.warehouse_id], |row| row.get(0)).unwrap_or(false);
@@ -284,12 +301,30 @@ async fn create_production(State(_state): State<AppState>, Json(form): Json<Prod
             }
             db.execute("UPDATE items SET current_stock = current_stock + ?1, updated_at = datetime('now') WHERE id = ?2",
                 rusqlite::params![form.output_quantity, form.output_item_id]).ok();
-            // Record inputs
+
+            // Record inputs and create stock movements
             for input in &form.inputs {
                 db.execute(
                     "INSERT INTO production_inputs (production_id, item_id, quantity, warehouse_id) VALUES (?1, ?2, ?3, ?4)",
                     rusqlite::params![prod_id, input.item_id, input.quantity, input.warehouse_id],
                 ).ok();
+
+                // Get input item unit cost
+                let input_cost: f64 = db.query_row(
+                    "SELECT COALESCE(standard_cost, 0) FROM items WHERE id = ?1",
+                    [input.item_id],
+                    |row| row.get(0),
+                ).unwrap_or(0.0);
+
+                // Create stock movement for input (OUT)
+                let mseq_in: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+                let mno_in = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq_in);
+                db.execute(
+                    "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+                     VALUES (?1, ?2, ?3, 'OUT', ?4, ?5, 'PRODUCTION', ?6, ?7)",
+                    rusqlite::params![mno_in, input.item_id, input.warehouse_id, input.quantity, input_cost, pno, format!("Production Input {}", pno)],
+                ).ok();
+
                 // Deduct input stock
                 db.execute("UPDATE stock_balances SET quantity = quantity - ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
                     rusqlite::params![input.quantity, input.item_id, input.warehouse_id]).ok();

@@ -80,7 +80,7 @@ pub mod purchase_order_list;
 pub mod purchase_order_print;
 pub mod purchase_return_list;
 pub mod purchases_dashboard;
-pub mod stock_ledger;
+
 pub mod stock_movement_create;
 pub mod stock_movement_list;
 pub mod invoice_detail;
@@ -125,6 +125,7 @@ pub mod ar_aging;
 pub mod customer_statements;
 pub mod sales_report;
 pub mod inventory_report;
+pub mod fifo_report;
 pub mod financial_report;
 pub mod custom_report_builder;
 pub mod tax_summary;
@@ -136,3 +137,10 @@ pub mod trend_analysis;
 pub mod forecast_accuracy;
 pub mod forecast_model_config;
 pub mod seasonal_events;
+
+// Journal Entries
+pub mod journal_entry_list;
+pub mod journal_entry_create;
+
+// Dashboard Layouts
+pub mod dashboard_layouts;

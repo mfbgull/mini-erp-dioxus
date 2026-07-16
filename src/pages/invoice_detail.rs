@@ -84,6 +84,15 @@ struct InvoiceLineItem {
     discount: f64,
     tax_rate: f64,
     net_amount: f64,
+    item_id: Option<i64>,
+}
+
+#[derive(Clone, Debug)]
+struct ReturnItemInput {
+    item_id: i64,
+    item_name: String,
+    max_quantity: f64,
+    return_quantity: String,
 }
 
 #[derive(Clone, Debug)]
@@ -164,6 +173,7 @@ pub fn InvoiceDetailPage(id: String) -> Element {
                     discount: ii.discount_value.unwrap_or(0.0),
                     tax_rate: ii.tax_rate,
                     net_amount: ii.amount,
+                    item_id: Some(ii.item_id),
                 }).collect(),
             })
         }
@@ -173,8 +183,11 @@ pub fn InvoiceDetailPage(id: String) -> Element {
     let inv_opt = invoice_resource.read().as_ref().cloned().flatten();
     let mut show_delete_modal = use_signal(|| false);
     let mut show_payment_modal = use_signal(|| false);
+    let mut show_return_modal = use_signal(|| false);
+    let mut return_items = use_signal(|| Vec::<ReturnItemInput>::new());
     let mut payment_info = use_signal(|| PaymentInfo::default());
     let is_saving = use_signal(|| false);
+    let counter = use_signal(|| 0u32);
 
     if is_loading {
         return rsx! {
@@ -401,6 +414,19 @@ pub fn InvoiceDetailPage(id: String) -> Element {
                             Button { variant: ButtonVariant::Primary, onclick: on_edit, icon: Some("✏️".to_string()), "Edit" }
                             Button { variant: ButtonVariant::Secondary, onclick: on_print, icon: Some("🖨".to_string()), "Print" }
                             Button { variant: ButtonVariant::Secondary, onclick: on_payment, icon: Some("💰".to_string()), "Record Payment" }
+                            if inv.status != "Cancelled" {
+                                Button { variant: ButtonVariant::Warning, onclick: { let mut show = show_return_modal.clone(); let inv_clone = inv.clone(); let items_clone = inv.items.clone(); move |_| {
+                                    // Initialize return items
+                                    let returnInputs: Vec<ReturnItemInput> = items_clone.iter().map(|item| ReturnItemInput {
+                                        item_id: item.item_id.unwrap_or(0),
+                                        item_name: item.item_name.clone(),
+                                        max_quantity: item.quantity,
+                                        return_quantity: String::new(),
+                                    }).collect();
+                                    return_items.set(returnInputs);
+                                    show.set(true);
+                                }}, icon: Some("↩".to_string()), "Return" }
+                            }
                         }
                         div { class: "invoice-actions-right",
                             Button { variant: ButtonVariant::Ghost, onclick: on_delete, icon: Some("🗑️".to_string()), "Delete" }
@@ -439,6 +465,79 @@ pub fn InvoiceDetailPage(id: String) -> Element {
                             total: inv.balance_amount,
                             payment: payment_info.read().clone(),
                             on_change: move |p| { payment_info.set(p); },
+                        }
+                    }
+
+                    // ── Return Modal ──
+                    Modal {
+                        is_open: show_return_modal,
+                        title: Some(format!("Return Items — {}", inv.invoice_no)),
+                        size: ModalSize::Md,
+                        close_on_backdrop: true,
+                        close_on_escape: true,
+                        footer: rsx! {
+                            Button { variant: ButtonVariant::Secondary, onclick: move |_| show_return_modal.set(false), "Cancel" }
+                            Button {
+                                variant: ButtonVariant::Warning,
+                                onclick: { let api = use_auth().api; let mut toast = toast.clone(); let mut show = show_return_modal.clone(); let items = return_items.clone(); let invoice_id = inv.id.clone(); let mut counter = counter.clone(); move |_| {
+                                    let returnData: Vec<serde_json::Value> = items.read().iter().filter_map(|item| {
+                                        let qty: f64 = item.return_quantity.parse().ok().unwrap_or(0.0);
+                                        if qty > 0.0 && qty <= item.max_quantity {
+                                            Some(serde_json::json!({ "item_id": item.item_id, "quantity": qty }))
+                                        } else {
+                                            None
+                                        }
+                                    }).collect();
+                                    if returnData.is_empty() {
+                                        toast.error("Error", "No items selected for return.");
+                                        return;
+                                    }
+                                    let api = api.clone();
+                                    let mut toast = toast.clone();
+                                    let mut show = show.clone();
+                                    let mut counter = counter.clone();
+                                    let body = serde_json::json!({ "items": returnData });
+                                    spawn(async move {
+                                        let client = api.read().clone();
+                                        match client.return_invoice(invoice_id, &body).await {
+                                            Ok(_) => {
+                                                toast.success("Return Recorded", "Items have been returned and stock updated.");
+                                                show.set(false);
+                                                let current = *counter.read();
+                                                counter.set(current + 1);
+                                            }
+                                            Err(e) => toast.error("Error", &e),
+                                        }
+                                    });
+                                }},
+                                "Process Return"
+                            }
+                        },
+                        div { style: "display: flex; flex-direction: column; gap: 12px;",
+                            p { style: "margin: 0; font-size: 13px; color: var(--text-secondary);", "Enter the quantity to return for each item. Leave blank or 0 to skip." }
+                            for (idx, item) in return_items.read().iter().enumerate() {{
+                                let idx = idx;
+                                rsx! {
+                                    div { style: "display: flex; align-items: center; gap: 12px; padding: 8px; background: var(--bg-muted, #f8f9fa); border-radius: 6px;",
+                                        div { style: "flex: 1;",
+                                            div { style: "font-weight: 500; font-size: 13px;", "{item.item_name}" }
+                                            div { style: "font-size: 11px; color: var(--text-secondary);", "Max: {item.max_quantity:.0}" }
+                                        }
+                                        input {
+                                            r#type: "number",
+                                            step: "1",
+                                            min: "0",
+                                            max: "{item.max_quantity}",
+                                            placeholder: "0",
+                                            value: "{item.return_quantity}",
+                                            style: "width: 80px; padding: 6px; border: 1px solid var(--border-color, #e0e0e0); border-radius: 4px; text-align: right; font-family: monospace;",
+                                            onchange: { let mut items = return_items.clone(); move |e| {
+                                                items.write()[idx].return_quantity = e.value();
+                                            }}
+                                        }
+                                    }
+                                }
+                            }}
                         }
                     }
 

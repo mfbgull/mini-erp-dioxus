@@ -83,6 +83,17 @@ struct PaymentItem {
     method: String,
 }
 
+#[derive(Clone, Debug)]
+struct LedgerEntry {
+    id: i64,
+    date: String,
+    reference: String,
+    transaction_type: String,
+    debit: f64,
+    credit: f64,
+    balance: f64,
+}
+
 
 
 fn status_class(status: &str) -> &'static str {
@@ -107,6 +118,7 @@ pub fn SupplierDetailPage(id: String) -> Element {
     let mut toast = use_toast();
     let navigator = use_navigator();
     let id_display = id.clone();
+    let id_clone = id.clone();
 
     let api = use_auth().api;
     let supplier_resource = use_resource(move || {
@@ -155,7 +167,34 @@ pub fn SupplierDetailPage(id: String) -> Element {
     // ponytail: no dedicated PO/payment endpoints for a supplier yet
     let (orders, payments): (Vec<PoItem>, Vec<PaymentItem>) = (Vec::new(), Vec::new());
 
-    let tabs = ["Overview", "Purchase Orders", "Payments"];
+    // Fetch supplier ledger
+    let ledger_resource = use_resource(move || {
+        let id = id_clone.clone();
+        let api = api.clone();
+        async move {
+            let parsed = id.parse::<i64>().unwrap_or(0);
+            if parsed == 0 {
+                return Vec::new();
+            }
+            let client = api.read().clone();
+            match client.get_supplier_ledger(parsed).await {
+                Ok(entries) => entries.into_iter().map(|e| LedgerEntry {
+                    id: e.id,
+                    date: e.transaction_date,
+                    reference: e.reference_no,
+                    transaction_type: e.transaction_type,
+                    debit: e.debit,
+                    credit: e.credit,
+                    balance: e.balance,
+                }).collect(),
+                Err(_) => Vec::new(),
+            }
+        }
+    });
+    let ledger_entries = ledger_resource.read();
+    let ledger_data = ledger_entries.as_ref().map(|e| e.clone()).unwrap_or_default();
+
+    let tabs = ["Overview", "Purchase Orders", "Payments", "Ledger"];
 
     rsx! {
         style { "{PAGE_CSS}" }
@@ -218,6 +257,7 @@ pub fn SupplierDetailPage(id: String) -> Element {
                             let count = match i {
                                 1 => Some(orders.len()),
                                 2 => Some(payments.len()),
+                                3 => Some(ledger_data.len()),
                                 _ => None,
                             };
                             let tab_class = if is_active { "supplier-tab supplier-tab-active" } else { "supplier-tab" };
@@ -297,6 +337,65 @@ pub fn SupplierDetailPage(id: String) -> Element {
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    if *active_tab.read() == 3 {
+                        div { class: "supplier-section",
+                            div { class: "supplier-section-header", h2 { "Supplier Ledger" } }
+                            if ledger_data.is_empty() {
+                                div { class: "customer-table-empty", "No ledger entries found." }
+                            } else {{
+                                let total_debit: f64 = ledger_data.iter().map(|e| e.debit).sum();
+                                let total_credit: f64 = ledger_data.iter().map(|e| e.credit).sum();
+                                let final_balance = ledger_data.last().map(|e| e.balance).unwrap_or(0.0);
+                                rsx! {
+                                    table { class: "customer-table",
+                                        thead { tr {
+                                            th { "Date" }
+                                            th { "Reference" }
+                                            th { "Type" }
+                                            th { class: "text-right", "Debit" }
+                                            th { class: "text-right", "Credit" }
+                                            th { class: "text-right", "Balance" }
+                                        }}
+                                        tbody {
+                                            for entry in ledger_data.iter() {
+                                                tr {
+                                                    td { "{entry.date}" }
+                                                    td { style: "font-family: monospace; font-size: 12px;", "{entry.reference}" }
+                                                    td {
+                                                        span { class: "customer-table-badge customer-table-badge-blue", "{entry.transaction_type}" }
+                                                    }
+                                                    td { class: "text-right",
+                                                        if entry.debit > 0.0 { "PKR {entry.debit:.2}" }
+                                                    }
+                                                    td { class: "text-right",
+                                                        if entry.credit > 0.0 { "PKR {entry.credit:.2}" }
+                                                    }
+                                                    td { class: if entry.balance > 0.0 { "text-right text-danger" } else { "text-right text-success" },
+                                                        "PKR {entry.balance:.2}"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    div { style: "display: flex; gap: 24px; padding: 12px 16px; background: var(--bg-muted, #f8f9fa); border-top: 2px solid var(--border-color, #e0e0e0); font-size: 13px;",
+                                        div { style: "display: flex; gap: 6px;",
+                                            span { style: "color: var(--text-secondary);", "Total Debit:" }
+                                            span { style: "font-weight: 600;", "PKR {total_debit:.2}" }
+                                        }
+                                        div { style: "display: flex; gap: 6px;",
+                                            span { style: "color: var(--text-secondary);", "Total Credit:" }
+                                            span { style: "font-weight: 600;", "PKR {total_credit:.2}" }
+                                        }
+                                        div { style: "display: flex; gap: 6px;",
+                                            span { style: "color: var(--text-secondary);", "Balance:" }
+                                            span { style: "font-weight: 600;", "PKR {final_balance:.2}" }
+                                        }
+                                    }
+                                }
+                            }}
                         }
                     }
 

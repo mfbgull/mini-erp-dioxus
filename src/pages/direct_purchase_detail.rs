@@ -125,6 +125,7 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
     let loading = resource.read().is_none();
     let detail_opt = resource.read().as_ref().and_then(|d| d.clone());
     let mut show_delete_modal = use_signal(|| false);
+    let toast = use_toast();
 
     // Extract detail fields for use in RSX
     let (d, detail_ready) = if let Some(ref d) = detail_opt {
@@ -275,6 +276,22 @@ fn render_detail(
             div { class: "dp-actions-left",
                 Button { variant: ButtonVariant::Primary, onclick: on_edit, icon: Some("✏️".to_string()), "Edit" }
                 Button { variant: ButtonVariant::Secondary, onclick: on_receipt, icon: Some("📦".to_string()), "Record Receipt" }
+                if d.status != "Returned" {
+                    Button { variant: ButtonVariant::Warning, onclick: { let api = use_auth().api; let purchase_id = d.id.clone(); move |_| {
+                        let api = api.clone();
+                        let mut t = use_toast();
+                        let pid = purchase_id;
+                        spawn(async move {
+                            let client = api.read().clone();
+                            match client.return_direct_purchase(pid).await {
+                                Ok(_) => {
+                                    t.success("Return Recorded", "Purchase return processed. Stock updated.");
+                                }
+                                Err(e) => t.error("Error", &e),
+                            }
+                        });
+                    }}, icon: Some("↩".to_string()), "Return" }
+                }
             }
             div { class: "dp-actions-right",
                 Button { variant: ButtonVariant::Ghost, onclick: on_print, icon: Some("🖨".to_string()), "Print" }

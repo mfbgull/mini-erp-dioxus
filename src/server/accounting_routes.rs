@@ -29,6 +29,10 @@ pub fn router() -> Router<AppState> {
         .route("/api/employees", get(list_employees).post(create_employee))
         .route("/api/employees/{id}", get(get_employee).put(update_employee).delete(delete_employee))
         .route("/api/employees/{id}/salary", post(pay_salary))
+        .route("/api/employees/{id}/salary-payments", get(list_salary_payments))
+        // Journal Entries
+        .route("/api/accounting/journal-entries", get(list_journal_entries).post(create_journal_entry))
+        .route("/api/accounting/journal-entries/{id}", get(get_journal_entry))
 }
 
 async fn list_accounts(State(_state): State<AppState>) -> impl IntoResponse {
@@ -194,7 +198,31 @@ async fn create_expense(State(_state): State<AppState>, Json(form): Json<Expense
         rusqlite::params![eno, form.category, form.description, form.amount, form.expense_date],
     );
     match result {
-        Ok(_) => (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": db.last_insert_rowid(), "expense_no": eno } }))),
+        Ok(_) => {
+            let expense_id = db.last_insert_rowid();
+            // Auto-journal: debit Expense (account_id=15 for Rent, or use category-based mapping), credit Cash (account_id=1)
+            // For simplicity, use account 15 (Rent Expense) as default; in production, map category to account
+            let expense_account_id: i64 = match form.category.to_lowercase().as_str() {
+                "salary" | "salaries" => 14,
+                "rent" => 15,
+                "utilities" => 16,
+                "office supplies" => 17,
+                _ => 15, // default to Rent Expense
+            };
+            db.execute(
+                "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('expense', ?1, ?2)",
+                rusqlite::params![expense_id, form.expense_date],
+            ).ok();
+            let je_id = db.last_insert_rowid();
+            db.execute(
+                "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
+                 VALUES (?1, ?3, ?2, 0, ?4, ?5),
+                        (?1, 1, 0, ?2, ?6, ?5)",
+                rusqlite::params![je_id, form.amount, expense_account_id,
+                    format!("Expense {}", eno), form.expense_date, format!("Cash - Expense {}", eno)],
+            ).ok();
+            (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": expense_id, "expense_no": eno } })))
+        }
         Err(e) => { tracing::error!("Failed to create expense: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create expense." }))) }
     }
 }
@@ -339,7 +367,140 @@ async fn pay_salary(State(_state): State<AppState>, Path(id): Path<i64>, Json(fo
         rusqlite::params![id, form.amount, form.payment_date],
     );
     match result {
-        Ok(_) => (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": db.last_insert_rowid(), "message": "Salary payment recorded." } }))),
+        Ok(_) => {
+            let sp_id = db.last_insert_rowid();
+            // Auto-journal: debit Salary Expense (account_id=14), credit Cash (account_id=1)
+            db.execute(
+                "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('salary', ?1, ?2)",
+                rusqlite::params![sp_id, form.payment_date],
+            ).ok();
+            let je_id = db.last_insert_rowid();
+            db.execute(
+                "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
+                 VALUES (?1, 14, ?2, 0, ?3, ?4),
+                        (?1, 1, 0, ?2, ?5, ?4)",
+                rusqlite::params![je_id, form.amount,
+                    format!("Salary - Employee {}", id), form.payment_date,
+                    format!("Cash - Salary Employee {}", id)],
+            ).ok();
+            (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": sp_id, "message": "Salary payment recorded." } })))
+        }
         Err(e) => { tracing::error!("Failed to record salary: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to record salary payment." }))) }
+    }
+}
+
+async fn list_salary_payments(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let mut stmt = db.prepare(
+        "SELECT id, employee_id, amount, payment_date FROM salary_payments WHERE employee_id = ?1 ORDER BY payment_date DESC"
+    ).unwrap();
+    let items: Vec<serde_json::Value> = stmt.query_map([id], |row| {
+        Ok(json!({
+            "id": row.get::<_, i64>(0)?,
+            "employee_id": row.get::<_, i64>(1)?,
+            "amount": row.get::<_, f64>(2)?,
+            "payment_date": row.get::<_, String>(3)?,
+        }))
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
+}
+
+async fn list_journal_entries(
+    State(_state): State<AppState>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let from_date = params.get("from_date").map(|s| s.as_str()).unwrap_or("2000-01-01");
+    let to_date = params.get("to_date").map(|s| s.as_str()).unwrap_or("2099-12-31");
+    let mut stmt = db.prepare(
+        "SELECT id, reference_type, reference_id, entry_date, created_by, created_at
+         FROM journal_entries WHERE entry_date BETWEEN ?1 AND ?2 ORDER BY entry_date DESC, id DESC"
+    ).unwrap();
+    let entries: Vec<JournalEntry> = stmt.query_map(rusqlite::params![from_date, to_date], |row| {
+        Ok(JournalEntry {
+            id: row.get(0)?, reference_type: row.get(1)?, reference_id: row.get(2)?,
+            entry_date: row.get(3)?, created_by: row.get(4)?, created_at: row.get(5)?,
+        })
+    }).unwrap().filter_map(|r| r.ok()).collect();
+    (StatusCode::OK, Json(json!({ "success": true, "data": entries })))
+}
+
+async fn create_journal_entry(
+    State(_state): State<AppState>,
+    Json(form): Json<JournalEntryForm>,
+) -> impl IntoResponse {
+    if form.lines.is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "At least one journal line is required." })));
+    }
+    let total_debit: f64 = form.lines.iter().map(|l| l.debit).sum();
+    let total_credit: f64 = form.lines.iter().map(|l| l.credit).sum();
+    if (total_debit - total_credit).abs() > 0.01 {
+        return (StatusCode::BAD_REQUEST, Json(json!({
+            "success": false,
+            "error": format!("Debits ({}) must equal credits ({}).", total_debit, total_credit)
+        })));
+    }
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let result = db.execute(
+        "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES (?1, ?2, ?3)",
+        rusqlite::params![form.reference_type, form.reference_id, form.entry_date],
+    );
+    match result {
+        Ok(_) => {
+            let entry_id = db.last_insert_rowid();
+            for line in &form.lines {
+                db.execute(
+                    "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date, reference_type, reference_id)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                    rusqlite::params![entry_id, line.account_id, line.debit, line.credit,
+                        line.description.as_deref().unwrap_or(""), form.entry_date,
+                        form.reference_type, form.reference_id],
+                ).ok();
+            }
+            (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": entry_id } })))
+        }
+        Err(e) => {
+            tracing::error!("Failed to create journal entry: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create journal entry." })))
+        }
+    }
+}
+
+async fn get_journal_entry(
+    State(_state): State<AppState>,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let entry = db.query_row(
+        "SELECT id, reference_type, reference_id, entry_date, created_by, created_at
+         FROM journal_entries WHERE id = ?1",
+        [id],
+        |row| Ok(JournalEntry {
+            id: row.get(0)?, reference_type: row.get(1)?, reference_id: row.get(2)?,
+            entry_date: row.get(3)?, created_by: row.get(4)?, created_at: row.get(5)?,
+        }),
+    );
+    match entry {
+        Ok(e) => {
+            let mut stmt = db.prepare(
+                "SELECT jl.id, jl.journal_entry_id, jl.account_id, a.code, a.name,
+                        jl.debit, jl.credit, jl.description, jl.line_date,
+                        jl.reference_type, jl.reference_id, jl.voided
+                 FROM journal_lines jl
+                 LEFT JOIN chart_of_accounts a ON jl.account_id = a.id
+                 WHERE jl.journal_entry_id = ?1 ORDER BY jl.id"
+            ).unwrap();
+            let lines: Vec<JournalLine> = stmt.query_map([id], |row| {
+                Ok(JournalLine {
+                    id: row.get(0)?, journal_entry_id: row.get(1)?, account_id: row.get(2)?,
+                    account_code: row.get(3)?, account_name: row.get(4)?,
+                    debit: row.get(5)?, credit: row.get(6)?, description: row.get(7)?,
+                    line_date: row.get(8)?, reference_type: row.get(9)?,
+                    reference_id: row.get(10)?, voided: row.get::<_, i64>(11)? != 0,
+                })
+            }).unwrap().filter_map(|r| r.ok()).collect();
+            (StatusCode::OK, Json(json!({ "success": true, "data": { "entry": e, "lines": lines } })))
+        }
+        Err(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Journal entry not found." }))),
     }
 }

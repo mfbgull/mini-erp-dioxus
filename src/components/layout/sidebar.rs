@@ -1,7 +1,4 @@
-//! Sidebar navigation component.
-//!
-//! Extracted from `src/main.rs` into a reusable component.
-//! Takes the current URL path as a prop for active-route highlighting.
+//! Sidebar navigation component with collapse/expand functionality.
 
 use dioxus::prelude::*;
 use std::collections::HashSet;
@@ -12,7 +9,6 @@ use crate::components::rbac::use_rbac;
 // Types
 // ============================================================================
 
-/// A single item in the sidebar navigation.
 pub struct NavItem {
     pub label: &'static str,
     pub icon: &'static str,
@@ -20,7 +16,6 @@ pub struct NavItem {
     pub permission: &'static str,
 }
 
-/// A collapsible module group in the sidebar.
 pub struct NavModule {
     pub name: &'static str,
     pub icon: &'static str,
@@ -32,7 +27,6 @@ pub struct NavModule {
 // Data
 // ============================================================================
 
-/// All modules and their items for the sidebar.
 pub fn nav_modules() -> Vec<NavModule> {
     vec![
         NavModule {
@@ -49,7 +43,6 @@ pub fn nav_modules() -> Vec<NavModule> {
                 NavItem { label: "New Item", icon: "➕", route: "/inventory/items/new", permission: "inventory:create" },
                 NavItem { label: "Warehouses", icon: "🏭", route: "/inventory/warehouses", permission: "inventory:read" },
                 NavItem { label: "Stock Movements", icon: "📋", route: "/inventory/stock-movements", permission: "inventory:read" },
-                NavItem { label: "Stock Ledger", icon: "📋", route: "/inventory/stock-ledger/demo", permission: "inventory:read" },
                 NavItem { label: "Physical Counts", icon: "🔢", route: "/inventory/physical-counts", permission: "inventory:read" },
             ],
         },
@@ -115,6 +108,7 @@ pub fn nav_modules() -> Vec<NavModule> {
                 NavItem { label: "Dashboard", icon: "📊", route: "/accounting", permission: "dashboard:read" },
                 NavItem { label: "Chart of Accounts", icon: "📋", route: "/accounting/chart-of-accounts", permission: "accounting:read" },
                 NavItem { label: "Periods", icon: "📅", route: "/accounting/periods", permission: "accounting:read" },
+                NavItem { label: "Journal Entries", icon: "📝", route: "/accounting/journal-entries", permission: "accounting:read" },
             ],
         },
         NavModule {
@@ -125,6 +119,7 @@ pub fn nav_modules() -> Vec<NavModule> {
                 NavItem { label: "Customer Statements", icon: "📈", route: "/reports/customer-statements", permission: "reports:read" },
                 NavItem { label: "Sales", icon: "📈", route: "/reports/sales", permission: "reports:read" },
                 NavItem { label: "Inventory", icon: "📈", route: "/reports/inventory", permission: "reports:read" },
+                NavItem { label: "FIFO Reports", icon: "📦", route: "/reports/fifo", permission: "reports:read" },
                 NavItem { label: "Financial", icon: "📈", route: "/reports/financial", permission: "reports:read" },
                 NavItem { label: "Custom Reports", icon: "📈", route: "/reports/custom", permission: "reports:create" },
                 NavItem { label: "Tax Summary", icon: "📈", route: "/reports/tax", permission: "reports:read" },
@@ -149,6 +144,7 @@ pub fn nav_modules() -> Vec<NavModule> {
                 NavItem { label: "Users", icon: "👤", route: "/users", permission: "users:read" },
                 NavItem { label: "Roles", icon: "🔐", route: "/roles", permission: "roles:read" },
                 NavItem { label: "Activity Log", icon: "📋", route: "/activity-log", permission: "activity_log:read" },
+                NavItem { label: "Dashboard Layouts", icon: "📐", route: "/dashboard/layouts", permission: "dashboard:read" },
             ],
         },
     ]
@@ -159,21 +155,104 @@ pub fn nav_modules() -> Vec<NavModule> {
 // ============================================================================
 
 pub const SIDEBAR_CSS: &str = r##"
-/* ── Sidebar Module Navigation ── */
-.sidebar-footer {
-    padding: 12px 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    margin-top: auto;
+/* ── Sidebar Base ── */
+.app-sidebar {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: visible;
+    width: 240px;
+    transition: width 0.2s ease;
 }
+
+.app-sidebar.collapsed {
+    width: 64px;
+}
+
+/* ── Sidebar Header ── */
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 12px 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-logo {
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: opacity 0.2s ease;
+}
+
+.collapsed .sidebar-logo {
+    opacity: 0;
+    width: 0;
+}
+
+.sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    font-size: 12px;
+}
+
+.sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+}
+
+.sidebar-toggle-icon {
+    transition: transform 0.2s ease;
+}
+
+.collapsed .sidebar-toggle-icon {
+    transform: rotate(180deg);
+}
+
+/* ── Sidebar Nav ── */
+.sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: visible;
+    padding: 4px 8px 16px 8px;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* ── Module Header ── */
 .sidebar-module {
     margin-bottom: 2px;
+    position: relative;
 }
 
 .sidebar-module-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px 16px;
+    gap: 8px;
+    padding: 8px 12px;
     cursor: pointer;
     border-radius: 4px;
     transition: background 0.15s;
@@ -183,22 +262,48 @@ pub const SIDEBAR_CSS: &str = r##"
     letter-spacing: 0.04em;
     color: var(--text-secondary, #6c757d);
     user-select: none;
+    white-space: nowrap;
 }
 
 .sidebar-module-header:hover {
     background: rgba(255, 255, 255, 0.06);
 }
 
+.sidebar-module-icon {
+    font-size: 16px;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.sidebar-module-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.2s ease;
+}
+
+.collapsed .sidebar-module-label {
+    opacity: 0;
+    width: 0;
+}
+
 .sidebar-module-chevron {
     font-size: 10px;
     transition: transform 0.2s ease;
     opacity: 0.6;
+    flex-shrink: 0;
 }
 
 .sidebar-module-chevron.expanded {
     transform: rotate(90deg);
 }
 
+.collapsed .sidebar-module-chevron {
+    display: none;
+}
+
+/* ── Module Items ── */
 .sidebar-module-items {
     overflow: hidden;
     transition: max-height 0.25s ease, opacity 0.2s ease;
@@ -211,11 +316,15 @@ pub const SIDEBAR_CSS: &str = r##"
     opacity: 1;
 }
 
+.collapsed .sidebar-module-items {
+    display: none;
+}
+
 .sidebar-item {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 16px 6px 28px;
+    padding: 6px 12px 6px 28px;
     font-size: 13px;
     color: rgba(255, 255, 255, 0.7);
     text-decoration: none;
@@ -223,6 +332,7 @@ pub const SIDEBAR_CSS: &str = r##"
     transition: all 0.12s ease;
     cursor: pointer;
     position: relative;
+    white-space: nowrap;
 }
 
 .sidebar-item:hover {
@@ -255,32 +365,120 @@ pub const SIDEBAR_CSS: &str = r##"
     opacity: 0.8;
 }
 
-/* ── Sidebar Scrollable ── */
-.app-sidebar {
+.sidebar-item-label {
+    transition: opacity 0.2s ease;
+}
+
+.collapsed .sidebar-item-label {
+    opacity: 0;
+    width: 0;
+}
+
+.collapsed .sidebar-item {
+    padding: 8px 12px;
+    justify-content: center;
+}
+
+/* ── Hover Dropdown (Collapsed State) ── */
+.sidebar-dropdown {
+    position: absolute;
+    left: calc(100% + 4px);
+    top: 0;
+    min-width: 200px;
+    background: #1e1e2d;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    padding: 8px;
+    display: none;
+    pointer-events: auto;
+}
+
+.sidebar-module:hover > .sidebar-dropdown {
+    display: block;
+}
+
+.sidebar-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    border-radius: 4px;
+    transition: all 0.12s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.sidebar-dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}
+
+.sidebar-dropdown-item.active {
+    background: rgba(74, 144, 217, 0.2);
+    color: #ffffff;
+}
+
+.sidebar-dropdown-icon {
+    width: 18px;
+    text-align: center;
+    font-size: 14px;
+}
+
+/* ── Tooltip for collapsed icons ── */
+.sidebar-tooltip {
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #1e1e2d;
+    color: #ffffff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1001;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    margin-left: 8px;
+}
+
+.sidebar-item:hover .sidebar-tooltip,
+.sidebar-module-header:hover .sidebar-tooltip {
+    opacity: 1;
+}
+
+/* ── Footer ── */
+.sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin-top: auto;
+}
+
+.collapsed .sidebar-footer {
+    padding: 12px 8px;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    overflow: hidden;
+    align-items: center;
 }
 
-.sidebar-nav {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 4px 8px 16px 8px;
+.collapsed .sidebar-footer .sidebar-item {
+    padding: 8px;
+    justify-content: center;
 }
 
-.sidebar-nav::-webkit-scrollbar {
-    width: 4px;
+.collapsed .sidebar-footer .sidebar-item-label {
+    display: none;
 }
 
-.sidebar-nav::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 2px;
-}
-
-.sidebar-nav::-webkit-scrollbar-track {
-    background: transparent;
+/* ── Tooltip for module header ── */
+.collapsed .sidebar-module {
+    position: relative;
 }
 "##;
 
@@ -288,15 +486,11 @@ pub const SIDEBAR_CSS: &str = r##"
 // Sidebar Component
 // ============================================================================
 
-/// Props for the Sidebar component.
 #[derive(Props, Clone, PartialEq)]
 pub struct SidebarProps {
-    /// The current URL path for active-route highlighting.
-    /// Provided by the parent layout via `use_route::<Route>().to_string()`.
     pub current_path: String,
 }
 
-/// Full-featured sidebar with collapsible module groups and active-route highlighting.
 #[component]
 pub fn Sidebar(props: SidebarProps) -> Element {
     // ── Collapsible module state ──
@@ -306,6 +500,9 @@ pub fn Sidebar(props: SidebarProps) -> Element {
         s.insert("Sales".to_string());
         s
     });
+
+    // ── Sidebar collapse state ──
+    let mut is_collapsed = use_signal(|| false);
 
     let toggle_module = {
         let mut exp = expanded.clone();
@@ -317,14 +514,26 @@ pub fn Sidebar(props: SidebarProps) -> Element {
         }
     };
 
+    let toggle_sidebar = move |_| {
+        let current = *is_collapsed.read();
+        is_collapsed.set(!current);
+    };
+
     let modules = nav_modules();
     let current_path = props.current_path;
     let lang = crate::i18n::use_i18n();
     let rbac = use_rbac();
+    let collapsed = *is_collapsed.read();
+    let sidebar_class = if collapsed { "app-sidebar collapsed" } else { "app-sidebar" };
 
     rsx! {
-        aside { class: "app-sidebar",
-            div { class: "sidebar-logo", "MiniERP" }
+        aside { class: "{sidebar_class}",
+            div { class: "sidebar-header",
+                div { class: "sidebar-logo", "MiniERP" }
+                button { class: "sidebar-toggle", r#type: "button", onclick: toggle_sidebar,
+                    span { class: "sidebar-toggle-icon", "◀" }
+                }
+            }
             nav { class: "sidebar-nav",
                 {modules.into_iter().filter(|m| rbac.has(m.permission)).map(|module| {
                     let mod_name = module.name.to_string();
@@ -339,49 +548,93 @@ pub fn Sidebar(props: SidebarProps) -> Element {
                     let nav_key = mod_name.to_lowercase().replace(' ', "_");
                     let translations = crate::i18n::get_translations(lang.read().clone());
                     let mod_label = translations.nav.get(nav_key.as_str()).unwrap_or(&module.name).to_string();
+                    let module_icon = module.icon.to_string();
 
                     rsx! {
                         div { key: "{mod_name}", class: "sidebar-module",
                             div {
                                 class: "sidebar-module-header",
                                 onclick: on_toggle,
-                                span { "{module.icon} {mod_label}" }
-                                span { class: "{chevron_class}", "▶" }
+                                span { class: "sidebar-module-icon", "{module_icon}" }
+                                span { class: "sidebar-module-label", "{mod_label}" }
+                                if !collapsed {
+                                    span { class: "{chevron_class}", "▶" }
+                                }
                             }
-                            div { class: "{items_class}",
-                                {module.items.into_iter().filter(|i| rbac.has(i.permission)).map(|item| {
-                                    let label = item.label;
-                                    let icon = item.icon;
-                                    let route_path = item.route;
-                                    let item_class = {
-                                        // Exact match (e.g., "/sales/invoices" matches "/sales/invoices")
-                                        if current_path == route_path {
-                                            "sidebar-item active"
-                                        }
-                                        // Prefix match for detail pages (e.g., "/sales/invoices/42" matches "/sales/invoices")
-                                        else if route_path.len() > 1
-                                            && current_path.starts_with(route_path)
-                                            && current_path[route_path.len()..].starts_with('/')
-                                        {
-                                            "sidebar-item active"
-                                        } else {
-                                            "sidebar-item"
-                                        }
-                                    };
-
-                                    let item_label_key = label.to_lowercase().replace(' ', "_");
-                                    let item_translations = crate::i18n::get_translations(lang.read().clone());
-                                    let item_label = item_translations.nav.get(item_label_key.as_str()).unwrap_or(&label).to_string();
-                                    rsx! {
-                                        Link {
-                                            key: "{label}",
-                                            class: "{item_class}",
-                                            to: "{route_path}",
-                                            span { class: "sidebar-item-icon", "{icon}" }
-                                            span { "{item_label}" }
+                            if !collapsed {
+                                {let items = module.items.iter().filter(|i| rbac.has(i.permission)).collect::<Vec<_>>();
+                                rsx! {
+                                    div { class: "{items_class}",
+                                        for item in items.iter() {
+                                            {let label = item.label;
+                                            let icon = item.icon;
+                                            let route_path = item.route;
+                                            let item_class = {
+                                                if current_path == route_path {
+                                                    "sidebar-item active"
+                                                } else if route_path.len() > 1
+                                                    && current_path.starts_with(route_path)
+                                                    && current_path[route_path.len()..].starts_with('/')
+                                                {
+                                                    "sidebar-item active"
+                                                } else {
+                                                    "sidebar-item"
+                                                }
+                                            };
+                                            let item_label_key = label.to_lowercase().replace(' ', "_");
+                                            let item_translations = crate::i18n::get_translations(lang.read().clone());
+                                            let item_label = item_translations.nav.get(item_label_key.as_str()).unwrap_or(&label).to_string();
+                                            rsx! {
+                                                Link {
+                                                    key: "{label}",
+                                                    class: "{item_class}",
+                                                    to: "{route_path}",
+                                                    span { class: "sidebar-item-icon", "{icon}" }
+                                                    span { class: "sidebar-item-label", "{item_label}" }
+                                                }
+                                            }}
                                         }
                                     }
-                                })}
+                                }}
+                            }
+                            if collapsed {
+                                {let items = module.items.iter().filter(|i| rbac.has(i.permission)).collect::<Vec<_>>();
+                                rsx! {
+                                    div { class: "sidebar-dropdown",
+                                        div { class: "sidebar-dropdown-header", style: "padding: 8px 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary, #6c757d); letter-spacing: 0.04em;",
+                                            "{mod_label}"
+                                        }
+                                        for item in items.iter() {
+                                            {let label = item.label;
+                                            let icon = item.icon;
+                                            let route_path = item.route;
+                                            let item_class = {
+                                                if current_path == route_path {
+                                                    "sidebar-dropdown-item active"
+                                                } else if route_path.len() > 1
+                                                    && current_path.starts_with(route_path)
+                                                    && current_path[route_path.len()..].starts_with('/')
+                                                {
+                                                    "sidebar-dropdown-item active"
+                                                } else {
+                                                    "sidebar-dropdown-item"
+                                                }
+                                            };
+                                            let item_label_key = label.to_lowercase().replace(' ', "_");
+                                            let item_translations = crate::i18n::get_translations(lang.read().clone());
+                                            let item_label = item_translations.nav.get(item_label_key.as_str()).unwrap_or(&label).to_string();
+                                            rsx! {
+                                                Link {
+                                                    key: "{label}",
+                                                    class: "{item_class}",
+                                                    to: "{route_path}",
+                                                    span { class: "sidebar-dropdown-icon", "{icon}" }
+                                                    span { "{item_label}" }
+                                                }
+                                            }}
+                                        }
+                                    }
+                                }}
                             }
                         }
                     }
@@ -391,7 +644,7 @@ pub fn Sidebar(props: SidebarProps) -> Element {
             div { class: "sidebar-footer",
                 Link { class: "sidebar-item", to: "/profile",
                     span { class: "sidebar-item-icon", "👤" }
-                    span { "My Profile" }
+                    span { class: "sidebar-item-label", "My Profile" }
                 }
                 LanguageToggle {}
             }

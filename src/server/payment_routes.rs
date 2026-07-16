@@ -105,6 +105,34 @@ async fn create_payment(State(_state): State<AppState>, Json(form): Json<Payment
                 "UPDATE customers SET current_balance = current_balance - ?1, credit_balance = credit_balance + ?1 WHERE id = ?2",
                 rusqlite::params![form.amount, form.amount, form.customer_id],
             ).ok();
+            // Insert customer ledger entry for payment
+            {
+                let last_balance: f64 = db.query_row(
+                    "SELECT COALESCE(balance, 0) FROM customer_ledger WHERE customer_id = ?1 ORDER BY id DESC LIMIT 1",
+                    [form.customer_id],
+                    |row| row.get(0),
+                ).unwrap_or(0.0);
+                let new_balance = last_balance - form.amount;
+                db.execute(
+                    "INSERT INTO customer_ledger (customer_id, transaction_date, type, reference_no, debit, credit, balance)
+                     VALUES (?1, ?2, 'PAYMENT', ?3, 0, ?4, ?5)",
+                    rusqlite::params![form.customer_id, form.payment_date, pno, form.amount, new_balance],
+                ).ok();
+            }
+            // Auto-journal: debit Cash (account_id=1), credit AR (account_id=2)
+            {
+                db.execute(
+                    "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('payment', ?1, ?2)",
+                    rusqlite::params![pay_id, form.payment_date],
+                ).ok();
+                let je_id = db.last_insert_rowid();
+                db.execute(
+                    "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
+                     VALUES (?1, 1, ?2, 0, ?3, ?4),
+                            (?1, 2, 0, ?2, ?5, ?4)",
+                    rusqlite::params![je_id, form.amount, format!("Payment {}", pno), form.payment_date, format!("AR - Payment {}", pno)],
+                ).ok();
+            }
             (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": pay_id, "payment_no": pno } })))
         }
         Err(e) => { tracing::error!("Failed to create payment: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create payment." }))) }

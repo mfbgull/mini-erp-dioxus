@@ -82,8 +82,7 @@ enum Route {
         StockMovementListPage {},
         #[route("/inventory/stock-movements/new")]
         StockMovementCreatePage {},
-        #[route("/inventory/stock-ledger/:item_id")]
-        StockLedgerPage { item_id: String },
+
         #[route("/inventory/physical-counts")]
         PhysicalCountListPage {},
         #[route("/inventory/physical-counts/new")]
@@ -210,6 +209,16 @@ enum Route {
         ChartOfAccountsPage {},
         #[route("/accounting/periods")]
         AccountingPeriodsPage {},
+        #[route("/accounting/journal-entries")]
+        JournalEntryListPage {},
+        #[route("/accounting/journal-entries/new")]
+        JournalEntryCreatePage {},
+        #[route("/accounting/journal-entries/:id")]
+        JournalEntryDetailPage { id: String },
+
+        // ── Dashboard Layouts ──
+        #[route("/dashboard/layouts")]
+        DashboardLayoutsPage {},
 
         // ── Reports ──
         #[route("/reports")]
@@ -222,6 +231,8 @@ enum Route {
         SalesReportPage {},
         #[route("/reports/inventory")]
         InventoryReportPage {},
+        #[route("/reports/fifo")]
+        FifoReportPage {},
         #[route("/reports/financial")]
         FinancialReportPage {},
         #[route("/reports/custom")]
@@ -589,15 +600,6 @@ fn StockMovementCreatePage() -> Element {
     rsx! {
         ProtectedRoute { permission: "inventory:create".to_string(),
             pages::stock_movement_create::StockMovementCreatePage {}
-        }
-    }
-}
-
-#[component]
-fn StockLedgerPage(item_id: String) -> Element {
-    rsx! {
-        ProtectedRoute { permission: "inventory:read".to_string(),
-            pages::stock_ledger::StockLedgerPage { item_id }
         }
     }
 }
@@ -1113,6 +1115,42 @@ fn AccountingPeriodsPage() -> Element {
     }
 }
 
+#[component]
+fn JournalEntryListPage() -> Element {
+    rsx! {
+        ProtectedRoute { permission: "accounting:read".to_string(),
+            pages::journal_entry_list::JournalEntryListPage {}
+        }
+    }
+}
+
+#[component]
+fn JournalEntryCreatePage() -> Element {
+    rsx! {
+        ProtectedRoute { permission: "accounting:create".to_string(),
+            pages::journal_entry_create::JournalEntryCreatePage {}
+        }
+    }
+}
+
+#[component]
+fn JournalEntryDetailPage(id: String) -> Element {
+    rsx! {
+        ProtectedRoute { permission: "accounting:read".to_string(),
+            pages::journal_entry_list::JournalEntryDetailPage { id }
+        }
+    }
+}
+
+#[component]
+fn DashboardLayoutsPage() -> Element {
+    rsx! {
+        ProtectedRoute { permission: "dashboard:read".to_string(),
+            pages::dashboard_layouts::DashboardLayoutsPage {}
+        }
+    }
+}
+
 // ── Reports ──
 
 #[component]
@@ -1156,6 +1194,15 @@ fn InventoryReportPage() -> Element {
     rsx! {
         ProtectedRoute { permission: "reports:read".to_string(),
             pages::inventory_report::InventoryReportPage {}
+        }
+    }
+}
+
+#[component]
+fn FifoReportPage() -> Element {
+    rsx! {
+        ProtectedRoute { permission: "reports:read".to_string(),
+            pages::fifo_report::FifoReportPage {}
         }
     }
 }
