@@ -1,13 +1,13 @@
 use dioxus::prelude::*;
 
 const PAYMENT_PANEL_CSS: &str = r#"
-.payment-panel { background: #fff; border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.payment-panel { background: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
 .payment-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .payment-panel-header h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0; }
 .payment-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .payment-toggle-track { width: 36px; height: 20px; border-radius: 10px; background: #ccc; position: relative; transition: background 0.2s; }
-.payment-toggle-track.active { background: var(--accent, #4a90d9); }
-.payment-toggle-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: transform 0.2s; }
+.payment-toggle-track.active { background: var(--accent); }
+.payment-toggle-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--surface); position: absolute; top: 2px; left: 2px; transition: transform 0.2s; }
 .payment-toggle-track.active .payment-toggle-thumb { transform: translateX(16px); }
 .payment-toggle-label { font-size: 13px; color: var(--text-primary); }
 .payment-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -15,8 +15,8 @@ const PAYMENT_PANEL_CSS: &str = r#"
 .payment-field.full-width { grid-column: 1 / -1; }
 .payment-field label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.3px; }
 .payment-field input, .payment-field select { padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; }
-.payment-field input:focus, .payment-field select:focus { outline: none; border-color: var(--accent, #4a90d9); }
-.payment-summary { display: flex; justify-content: space-between; padding: 12px; background: var(--bg-muted, #f8f9fa); border-radius: 6px; margin-top: 12px; font-size: 13px; }
+.payment-field input:focus, .payment-field select:focus { outline: none; border-color: var(--accent); }
+.payment-summary { display: flex; justify-content: space-between; padding: 12px; background: var(--surface-secondary); border-radius: 6px; margin-top: 12px; font-size: 13px; }
 .payment-summary-amount { font-weight: 600; }
 .payment-summary-change { color: #28a745; }
 .payment-summary-short { color: #dc3545; }

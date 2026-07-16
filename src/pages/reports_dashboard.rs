@@ -40,6 +40,7 @@ fn report_items() -> Vec<ReportNavItem> {
         ReportNavItem { icon: "👤".into(), title: "Customer Statements".into(), description: "Generate and export detailed customer account statements with running balance.".into(), route: "/reports/customer-statements" },
         ReportNavItem { icon: "💰".into(), title: "Sales Report".into(), description: "Monthly sales performance with KPIs, category breakdown, and trend analysis.".into(), route: "/reports/sales" },
         ReportNavItem { icon: "📦".into(), title: "Inventory Report".into(), description: "Stock value by warehouse, category breakdown, and low stock analysis.".into(), route: "/reports/inventory" },
+        ReportNavItem { icon: "📦".into(), title: "FIFO Reports".into(), description: "Batch-level FIFO costing, valuation by item, P&L with FIFO COGS, and stock history.".into(), route: "/reports/fifo" },
         ReportNavItem { icon: "📊".into(), title: "Financial Report".into(), description: "Profit & Loss statement and Balance Sheet with period comparison.".into(), route: "/reports/financial" },
         ReportNavItem { icon: "🧾".into(), title: "Tax Summary".into(), description: "Sales Tax, Income Tax, and Withholding Tax summaries by period.".into(), route: "/reports/tax" },
         ReportNavItem { icon: "🔧".into(), title: "Custom Report Builder".into(), description: "Create custom reports with selected fields, filters, and grouping options.".into(), route: "/reports/custom" },

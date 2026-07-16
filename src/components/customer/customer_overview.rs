@@ -2,13 +2,13 @@ use dioxus::prelude::*;
 
 const OVERVIEW_CSS: &str = r#"
 .customer-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
-.customer-metric-card { background: #fff; border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+.customer-metric-card { background: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
 .customer-metric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary); }
 .customer-metric-value { font-size: 20px; font-weight: 700; color: var(--text-primary); }
 .customer-metric-value.positive { color: #28a745; }
 .customer-metric-value.negative { color: #dc3545; }
 .customer-metric-sub { font-size: 12px; color: var(--text-secondary); }
-.customer-recent-activity { background: #fff; border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; }
+.customer-recent-activity { background: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; }
 .customer-recent-activity h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px; }
 .activity-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 13px; }
 .activity-item:last-child { border-bottom: none; }

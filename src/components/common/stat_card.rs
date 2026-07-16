@@ -86,6 +86,9 @@ pub struct StatCardProps {
     pub onclick: Option<EventHandler<Event<MouseData>>>,
     #[props(default)]
     pub class: Option<String>,
+    /// Show shimmer skeleton placeholder
+    #[props(default = false)]
+    pub loading: bool,
 }
 
 /// KPI stat card component.
@@ -94,10 +97,24 @@ pub fn StatCard(props: StatCardProps) -> Element {
     let card_class = format!(
         "cb-stat {} {}",
         variant_class,
-        props.class.as_deref().unwrap_or(""),
+        if props.loading { "cb-stat-loading" } else { "" },
     );
 
     let onclick = props.onclick.clone();
+
+    if props.loading {
+        return rsx! {
+            div { class: "{card_class}",
+                div { class: "cb-stat-header",
+                    span { class: "cb-stat-title skeleton", style: "width: 60%; height: 10px;" }
+                }
+                div { class: "cb-stat-value skeleton", style: "width: 45%; height: 28px; margin-top: 4px;" }
+                div { class: "cb-stat-footer",
+                    span { class: "skeleton", style: "width: 35%; height: 10px;" }
+                }
+            }
+        };
+    }
 
     rsx! {
         div {

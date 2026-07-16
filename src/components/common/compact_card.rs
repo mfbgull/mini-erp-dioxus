@@ -2,27 +2,27 @@ use dioxus::prelude::*;
 
 const COMPACT_CARD_CSS: &str = r#"
 .compact-card-list { display: flex; flex-direction: column; gap: 8px; padding: 0 16px 80px; }
-.compact-card { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: #fff; border: 1px solid var(--border-color, #e0e0e0); border-radius: 10px; cursor: pointer; transition: box-shadow 0.15s; }
+.compact-card { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer; transition: box-shadow 0.15s; }
 .compact-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 .compact-card:active { transform: scale(0.99); }
 .compact-card-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .compact-card-header { display: flex; align-items: center; gap: 8px; }
 .compact-card-label { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .compact-card-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-.compact-card-badge.badge-green { background: rgba(40,167,69,0.1); color: #28a745; }
-.compact-card-badge.badge-yellow { background: rgba(255,193,7,0.15); color: #d4a017; }
-.compact-card-badge.badge-red { background: rgba(220,53,69,0.12); color: #dc3545; }
-.compact-card-badge.badge-blue { background: rgba(74,144,217,0.1); color: #4a90d9; }
-.compact-card-badge.badge-gray { background: rgba(108,117,125,0.1); color: #6c757d; }
-.compact-card-subtitle { font-size: 12px; color: var(--text-secondary, #666); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compact-card-badge.badge-green { background: var(--success-light); color: var(--success); }
+.compact-card-badge.badge-yellow { background: var(--warning-light); color: var(--warning); }
+.compact-card-badge.badge-red { background: var(--danger-light); color: var(--danger); }
+.compact-card-badge.badge-blue { background: rgba(59, 130, 246, 0.10); color: var(--info); }
+.compact-card-badge.badge-gray { background: var(--surface-tertiary); color: var(--text-muted); }
+.compact-card-subtitle { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .compact-card-value { font-size: 13px; color: var(--text-primary); font-weight: 500; }
-.compact-card-chevron { font-size: 16px; color: var(--text-secondary, #999); margin-left: 8px; flex-shrink: 0; }
+.compact-card-chevron { font-size: 16px; color: var(--text-muted); margin-left: 8px; flex-shrink: 0; }
 .compact-card-actions { display: flex; gap: 4px; margin-left: 8px; }
-.compact-card-action { padding: 4px 8px; font-size: 12px; border: 1px solid var(--border-color); border-radius: 4px; background: #fff; cursor: pointer; color: var(--text-primary); }
-.compact-card-action:hover { background: var(--bg-hover, #f5f5f5); }
+.compact-card-action { padding: 4px 8px; font-size: 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface); cursor: pointer; color: var(--text-primary); }
+.compact-card-action:hover { background: var(--surface-tertiary); }
 .compact-card-search { padding: 0 16px 12px; }
-.compact-card-search input { width: 100%; padding: 10px 14px; border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px; font-size: 14px; background: #fff; }
-.compact-card-empty { text-align: center; padding: 48px 16px; color: var(--text-secondary, #666); font-size: 14px; }
+.compact-card-search input { width: 100%; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; background: var(--surface); }
+.compact-card-empty { text-align: center; padding: 48px 16px; color: var(--text-secondary); font-size: 14px; }
 "#;
 
 #[derive(Clone, PartialEq)]

@@ -1,4 +1,5 @@
 mod styles;
+mod breadcrumb;
 mod button;
 mod form_input;
 mod modal;
@@ -15,6 +16,7 @@ mod top_menu;
 mod shortcut_bar;
 
 pub use styles::COMMON_CSS;
+pub use breadcrumb::{Breadcrumb, BreadcrumbProps, BreadcrumbItem};
 pub use button::{Button, ButtonProps, ButtonVariant, ButtonSize};
 pub use form_input::{FormInput, FormInputProps, InputType};
 pub use modal::{Modal, ModalProps, ModalSize};

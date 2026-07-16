@@ -56,13 +56,13 @@ pub const DATA_GRID_CSS: &str = r##"
     display: flex;
     flex-direction: column;
     width: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
+    font-family: var(--font-family);
+    font-size: var(--text-base);
     line-height: 1.4;
-    color: #1a1a2e;
-    background: #ffffff;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
+    color: var(--text-primary);
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
     overflow: hidden;
 }
 
@@ -76,8 +76,8 @@ pub const DATA_GRID_CSS: &str = r##"
 
 .dg-header-row {
     display: flex;
-    background: #f8f9fa;
-    border-bottom: 2px solid #e0e0e0;
+    background: var(--surface-secondary);
+    border-bottom: 2px solid var(--border-color);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -87,17 +87,17 @@ pub const DATA_GRID_CSS: &str = r##"
 .dg-header-cell {
     display: flex;
     align-items: center;
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     font-weight: 600;
-    font-size: 13px;
+    font-size: var(--text-sm);
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    color: #495057;
+    color: var(--text-secondary);
     user-select: none;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    transition: background-color 0.15s ease;
+    transition: background-color var(--ease-fast);
 }
 
 .dg-header-cell.dg-sortable {
@@ -105,11 +105,11 @@ pub const DATA_GRID_CSS: &str = r##"
 }
 
 .dg-header-cell.dg-sortable:hover {
-    background: #e9ecef;
+    background: var(--surface-tertiary);
 }
 
 .dg-header-cell.dg-sortable:focus-visible {
-    outline: 2px solid #4a90d9;
+    outline: 2px solid var(--accent);
     outline-offset: -2px;
 }
 
@@ -121,8 +121,8 @@ pub const DATA_GRID_CSS: &str = r##"
 
 .dg-sort-indicator {
     margin-left: 4px;
-    font-size: 11px;
-    color: #6c757d;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
     flex-shrink: 0;
 }
 
@@ -143,25 +143,25 @@ pub const DATA_GRID_CSS: &str = r##"
 
 .dg-row {
     display: flex;
-    border-bottom: 1px solid #f0f0f0;
-    transition: background-color 0.12s ease;
+    border-bottom: 1px solid var(--border-light);
+    transition: background-color var(--ease-fast);
 }
 
 .dg-row:hover {
-    background: #f8f9ff;
+    background: var(--surface-tertiary);
 }
 
 .dg-row-even {
-    background: #fafbfc;
+    background: var(--surface-secondary);
 }
 
 .dg-row-even:hover {
-    background: #f0f2f5;
+    background: var(--surface-tertiary);
 }
 
 .dg-row-selected {
-    background: #e8f0fe !important;
-    box-shadow: inset 3px 0 0 0 #4a90d9;
+    background: var(--accent-light) !important;
+    box-shadow: inset 3px 0 0 0 var(--accent);
 }
 
 /* ---- Cells ---- */
@@ -169,7 +169,7 @@ pub const DATA_GRID_CSS: &str = r##"
 .dg-cell {
     display: flex;
     align-items: center;
-    padding: 6px 12px;
+    padding: var(--space-1) var(--space-3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -224,7 +224,7 @@ pub const DATA_GRID_CSS: &str = r##"
 .dg-cell-date,
 .dg-cell-datetime {
     font-variant-numeric: tabular-nums;
-    color: #495057;
+    color: var(--text-secondary);
 }
 
 /* ---- Percentage ---- */
@@ -249,38 +249,38 @@ pub const DATA_GRID_CSS: &str = r##"
 }
 
 .dg-badge-gray {
-    background: #e9ecef;
-    color: #495057;
+    background: var(--surface-tertiary);
+    color: var(--text-secondary);
 }
 
 .dg-badge-green {
-    background: #d4edda;
-    color: #155724;
+    background: var(--success-light);
+    color: var(--success);
 }
 
 .dg-badge-red {
-    background: #f8d7da;
-    color: #721c24;
+    background: var(--danger-light);
+    color: var(--danger);
 }
 
 .dg-badge-yellow {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--warning-light);
+    color: var(--warning);
 }
 
 .dg-badge-blue {
-    background: #cce5ff;
-    color: #004085;
+    background: rgba(59, 130, 246, 0.10);
+    color: var(--info);
 }
 
 .dg-badge-purple {
-    background: #e8daef;
-    color: #6c3483;
+    background: rgba(139, 92, 246, 0.10);
+    color: #7C3AED;
 }
 
 .dg-badge-cyan {
-    background: #d1ecf1;
-    color: #0c5460;
+    background: rgba(6, 182, 212, 0.10);
+    color: #0891B2;
 }
 
 /* ---- Loading State ---- */
@@ -295,8 +295,8 @@ pub const DATA_GRID_CSS: &str = r##"
 .dg-loading-spinner {
     width: 32px;
     height: 32px;
-    border: 3px solid #e0e0e0;
-    border-top: 3px solid #4a90d9;
+    border: 3px solid var(--border-color);
+    border-top: 3px solid var(--accent);
     border-radius: 50%;
     animation: dg-spin 0.8s linear infinite;
 }
@@ -310,15 +310,15 @@ pub const DATA_GRID_CSS: &str = r##"
 .dg-skeleton-row {
     display: flex;
     padding: 8px 12px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--border-light);
     gap: 12px;
 }
 
 .dg-skeleton {
-    background: linear-gradient(90deg, #e9ecef 25%, #f8f9fa 50%, #e9ecef 75%);
+    background: linear-gradient(90deg, var(--border-color) 25%, var(--surface-secondary) 50%, var(--border-color) 75%);
     background-size: 200% 100%;
     animation: dg-shimmer 1.5s infinite;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     height: 16px;
 }
 
@@ -334,14 +334,14 @@ pub const DATA_GRID_CSS: &str = r##"
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 48px 24px;
-    color: #6c757d;
-    gap: 8px;
+    padding: var(--space-12) var(--space-6);
+    color: var(--text-muted);
+    gap: var(--space-2);
 }
 
 .dg-empty-state-icon {
     font-size: 36px;
-    opacity: 0.4;
+    opacity: 0.3;
 }
 
 .dg-empty-state-text {
@@ -350,7 +350,7 @@ pub const DATA_GRID_CSS: &str = r##"
 }
 
 .dg-empty-state-hint {
-    font-size: 13px;
+    font-size: var(--text-sm);
     opacity: 0.7;
 }
 
@@ -360,32 +360,34 @@ pub const DATA_GRID_CSS: &str = r##"
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 16px;
-    border-top: 1px solid #e0e0e0;
-    background: #f8f9fa;
-    font-size: 13px;
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--border-color);
+    background: var(--surface-secondary);
+    font-size: var(--text-sm);
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--space-2);
 }
 
 .dg-page-size-label {
     display: flex;
     align-items: center;
     gap: 6px;
-    color: #495057;
+    color: var(--text-secondary);
 }
 
 .dg-page-size-select {
     padding: 4px 8px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    font-size: 13px;
-    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    background: var(--surface);
     cursor: pointer;
+    color: var(--text-primary);
+    font-family: inherit;
 }
 
 .dg-pagination-summary {
-    color: #495057;
+    color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
 }
 
@@ -401,20 +403,21 @@ pub const DATA_GRID_CSS: &str = r##"
     justify-content: center;
     min-width: 32px;
     height: 32px;
-    padding: 0 8px;
+    padding: 0 var(--space-2);
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     background: transparent;
-    color: #495057;
-    font-size: 13px;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--ease-fast);
+    font-family: inherit;
 }
 
 .dg-page-btn:hover:not(:disabled) {
-    background: #e9ecef;
-    border-color: #ced4da;
+    background: var(--surface-tertiary);
+    border-color: var(--border-color);
 }
 
 .dg-page-btn:disabled {
@@ -423,9 +426,9 @@ pub const DATA_GRID_CSS: &str = r##"
 }
 
 .dg-page-active {
-    background: #4a90d9 !important;
+    background: var(--accent) !important;
     color: white !important;
-    border-color: #4a90d9 !important;
+    border-color: var(--accent) !important;
     font-weight: 600;
 }
 
@@ -434,8 +437,8 @@ pub const DATA_GRID_CSS: &str = r##"
     align-items: center;
     justify-content: center;
     width: 24px;
-    color: #6c757d;
-    font-size: 14px;
+    color: var(--text-muted);
+    font-size: var(--text-base);
 }
 
 /* ---- Filter Bar ---- */
@@ -444,32 +447,33 @@ pub const DATA_GRID_CSS: &str = r##"
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 6px 16px;
-    background: #fff8e1;
-    border-bottom: 1px solid #ffe082;
-    font-size: 13px;
+    padding: var(--space-1) var(--space-4);
+    background: var(--warning-light);
+    border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+    font-size: var(--text-sm);
 }
 
 .dg-filter-bar-label {
-    color: #856404;
+    color: var(--warning);
     font-weight: 600;
 }
 
 .dg-filter-bar-clear-all {
     padding: 2px 10px;
-    border: 1px solid #ffe082;
-    border-radius: 4px;
-    background: #fffde7;
-    color: #856404;
-    font-size: 12px;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--warning);
+    font-size: var(--text-xs);
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition: all var(--ease-fast);
+    font-family: inherit;
 }
 
 .dg-filter-bar-clear-all:hover {
-    background: #fff3cd;
-    border-color: #ffca28;
+    background: var(--warning-light);
+    border-color: var(--warning);
 }
 
 /* ---- Filter Button (in header) ---- */
@@ -490,35 +494,35 @@ pub const DATA_GRID_CSS: &str = r##"
     height: 24px;
     padding: 0;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     background: transparent;
-    color: #adb5bd;
+    color: var(--text-muted);
     cursor: pointer;
     position: relative;
-    transition: all 0.15s ease;
+    transition: all var(--ease-fast);
 }
 
 .dg-filter-btn:hover {
-    background: #dee2e6;
-    color: #495057;
+    background: var(--surface-tertiary);
+    color: var(--text-secondary);
 }
 
 .dg-filter-btn:focus-visible {
-    outline: 2px solid #4a90d9;
+    outline: 2px solid var(--accent);
     outline-offset: 1px;
 }
 
 .dg-filter-btn.dg-filter-active {
-    color: #4a90d9;
+    color: var(--accent);
 }
 
 .dg-filter-btn.dg-filter-active:hover {
-    background: #cce5ff;
+    background: var(--accent-light);
 }
 
 .dg-filter-btn.dg-filter-open {
-    background: #e9ecef;
-    color: #4a90d9;
+    background: var(--surface-tertiary);
+    color: var(--accent);
 }
 
 .dg-filter-dot {
@@ -528,12 +532,12 @@ pub const DATA_GRID_CSS: &str = r##"
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #4a90d9;
-    border: 1.5px solid #f8f9fa;
+    background: var(--accent);
+    border: 1.5px solid var(--surface-secondary);
 }
 
 .dg-has-active-filter .dg-header-text {
-    color: #4a90d9;
+    color: var(--accent);
 }
 
 /* ---- Filter Dropdown ---- */
@@ -548,38 +552,38 @@ pub const DATA_GRID_CSS: &str = r##"
 
 .dg-filter-dropdown {
     min-width: 220px;
-    background: #ffffff;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-2) var(--space-3);
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    font-size: 13px;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
 }
 
 .dg-filter-input {
     width: 100%;
     padding: 6px 10px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    font-size: 13px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
     font-family: inherit;
-    color: #1a1a2e;
-    background: #ffffff;
-    transition: border-color 0.15s ease;
+    color: var(--text-primary);
+    background: var(--surface);
+    transition: border-color var(--ease-fast);
     box-sizing: border-box;
 }
 
 .dg-filter-input:focus {
     outline: none;
-    border-color: #4a90d9;
-    box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-ring);
 }
 
 .dg-filter-input::placeholder {
-    color: #adb5bd;
+    color: var(--text-muted);
 }
 
 /* Number & Date range layout */
@@ -590,9 +594,9 @@ pub const DATA_GRID_CSS: &str = r##"
 }
 
 .dg-filter-label {
-    font-size: 11px;
+    font-size: var(--text-xs);
     font-weight: 600;
-    color: #6c757d;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -600,21 +604,22 @@ pub const DATA_GRID_CSS: &str = r##"
 /* Clear button inside dropdown */
 .dg-filter-clear-btn {
     align-self: flex-end;
-    padding: 4px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    background: #ffffff;
-    color: #6c757d;
-    font-size: 12px;
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition: all var(--ease-fast);
+    font-family: inherit;
 }
 
 .dg-filter-clear-btn:hover {
-    background: #f8d7da;
-    border-color: #dc3545;
-    color: #dc3545;
+    background: var(--danger-light);
+    border-color: var(--danger);
+    color: var(--danger);
 }
 
 /* ---- Select Filter ---- */
@@ -625,25 +630,26 @@ pub const DATA_GRID_CSS: &str = r##"
 
 .dg-filter-select-actions {
     display: flex;
-    gap: 8px;
-    border-bottom: 1px solid #e9ecef;
-    padding-bottom: 8px;
+    gap: var(--space-2);
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: var(--space-2);
 }
 
 .dg-filter-select-action {
     padding: 2px 8px;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--border-color);
     border-radius: 3px;
-    background: #f8f9fa;
-    color: #495057;
-    font-size: 11px;
+    background: var(--surface-secondary);
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.12s ease;
+    transition: all var(--ease-fast);
+    font-family: inherit;
 }
 
 .dg-filter-select-action:hover {
-    background: #e9ecef;
+    background: var(--surface-tertiary);
 }
 
 .dg-filter-select-options {
@@ -666,19 +672,19 @@ pub const DATA_GRID_CSS: &str = r##"
 }
 
 .dg-filter-select-option:hover {
-    background: #f0f2f5;
+    background: var(--surface-tertiary);
 }
 
 .dg-filter-select-option input[type="checkbox"] {
     margin: 0;
-    accent-color: #4a90d9;
+    accent-color: var(--accent);
 }
 
 /* ---- Focus & Accessibility ---- */
 
 .dg-row:focus-visible,
 .dg-page-btn:focus-visible {
-    outline: 2px solid #4a90d9;
+    outline: 2px solid var(--accent);
     outline-offset: -2px;
 }
 
@@ -697,17 +703,17 @@ pub const DATA_GRID_CSS: &str = r##"
 }
 
 .dg-virtual-body::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
+    background: var(--surface-tertiary);
+    border-radius: var(--radius-sm);
 }
 
 .dg-virtual-body::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
+    background: var(--border-color);
+    border-radius: var(--radius-sm);
 }
 
 .dg-virtual-body::-webkit-scrollbar-thumb:hover {
-    background: #a1a1a1;
+    background: var(--text-muted);
 }
 
 .dg-vspacer {
@@ -727,7 +733,7 @@ pub const DATA_GRID_CSS: &str = r##"
 
 .dg-header-cell.dg-pinned-left,
 .dg-header-cell.dg-pinned-right {
-    background: #f0f2f5;
+    background: var(--surface-tertiary);
 }
 
 /* ---- Column Resize Handle ---- */
@@ -741,25 +747,25 @@ pub const DATA_GRID_CSS: &str = r##"
     cursor: col-resize;
     z-index: 5;
     background: transparent;
-    transition: background-color 0.12s ease;
+    transition: background-color var(--ease-fast);
 }
 
 .dg-resize-handle:hover,
 .dg-resize-handle:active {
-    background: #4a90d9;
+    background: var(--accent);
     width: 4px;
 }
 
 .dg-resize-handle:focus-visible {
-    outline: 2px solid #4a90d9;
+    outline: 2px solid var(--accent);
     outline-offset: -2px;
-    background: #4a90d9;
+    background: var(--accent);
     width: 4px;
 }
 
 /* The header cell that is being resized gets a highlight */
 .dg-header-cell.dg-resizing {
-    background: #e9ecef;
+    background: var(--surface-tertiary);
     user-select: none;
 }
 
@@ -779,21 +785,21 @@ pub const DATA_GRID_CSS: &str = r##"
     width: 100%;
     height: 100%;
     padding: 4px 10px;
-    border: 2px solid #4a90d9;
-    border-radius: 4px;
-    font-size: 14px;
+    border: 2px solid var(--accent);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-base);
     font-family: inherit;
-    color: #1a1a2e;
-    background: #ffffff;
+    color: var(--text-primary);
+    background: var(--surface);
     outline: none;
-    box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.2);
+    box-shadow: 0 0 0 3px var(--accent-ring);
     box-sizing: border-box;
     min-height: 28px;
 }
 
 .dg-cell-editor:focus {
-    border-color: #357abd;
-    box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.3);
+    border-color: var(--accent-hover);
+    box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 /* ---- Column Visibility Toggle (Phase 5) ---- */
@@ -802,9 +808,9 @@ pub const DATA_GRID_CSS: &str = r##"
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: 4px 12px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e0e0e0;
+    padding: var(--space-1) var(--space-3);
+    background: var(--surface-secondary);
+    border-bottom: 1px solid var(--border-color);
     min-height: 32px;
     position: relative;
 }
@@ -821,34 +827,34 @@ pub const DATA_GRID_CSS: &str = r##"
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    background: #ffffff;
-    color: #495057;
-    font-size: 13px;
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--ease-fast);
     user-select: none;
     white-space: nowrap;
 }
 
 .dg-column-toggle-btn:hover {
-    background: #e9ecef;
-    border-color: #adb5bd;
+    background: var(--surface-tertiary);
+    border-color: var(--text-muted);
 }
 
 .dg-column-toggle-btn:focus-visible {
-    outline: 2px solid #4a90d9;
+    outline: 2px solid var(--accent);
     outline-offset: 1px;
 }
 
 .dg-column-toggle-btn.dg-column-toggle-open {
-    background: #e9ecef;
-    border-color: #4a90d9;
-    color: #4a90d9;
+    background: var(--surface-tertiary);
+    border-color: var(--accent);
+    color: var(--accent);
 }
 
 .dg-column-toggle-icon {
@@ -870,33 +876,33 @@ pub const DATA_GRID_CSS: &str = r##"
     min-width: 200px;
     max-height: 320px;
     overflow-y: auto;
-    background: #ffffff;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
     padding: 6px 0;
-    margin-top: 4px;
+    margin-top: var(--space-1);
 }
 
 .dg-column-toggle-option {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     padding: 7px 14px;
     cursor: pointer;
-    font-size: 13px;
-    color: #1a1a2e;
-    transition: background-color 0.1s ease;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    transition: background-color var(--ease-fast);
     user-select: none;
 }
 
 .dg-column-toggle-option:hover {
-    background: #f0f2f5;
+    background: var(--surface-tertiary);
 }
 
 .dg-column-toggle-option input[type="checkbox"] {
     margin: 0;
-    accent-color: #4a90d9;
+    accent-color: var(--accent);
     flex-shrink: 0;
 }
 
@@ -916,7 +922,7 @@ pub const DATA_GRID_CSS: &str = r##"
 }
 
 .dg-column-toggle-menu::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
+    background: var(--border-color);
     border-radius: 3px;
 }
 
@@ -931,7 +937,7 @@ pub const DATA_GRID_CSS: &str = r##"
 
     .dg-pagination {
         flex-direction: column;
-        gap: 8px;
+        gap: var(--space-2);
     }
 
     .dg-resize-handle {

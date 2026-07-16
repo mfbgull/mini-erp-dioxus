@@ -10,6 +10,62 @@ use crate::calculations::{round_money, BatchConsumption};
 // FIFO Costing
 // ---------------------------------------------------------------------------
 
+/// A batch of inventory with tracking info (mirrors the `stock_batches` table).
+#[derive(Debug, Clone)]
+pub struct StockBatch {
+    pub id: i64,
+    pub quantity_remaining: f64,
+    pub unit_cost: f64,
+}
+
+/// Result of a FIFO consumption across batches.
+#[derive(Debug)]
+pub struct FifoConsumptionResult {
+    /// The individual batch slices consumed (oldest first).
+    pub consumed: Vec<BatchConsumption>,
+    /// The weighted-average unit cost of the total consumption.
+    pub weighted_avg_cost: f64,
+    /// Updated quantities for each input batch (same order as input).
+    pub updated_batches: Vec<StockBatch>,
+}
+
+/// Consume a quantity from a list of batches using FIFO (oldest first).
+///
+/// Batches are assumed to already be sorted oldest-first (by received_date, then id).
+/// Consumes from each batch in order until the requested quantity is fulfilled.
+///
+/// Returns the consumption records and updated batch quantities.
+pub fn consume_fifo_batches(batches: &[StockBatch], qty_to_consume: f64) -> FifoConsumptionResult {
+    let mut consumed = Vec::new();
+    let mut updated_batches: Vec<StockBatch> = batches.to_vec();
+    let mut remaining = qty_to_consume;
+
+    for batch in &mut updated_batches {
+        if remaining <= 0.0 {
+            break;
+        }
+        let take = remaining.min(batch.quantity_remaining);
+        if take > 0.0 {
+            consumed.push(BatchConsumption {
+                quantity: take,
+                unit_cost: batch.unit_cost,
+            });
+            batch.quantity_remaining -= take;
+            remaining -= take;
+        }
+    }
+
+    let total_cost: f64 = consumed.iter().map(|c| c.cost()).sum();
+    let total_qty: f64 = consumed.iter().map(|c| c.quantity).sum();
+    let weighted_avg_cost = if total_qty > 0.0 { total_cost / total_qty } else { 0.0 };
+
+    FifoConsumptionResult {
+        consumed,
+        weighted_avg_cost: round_money(weighted_avg_cost),
+        updated_batches,
+    }
+}
+
 /// Compute the total cost of goods sold from a set of batch consumption records.
 ///
 /// Each [`BatchConsumption`] represents a quantity taken from an oldest-first
@@ -180,5 +236,58 @@ mod tests {
         assert!(is_low_stock(5.0, 10.0));
         assert!(!is_low_stock(15.0, 10.0));
         assert!(is_low_stock(10.0, 10.0)); // exactly at reorder level
+    }
+
+    #[test]
+    fn test_fifo_two_batches() {
+        // Buy 1 at 100, buy 1 at 105. Sell 1 → should consume batch 1 (cost 100).
+        let batches = vec![
+            StockBatch { id: 1, quantity_remaining: 1.0, unit_cost: 100.0 },
+            StockBatch { id: 2, quantity_remaining: 1.0, unit_cost: 105.0 },
+        ];
+        let result = consume_fifo_batches(&batches, 1.0);
+        assert_eq!(result.consumed.len(), 1);
+        assert!((result.consumed[0].quantity - 1.0).abs() < 0.01);
+        assert!((result.consumed[0].unit_cost - 100.0).abs() < 0.01);
+        assert!((result.weighted_avg_cost - 100.0).abs() < 0.01);
+        // Batch 1 fully consumed, batch 2 untouched
+        assert!((result.updated_batches[0].quantity_remaining).abs() < 0.01);
+        assert!((result.updated_batches[1].quantity_remaining - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_fifo_consume_across_batches() {
+        // Batch 1: 10 units at 50. Batch 2: 5 units at 55. Consume 12.
+        let batches = vec![
+            StockBatch { id: 1, quantity_remaining: 10.0, unit_cost: 50.0 },
+            StockBatch { id: 2, quantity_remaining: 5.0, unit_cost: 55.0 },
+        ];
+        let result = consume_fifo_batches(&batches, 12.0);
+        assert_eq!(result.consumed.len(), 2);
+        // First 10 from batch 1, next 2 from batch 2
+        assert!((result.consumed[0].quantity - 10.0).abs() < 0.01);
+        assert!((result.consumed[1].quantity - 2.0).abs() < 0.01);
+        // Total cost = 500 + 110 = 610, avg = 610/12 = 50.83
+        assert!((compute_fifo_cogs(&result.consumed) - 610.0).abs() < 0.01);
+        assert!((result.weighted_avg_cost - 50.83).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_fifo_consume_more_than_available() {
+        let batches = vec![
+            StockBatch { id: 1, quantity_remaining: 3.0, unit_cost: 10.0 },
+        ];
+        let result = consume_fifo_batches(&batches, 5.0);
+        // Only 3 available, consume all of them
+        assert_eq!(result.consumed.len(), 1);
+        assert!((result.consumed[0].quantity - 3.0).abs() < 0.01);
+        assert!((result.updated_batches[0].quantity_remaining).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_fifo_no_batches() {
+        let result = consume_fifo_batches(&[], 10.0);
+        assert!(result.consumed.is_empty());
+        assert!((result.weighted_avg_cost).abs() < 0.01);
     }
 }

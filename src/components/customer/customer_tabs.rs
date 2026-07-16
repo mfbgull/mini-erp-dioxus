@@ -1,10 +1,10 @@
 use dioxus::prelude::*;
 
 const TAB_CSS: &str = r#"
-.customer-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border-color, #e0e0e0); margin-bottom: 16px; }
+.customer-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border-color); margin-bottom: 16px; }
 .customer-tab { padding: 10px 20px; font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; background: none; border-top: none; border-left: none; border-right: none; }
 .customer-tab:hover { color: var(--text-primary); }
-.customer-tab.active { color: var(--accent, #4a90d9); border-bottom-color: var(--accent, #4a90d9); font-weight: 600; }
+.customer-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 "#;
 
 #[derive(Clone, Copy, PartialEq)]

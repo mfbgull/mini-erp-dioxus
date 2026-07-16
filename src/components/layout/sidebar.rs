@@ -166,7 +166,7 @@ pub const SIDEBAR_CSS: &str = r##"
 }
 
 .app-sidebar.collapsed {
-    width: 64px;
+    width: 60px;
 }
 
 /* ── Sidebar Header ── */
@@ -240,6 +240,11 @@ pub const SIDEBAR_CSS: &str = r##"
 
 .sidebar-nav::-webkit-scrollbar-track {
     background: transparent;
+}
+
+/* Allow dropdown to escape when collapsed */
+.app-sidebar.collapsed .sidebar-nav {
+    overflow: visible;
 }
 
 /* ── Module Header ── */
@@ -382,7 +387,7 @@ pub const SIDEBAR_CSS: &str = r##"
 /* ── Hover Dropdown (Collapsed State) ── */
 .sidebar-dropdown {
     position: absolute;
-    left: calc(100% + 4px);
+    left: 100%;
     top: 0;
     min-width: 200px;
     background: #1e1e2d;

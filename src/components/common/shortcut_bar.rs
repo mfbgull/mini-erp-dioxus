@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 
 const SHORTCUT_BAR_CSS: &str = r#"
-.shortcut-bar { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: #fff; border-top: 1px solid var(--border-color, #e0e0e0); z-index: 100; padding: 0 8px; }
+.shortcut-bar { display: none; position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: var(--surface); border-top: 1px solid var(--border-color); z-index: 100; padding: 0 8px; }
 .shortcut-bar-inner { display: flex; align-items: center; justify-content: space-around; height: 100%; }
 .shortcut-bar-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 12px; border-radius: 8px; cursor: pointer; text-decoration: none; color: var(--text-secondary, #666); font-size: 10px; background: none; border: none; }
-.shortcut-bar-item.active { color: var(--accent, #4a90d9); }
-.shortcut-bar-item:hover { background: var(--bg-hover, #f0f0f0); }
+.shortcut-bar-item.active { color: var(--accent); }
+.shortcut-bar-item:hover { background: var(--surface-tertiary); }
 .shortcut-bar-icon { font-size: 20px; line-height: 1; }
 .shortcut-bar-label { font-size: 10px; font-weight: 500; }
 @media (max-width: 768px) { .shortcut-bar { display: block; } }

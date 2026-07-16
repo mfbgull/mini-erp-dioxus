@@ -1,11 +1,11 @@
 use dioxus::prelude::*;
 
 const LEDGER_CSS: &str = r#"
-.ledger-container { background: #fff; border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px; overflow: hidden; }
+.ledger-container { background: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
 .ledger-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border-color); }
 .ledger-header h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0; }
 .ledger-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.ledger-table th { text-align: left; padding: 10px 12px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary); background: var(--bg-muted, #f8f9fa); border-bottom: 2px solid var(--border-color); }
+.ledger-table th { text-align: left; padding: 10px 12px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary); background: var(--surface-secondary); border-bottom: 2px solid var(--border-color); }
 .ledger-table th.text-right { text-align: right; }
 .ledger-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-color); }
 .ledger-table td.text-right { text-align: right; font-family: monospace; font-size: 12px; }
@@ -16,7 +16,7 @@ const LEDGER_CSS: &str = r#"
 .ledger-table .type-invoice { background: rgba(74,144,217,0.1); color: #4a90d9; }
 .ledger-table .type-payment { background: rgba(40,167,69,0.1); color: #28a745; }
 .ledger-table .type-opening { background: rgba(108,117,125,0.1); color: #6c757d; }
-.ledger-summary { display: flex; gap: 24px; padding: 12px 16px; background: var(--bg-muted, #f8f9fa); border-top: 2px solid var(--border-color); font-size: 13px; }
+.ledger-summary { display: flex; gap: 24px; padding: 12px 16px; background: var(--surface-secondary); border-top: 2px solid var(--border-color); font-size: 13px; }
 .ledger-summary-item { display: flex; gap: 6px; }
 .ledger-summary-label { color: var(--text-secondary); }
 .ledger-summary-value { font-weight: 600; }

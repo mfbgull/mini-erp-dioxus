@@ -362,6 +362,19 @@ async fn delete_employee(State(_state): State<AppState>, Path(id): Path<i64>) ->
 
 async fn pay_salary(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<SalaryPaymentForm>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+
+    // Check if a salary payment already exists for this employee in the same month
+    let month_prefix = &form.payment_date[..7]; // "YYYY-MM"
+    let already_paid: bool = db.query_row(
+        "SELECT COUNT(*) > 0 FROM salary_payments WHERE employee_id = ?1 AND payment_date LIKE ?2 || '%'",
+        rusqlite::params![id, month_prefix],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if already_paid {
+        return (StatusCode::CONFLICT, Json(json!({ "success": false, "error": "Salary already paid for this month." })));
+    }
+
     let result = db.execute(
         "INSERT INTO salary_payments (employee_id, amount, payment_date) VALUES (?1, ?2, ?3)",
         rusqlite::params![id, form.amount, form.payment_date],

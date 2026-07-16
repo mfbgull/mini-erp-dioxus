@@ -1,17 +1,17 @@
 use dioxus::prelude::*;
 
 const INVOICE_ITEMS_CSS: &str = r#"
-.invoice-items-section { background: #fff; border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+.invoice-items-section { background: var(--surface); border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
 .invoice-items-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border-color); }
 .invoice-items-header h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0; }
 .invoice-items-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.invoice-items-table th { text-align: left; padding: 10px 12px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary); background: var(--bg-muted, #f8f9fa); border-bottom: 2px solid var(--border-color); }
+.invoice-items-table th { text-align: left; padding: 10px 12px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-secondary); background: var(--surface-secondary); border-bottom: 2px solid var(--border-color); }
 .invoice-items-table th.text-right { text-align: right; }
 .invoice-items-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
 .invoice-items-table td.text-right { text-align: right; font-family: monospace; }
 .invoice-items-table tr:last-child td { border-bottom: none; }
-.invoice-items-table input, .invoice-items-table select { width: 100%; padding: 6px 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; background: #fff; }
-.invoice-items-table input:focus, .invoice-items-table select:focus { outline: none; border-color: var(--accent, #4a90d9); box-shadow: 0 0 0 2px rgba(74,144,217,0.15); }
+.invoice-items-table input, .invoice-items-table select { width: 100%; padding: 6px 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 13px; background: var(--surface); }
+.invoice-items-table input:focus, .invoice-items-table select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(74,144,217,0.15); }
 .invoice-items-table .qty-input { width: 70px; text-align: right; }
 .invoice-items-table .price-input { width: 100px; text-align: right; }
 .invoice-items-table .tax-input { width: 60px; text-align: right; }
@@ -20,7 +20,7 @@ const INVOICE_ITEMS_CSS: &str = r#"
 .invoice-items-table .remove-btn:hover { background: rgba(220,53,69,0.1); }
 .invoice-items-table .row-num { color: var(--text-secondary); font-weight: 500; width: 30px; }
 .invoice-items-footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--border-color); }
-.invoice-add-item-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border: 1px dashed var(--border-color); border-radius: 6px; background: transparent; color: var(--accent, #4a90d9); font-size: 13px; cursor: pointer; }
+.invoice-add-item-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border: 1px dashed var(--border-color); border-radius: 6px; background: transparent; color: var(--accent); font-size: 13px; cursor: pointer; }
 .invoice-add-item-btn:hover { background: rgba(74,144,217,0.05); border-color: var(--accent); }
 .invoice-totals { display: flex; flex-direction: column; gap: 8px; min-width: 240px; }
 .invoice-total-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-primary); padding: 2px 0; }

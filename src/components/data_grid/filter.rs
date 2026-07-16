@@ -254,7 +254,7 @@ mod tests {
     use super::*;
 
     fn text_col(key: &'static str) -> ColumnDef<&'static str> {
-        ColumnDef::text(key, key, |s| s.to_string())
+        ColumnDef::text(key, key, |s: &&str| s.to_string())
     }
 
     fn row(value: &'static str, index: usize) -> IndexedRow<&'static str> {

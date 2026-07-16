@@ -2,10 +2,10 @@ use dioxus::prelude::*;
 
 const LOADER_CSS: &str = r#"
 .page-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; gap: 12px; }
-.page-loader .spinner { width: 32px; height: 32px; border: 3px solid var(--border-color, #e0e0e0); border-top-color: var(--accent, #4a90d9); border-radius: 50%; animation: spin 0.8s linear infinite; }
+.page-loader .spinner { width: 32px; height: 32px; border: 3px solid var(--border-color); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
 .page-loader .spinner-sm { width: 16px; height: 16px; border-width: 2px; }
 .page-loader .spinner-lg { width: 48px; height: 48px; border-width: 4px; }
-.page-loader p { font-size: 13px; color: var(--text-secondary, #666); margin: 0; }
+.page-loader p { font-size: 13px; color: var(--text-secondary); margin: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 "#;
 

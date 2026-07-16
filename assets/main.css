@@ -284,8 +284,6 @@ a:hover {
     flex: 1;
     overflow-y: auto;
     padding: var(--space-6);
-    position: relative;
-    z-index: 1;
 }
 
 /* -----------------------------------------------------------------------
