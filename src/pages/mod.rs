@@ -81,7 +81,6 @@ pub mod purchase_order_print;
 pub mod purchase_return_list;
 pub mod purchases_dashboard;
 
-pub mod stock_movement_create;
 pub mod stock_movement_list;
 pub mod invoice_detail;
 pub mod invoice_print;

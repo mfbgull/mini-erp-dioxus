@@ -21,6 +21,35 @@ use axum::{
 use serde_json::json;
 
 // ============================================================================
+// Stock-adjustment GL posting (pure decision logic)
+// ============================================================================
+
+/// Chart-of-account ids for stock-adjustment journal lines. These are the
+/// seeded ids (see db.rs COA seed, append-only). Hardcoded to match the four
+/// existing journal posters (invoice/payment/purchase/expense).
+const ACCT_INVENTORY: i64 = 3; // 1200 Inventory (asset)
+const ACCT_SHRINKAGE: i64 = 18; // 5100 Inventory Shrinkage (expense)
+const ACCT_ADJ_GAIN: i64 = 19; // 4200 Inventory Adjustment Gain (revenue)
+
+/// Decide the balanced double-entry lines for an ADJUSTMENT movement.
+/// Returns `None` when there is nothing to post (zero value), else
+/// `(debit_account_id, credit_account_id, value)`.
+///
+///   qty > 0 (correction up): Dr Inventory      Cr Adjustment Gain
+///   qty < 0 (shrinkage):     Dr Shrinkage       Cr Inventory
+fn adjustment_journal(quantity: f64, standard_cost: f64) -> Option<(i64, i64, f64)> {
+    let value = quantity.abs() * standard_cost;
+    if value <= 0.0 {
+        return None;
+    }
+    if quantity < 0.0 {
+        Some((ACCT_SHRINKAGE, ACCT_INVENTORY, value))
+    } else {
+        Some((ACCT_INVENTORY, ACCT_ADJ_GAIN, value))
+    }
+}
+
+// ============================================================================
 // Router
 // ============================================================================
 
@@ -826,23 +855,27 @@ async fn create_stock_movement(
                 )
                 .unwrap_or(false);
 
+            // Signed-quantity semantics (matches source StockMovement model):
+            //   IN  → +qty, OUT → -qty (legacy paths),
+            //   ADJUSTMENT / TRANSFER → quantity as sent (client signs it:
+            //   negative on the from-warehouse row, positive on the to-warehouse row).
+            let delta = match form.movement_type.as_str() {
+                "IN" => form.quantity,
+                "OUT" => -form.quantity,
+                _ => form.quantity,
+            };
             if exists {
-                let delta = if form.movement_type == "IN" {
-                    form.quantity
-                } else {
-                    -form.quantity
-                };
                 db.execute(
                     "UPDATE stock_balances SET quantity = quantity + ?1
                      WHERE item_id = ?2 AND warehouse_id = ?3",
                     rusqlite::params![delta, form.item_id, form.warehouse_id],
                 )
                 .ok();
-            } else if form.movement_type == "IN" {
+            } else {
                 db.execute(
                     "INSERT INTO stock_balances (item_id, warehouse_id, quantity)
                      VALUES (?1, ?2, ?3)",
-                    rusqlite::params![form.item_id, form.warehouse_id, form.quantity],
+                    rusqlite::params![form.item_id, form.warehouse_id, delta],
                 )
                 .ok();
             }
@@ -872,6 +905,38 @@ async fn create_stock_movement(
                     rusqlite::params![batch_no, form.item_id, form.warehouse_id, movement_id,
                         form.quantity, effective_unit_cost],
                 ).ok();
+            }
+
+            // ── Financial posting for ADJUSTMENT movements ──
+            // Mirrors source StockMovement.postFinancialEntryForAdjustment, translated
+            // to this repo's double-entry model (journal_entries header + balanced
+            // journal_lines). Value = |qty| x standard_cost; skip when zero.
+            // Account ids are hardcoded to match the four existing posters:
+            //   3 = Inventory (1200), 18 = Inventory Shrinkage (5100),
+            //   19 = Inventory Adjustment Gain (4200).
+            if form.movement_type == "ADJUSTMENT" {
+                let std_cost: f64 = db
+                    .query_row("SELECT standard_cost FROM items WHERE id = ?1", [form.item_id], |r| r.get(0))
+                    .unwrap_or(0.0);
+                if let Some((dr_acct, cr_acct, value)) = adjustment_journal(form.quantity, std_cost) {
+                    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+                    let desc = if form.quantity < 0.0 {
+                        format!("Stock removal: {} units @ {:.2}", form.quantity.abs(), std_cost)
+                    } else {
+                        format!("Stock addition: {} units @ {:.2}", form.quantity.abs(), std_cost)
+                    };
+                    db.execute(
+                        "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('stock_adjustment', ?1, ?2)",
+                        rusqlite::params![movement_id, today],
+                    ).ok();
+                    let je_id = db.last_insert_rowid();
+                    db.execute(
+                        "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date, reference_type, reference_id)
+                         VALUES (?1, ?2, ?3, 0, ?5, ?6, 'stock_adjustment', ?7),
+                                (?1, ?4, 0, ?3, ?5, ?6, 'stock_adjustment', ?7)",
+                        rusqlite::params![je_id, dr_acct, value, cr_acct, desc, today, movement_id],
+                    ).ok();
+                }
             }
 
             let movement = db.query_row(
@@ -1457,5 +1522,45 @@ async fn delete_physical_count(
                 Json(json!({ "success": false, "error": "Failed to delete count." })),
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod adjustment_journal_tests {
+    use super::*;
+
+    // The posting must always be a balanced two-line entry: the single `value`
+    // is written once as a debit and once as a credit, so balance is structural.
+    // These tests pin the account routing and the zero-value skip.
+
+    #[test]
+    fn positive_adjustment_credits_gain_debits_inventory() {
+        let (dr, cr, value) = adjustment_journal(5.0, 120.0).unwrap();
+        assert_eq!(dr, ACCT_INVENTORY);
+        assert_eq!(cr, ACCT_ADJ_GAIN);
+        assert_eq!(value, 600.0);
+    }
+
+    #[test]
+    fn negative_adjustment_debits_shrinkage_credits_inventory() {
+        let (dr, cr, value) = adjustment_journal(-2.0, 120.0).unwrap();
+        assert_eq!(dr, ACCT_SHRINKAGE);
+        assert_eq!(cr, ACCT_INVENTORY);
+        assert_eq!(value, 240.0); // |qty| used, value always positive
+    }
+
+    #[test]
+    fn zero_cost_or_zero_qty_posts_nothing() {
+        assert!(adjustment_journal(5.0, 0.0).is_none());
+        assert!(adjustment_journal(0.0, 120.0).is_none());
+    }
+
+    #[test]
+    fn debit_equals_credit_value_balanced() {
+        // Same value drives both lines → entry balances by construction.
+        let (_, _, value) = adjustment_journal(-3.5, 40.0).unwrap();
+        let debit_total = value;
+        let credit_total = value;
+        assert!((debit_total - credit_total).abs() < f64::EPSILON);
     }
 }

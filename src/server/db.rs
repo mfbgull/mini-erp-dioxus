@@ -1317,6 +1317,10 @@ fn seed_data(conn: &Connection) -> Result<()> {
             ("6100", "Rent Expense", "Expense", "Debit"),
             ("6200", "Utilities Expense", "Expense", "Debit"),
             ("6300", "Office Supplies Expense", "Expense", "Debit"),
+            // Stock-adjustment accounts (must stay LAST → ids 18, 19; hardcoded by
+            // create_stock_movement's journal posting. Append only, never reorder.)
+            ("5100", "Inventory Shrinkage", "Expense", "Debit"),
+            ("4200", "Inventory Adjustment Gain", "Revenue", "Credit"),
         ];
         for (code, name, atype, nb) in &accounts {
             conn.execute(
@@ -1324,6 +1328,19 @@ fn seed_data(conn: &Connection) -> Result<()> {
                 [code, name, atype, nb],
             )?;
         }
+    }
+
+    // ── Ensure stock-adjustment accounts exist on pre-existing DBs (append-only) ──
+    // Older databases seeded only 17 accounts; add the two new ones idempotently so
+    // their ids remain 18 and 19 (code is UNIQUE → INSERT OR IGNORE is safe).
+    for (code, name, atype, nb) in &[
+        ("5100", "Inventory Shrinkage", "Expense", "Debit"),
+        ("4200", "Inventory Adjustment Gain", "Revenue", "Credit"),
+    ] {
+        conn.execute(
+            "INSERT OR IGNORE INTO chart_of_accounts (code, name, type, normal_balance, is_active) VALUES (?1, ?2, ?3, ?4, 1)",
+            [code, name, atype, nb],
+        )?;
     }
 
     // ── Seed Accounting Periods ──

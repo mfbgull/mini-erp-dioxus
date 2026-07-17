@@ -80,8 +80,6 @@ enum Route {
         WarehouseEditPage { id: String },
         #[route("/inventory/stock-movements")]
         StockMovementListPage {},
-        #[route("/inventory/stock-movements/new")]
-        StockMovementCreatePage {},
 
         #[route("/inventory/physical-counts")]
         PhysicalCountListPage {},
@@ -591,15 +589,6 @@ fn StockMovementListPage() -> Element {
     rsx! {
         ProtectedRoute { permission: "inventory:read".to_string(),
             pages::stock_movement_list::StockMovementListPage {}
-        }
-    }
-}
-
-#[component]
-fn StockMovementCreatePage() -> Element {
-    rsx! {
-        ProtectedRoute { permission: "inventory:create".to_string(),
-            pages::stock_movement_create::StockMovementCreatePage {}
         }
     }
 }

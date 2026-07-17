@@ -460,7 +460,7 @@ pub fn ItemDetailPage(id: String) -> Element {
     let on_stock_movement = {
         let nav = navigator.clone();
         move |_| {
-            nav.push("/inventory/stock-movements/new");
+            nav.push("/inventory/stock-movements");
         }
     };
 

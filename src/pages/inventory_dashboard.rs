@@ -154,7 +154,7 @@ pub fn InventoryDashboardPage() -> Element {
                             }
                             button {
                                 class: "toolbar-btn",
-                                onclick: move |_| { navigator.push("/inventory/stock-movements/new"); },
+                                onclick: move |_| { navigator.push("/inventory/stock-movements"); },
                                 "＋ Stock Movement"
                             }
                             button {

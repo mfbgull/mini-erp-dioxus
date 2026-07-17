@@ -1,10 +1,12 @@
 //! Stock Movement List Page — DataGrid-backed list view for tracking stock movements.
 
 use crate::auth::use_auth;
+use crate::components::common::{Modal, ModalSize};
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
 };
+use crate::components::inventory::StockAdjustmentForm;
 use dioxus::prelude::*;
 use std::collections::HashSet;
 
@@ -27,9 +29,9 @@ pub struct StockMovementItem {
 
 #[component]
 pub fn StockMovementListPage() -> Element {
-    let navigator = use_navigator();
     let api = use_auth().api;
     let refresh_counter = use_signal(|| 0u32);
+    let show_modal = use_signal(|| false);
     let movements_resource = use_resource(move || async move {
         let _ = *refresh_counter.read();
         let client = api.read().clone();
@@ -118,12 +120,7 @@ pub fn StockMovementListPage() -> Element {
         tracing::info!("Clicked movement: {}", m.movement_no);
     };
 
-    let on_new = {
-        let nav = navigator.clone();
-        move |_| {
-            nav.push("/inventory/stock-movements/new");
-        }
-    };
+    let on_new = { let mut m = show_modal.clone(); move |_| { m.set(true); } };
 
     let on_refresh = {
         let mut counter = refresh_counter.clone();
@@ -131,6 +128,13 @@ pub fn StockMovementListPage() -> Element {
             counter += 1;
         }
     };
+
+    let on_modal_success = {
+        let mut m = show_modal.clone();
+        let mut counter = refresh_counter.clone();
+        move |_| { m.set(false); counter += 1; }
+    };
+    let on_modal_cancel = { let mut m = show_modal.clone(); move |_| { m.set(false); } };
 
     rsx! {
         div { class: "page",
@@ -161,6 +165,17 @@ pub fn StockMovementListPage() -> Element {
                 loading: is_loading,
                 skeleton: is_loading,
                 skeleton_rows: 8,
+            }
+
+            Modal {
+                is_open: show_modal,
+                title: Some("Stock Movement".to_string()),
+                size: ModalSize::Lg,
+                close_on_backdrop: false,
+                StockAdjustmentForm {
+                    on_success: on_modal_success,
+                    on_cancel: on_modal_cancel,
+                }
             }
         }
     }

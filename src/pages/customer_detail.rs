@@ -12,6 +12,7 @@ use crate::components::common::{
     Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
 };
 use crate::models;
+use std::collections::HashMap;
 use crate::pages::customer_list::Customer;
 use dioxus::prelude::*;
 
@@ -208,6 +209,13 @@ pub fn CustomerDetailPage(id: String) -> Element {
     // ── Tab state ──
     let active_tab = use_signal(|| 0usize);
     let mut show_delete_modal = use_signal(|| false);
+    let show_payment_modal = use_signal(|| false);
+    let is_saving = use_signal(|| false);
+    // invoice_id -> amount-to-pay input (as string for editable fields)
+    let pay_alloc = use_signal(HashMap::<i64, String>::new);
+    let pay_method = use_signal(|| "Cash".to_string());
+    let pay_reference = use_signal(String::new);
+    let pay_notes = use_signal(String::new);
 
     // ── Combined data fetch ──
     let customer_resource = use_resource(move || {
@@ -231,7 +239,10 @@ pub fn CustomerDetailPage(id: String) -> Element {
             // Fetch ledger
             let ledger_entries = client.get_customer_ledger(parsed).await.unwrap_or_default();
 
-            Some((server_customer, customer_invoices, ledger_entries))
+            // Fetch payments
+            let payment_entries = client.get_customer_payments(parsed).await.unwrap_or_default();
+
+            Some((server_customer, customer_invoices, ledger_entries, payment_entries))
         }
     });
 
@@ -249,7 +260,7 @@ pub fn CustomerDetailPage(id: String) -> Element {
         let mut customer_opt: Option<Customer> = None;
 
         // ponytail: outer Option=loading, inner Option=found/not-found
-        if let Some(Some((sc, invs, ledgers))) = snapshot.as_ref() {
+        if let Some(Some((sc, invs, ledgers, pmts))) = snapshot.as_ref() {
             // Compute invoice-level metrics
             let total_invoiced: f64 = invs.iter().map(|i| i.total_amount).sum();
             let total_paid: f64 = invs.iter().map(|i| i.paid_amount).sum();
@@ -319,8 +330,17 @@ pub fn CustomerDetailPage(id: String) -> Element {
                 })
                 .collect();
 
-            // ponytail: empty until /api/customers/{id}/payments endpoint exists
-            payments = Vec::new();
+            payments = pmts
+                .iter()
+                .map(|p| PaymentItem {
+                    id: p.id,
+                    payment_no: p.payment_no.clone(),
+                    date: p.payment_date.clone(),
+                    amount: p.amount,
+                    method: p.payment_method.clone(),
+                    reference: p.reference.clone().unwrap_or_default(),
+                })
+                .collect();
 
             // Map ledger entries
             ledger = ledgers
@@ -396,6 +416,88 @@ pub fn CustomerDetailPage(id: String) -> Element {
                     let cust_id = customer_opt.as_ref().map(|c| c.id).unwrap_or(0);
                     let on_edit = { let nav2 = nav.clone(); move |_| { nav2.push(format!("/customers/{}/edit", cust_id)); } };
                     let on_new_invoice = { let nav2 = nav.clone(); move |_| { nav2.push("/sales/invoices/new"); } };
+                    // Unpaid invoices for this customer (outstanding balance)
+                    let unpaid_invoices: Vec<InvoiceItem> = invoices.iter().filter(|i| i.balance > 0.01).cloned().collect();
+                    let on_record_payment = {
+                        let mut m = show_payment_modal.clone();
+                        let mut alloc = pay_alloc.clone();
+                        let mut method = pay_method.clone();
+                        let mut reference = pay_reference.clone();
+                        let mut notes = pay_notes.clone();
+                        move |_| {
+                            alloc.set(HashMap::new());
+                            method.set("Cash".to_string());
+                            reference.set(String::new());
+                            notes.set(String::new());
+                            m.set(true);
+                        }
+                    };
+                    let cancel_payment = { let mut m = show_payment_modal.clone(); move |_| m.set(false) };
+                    let submit_payment = {
+                        let api = api.clone();
+                        let toast2 = t.clone();
+                        let modal = show_payment_modal.clone();
+                        let alloc_sig = pay_alloc.clone();
+                        let method_sig = pay_method.clone();
+                        let reference_sig = pay_reference.clone();
+                        let notes_sig = pay_notes.clone();
+                        let saving_sig = is_saving.clone();
+                        let refresh = customer_resource.clone();
+                        let unpaid = unpaid_invoices.clone();
+                        move |_| {
+                            let mut toast_v = toast2.clone();
+                            // Build allocations from entered amounts, clamped to each invoice balance
+                            let alloc_map = alloc_sig.read().clone();
+                            let mut allocations: Vec<serde_json::Value> = Vec::new();
+                            let mut total = 0.0_f64;
+                            for inv in unpaid.iter() {
+                                let amt = alloc_map.get(&inv.id).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+                                if amt <= 0.0 { continue; }
+                                if amt > inv.balance + 0.01 {
+                                    toast_v.error("Validation Error", &format!("Amount for {} exceeds its balance.", inv.invoice_no));
+                                    return;
+                                }
+                                allocations.push(serde_json::json!({ "invoice_id": inv.id, "amount": amt }));
+                                total += amt;
+                            }
+                            if allocations.is_empty() || total <= 0.0 {
+                                toast_v.error("Validation Error", "Enter a payment amount against at least one invoice.");
+                                return;
+                            }
+                            let mut saving_v = saving_sig.clone();
+                            saving_v.set(true);
+                            let client = api.with(|c| c.clone());
+                            let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+                            let body = serde_json::json!({
+                                "customer_id": cust_id,
+                                "invoice_id": serde_json::Value::Null,
+                                "payment_date": today,
+                                "amount": total,
+                                "payment_method": method_sig.read().clone(),
+                                "reference": reference_sig.read().clone(),
+                                "notes": notes_sig.read().clone(),
+                                "allocations": allocations,
+                            });
+                            let mut toast3 = toast2.clone();
+                            let mut modal2 = modal.clone();
+                            let mut saving2 = saving_sig.clone();
+                            let mut refresh2 = refresh.clone();
+                            spawn(async move {
+                                match client.create_payment(&body).await {
+                                    Ok(_) => {
+                                        toast3.success("Payment Recorded", "Payment recorded successfully.");
+                                        modal2.set(false);
+                                        saving2.set(false);
+                                        refresh2.restart();
+                                    }
+                                    Err(e) => {
+                                        toast3.error("Payment Failed", &e);
+                                        saving2.set(false);
+                                    }
+                                }
+                            });
+                        }
+                    };
                     let on_delete = { let mut m = show_delete_modal.clone(); move |_| m.set(true) };
                     let cancel_delete = { let mut m = show_delete_modal.clone(); move |_| m.set(false) };
                     let confirm_delete = {
@@ -572,7 +674,10 @@ pub fn CustomerDetailPage(id: String) -> Element {
                         // ════════ TAB: Payments ════════
                         if *active_tab.read() == 2 {
                             div { class: "customer-section",
-                                div { class: "customer-section-header", h2 { "Payments" } }
+                                div { class: "customer-section-header",
+                                    h2 { "Payments" }
+                                    Button { variant: ButtonVariant::Primary, onclick: on_record_payment, icon: Some("💰".to_string()), "Record Payment" }
+                                }
                                 if payments.is_empty() {
                                     div { class: "customer-table-empty", "No payments recorded." }
                                 } else {
@@ -664,6 +769,106 @@ pub fn CustomerDetailPage(id: String) -> Element {
                                 p { style: "margin: 0; color: var(--text-secondary); font-size: 13px;",
                                     "This action cannot be undone. Deleting \"{customer.customer_code}\" will permanently remove the customer record."
                                 }
+                            }
+                        }
+
+                        // ── Record Payment Modal ──
+                        Modal {
+                            is_open: show_payment_modal,
+                            title: Some(format!("Record Payment — {}", customer.customer_name)),
+                            size: ModalSize::Md,
+                            close_on_backdrop: true,
+                            close_on_escape: true,
+                            footer: rsx! {
+                                Button { variant: ButtonVariant::Secondary, onclick: cancel_payment, "Cancel" }
+                                Button { variant: ButtonVariant::Primary, loading: *is_saving.read(), onclick: submit_payment, "Record Payment" }
+                            },
+                            if unpaid_invoices.is_empty() {
+                                div { class: "customer-table-empty", "No unpaid invoices to settle." }
+                            } else {
+                                {{
+                                    // Total being allocated (reactive on pay_alloc)
+                                    let alloc_snapshot = pay_alloc.read();
+                                    let entered_total: f64 = unpaid_invoices.iter()
+                                        .map(|inv| alloc_snapshot.get(&inv.id).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0))
+                                        .sum();
+                                    rsx! {
+                                        div { style: "display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;",
+                                            div { class: "payment-field", style: "flex:1; min-width:140px; display:flex; flex-direction:column; gap:4px;",
+                                                label { style: "font-size:12px; font-weight:600; color:var(--text-secondary);", "Method" }
+                                                select {
+                                                    style: "padding:8px 10px; border:1px solid var(--border-color); border-radius:6px; font-size:13px;",
+                                                    value: "{pay_method.read()}",
+                                                    onchange: { let mut m = pay_method.clone(); move |e: Event<FormData>| m.set(e.value()) },
+                                                    option { value: "Cash", "Cash" }
+                                                    option { value: "Bank Transfer", "Bank Transfer" }
+                                                    option { value: "Cheque", "Cheque" }
+                                                    option { value: "Credit Card", "Credit Card" }
+                                                    option { value: "Online", "Online Payment" }
+                                                }
+                                            }
+                                            div { class: "payment-field", style: "flex:1; min-width:140px; display:flex; flex-direction:column; gap:4px;",
+                                                label { style: "font-size:12px; font-weight:600; color:var(--text-secondary);", "Reference" }
+                                                input {
+                                                    style: "padding:8px 10px; border:1px solid var(--border-color); border-radius:6px; font-size:13px;",
+                                                    r#type: "text", placeholder: "Cheque #, txn ID…",
+                                                    value: "{pay_reference.read()}",
+                                                    oninput: { let mut r = pay_reference.clone(); move |e: Event<FormData>| r.set(e.value()) },
+                                                }
+                                            }
+                                        }
+                                        table { class: "customer-table",
+                                            thead { tr {
+                                                th { "Invoice #" } th { "Date" }
+                                                th { class: "text-right", "Balance" }
+                                                th { class: "text-right", "Pay Now" }
+                                            }}
+                                            tbody {
+                                                {unpaid_invoices.iter().map(|inv| {
+                                                    let inv_id = inv.id;
+                                                    let bal = inv.balance;
+                                                    let current = alloc_snapshot.get(&inv_id).cloned().unwrap_or_default();
+                                                    let mut alloc_set = pay_alloc.clone();
+                                                    let mut alloc_fill = pay_alloc.clone();
+                                                    rsx! {
+                                                        tr {
+                                                            td { style: "font-family: monospace;", "{inv.invoice_no}" }
+                                                            td { "{inv.date}" }
+                                                            td { class: "text-right",
+                                                                span {
+                                                                    style: "cursor:pointer; text-decoration:underline dotted;",
+                                                                    title: "Click to pay full balance",
+                                                                    onclick: move |_| {
+                                                                        let mut m = alloc_fill.read().clone();
+                                                                        m.insert(inv_id, format!("{:.2}", bal));
+                                                                        alloc_fill.set(m);
+                                                                    },
+                                                                    "PKR {bal:.0}"
+                                                                }
+                                                            }
+                                                            td { class: "text-right",
+                                                                input {
+                                                                    style: "width:110px; padding:6px 8px; border:1px solid var(--border-color); border-radius:6px; font-size:13px; text-align:right;",
+                                                                    r#type: "number", min: "0", max: "{bal}", step: "0.01",
+                                                                    value: "{current}",
+                                                                    oninput: move |e: Event<FormData>| {
+                                                                        let mut m = alloc_set.read().clone();
+                                                                        m.insert(inv_id, e.value());
+                                                                        alloc_set.set(m);
+                                                                    },
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                })}
+                                            }
+                                        }
+                                        div { class: "payment-summary", style: "display:flex; justify-content:space-between; padding:12px; background:var(--bg-muted,#f5f5f5); border-radius:6px; margin-top:12px; font-size:14px; font-weight:600;",
+                                            span { "Total Payment" }
+                                            span { class: "text-success", "PKR {entered_total:.2}" }
+                                        }
+                                    }
+                                }}
                             }
                         }
                     }

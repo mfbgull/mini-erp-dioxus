@@ -37,3 +37,4 @@ pub mod layout;
 pub mod invoice;
 pub mod dashboard;
 pub mod customer;
+pub mod inventory;
