@@ -135,8 +135,6 @@ const PAGE_CSS: &str = r##"
 "##;
 
 // ============================================================================
-// Helpers
-// ============================================================================
 
 fn category_options() -> Vec<SelectOption> {
     vec![
@@ -161,17 +159,6 @@ fn uom_options() -> Vec<SelectOption> {
         SelectOption { value: "packs".to_string(), label: "Packs".to_string() },
         SelectOption { value: "meters".to_string(), label: "Meters (m)".to_string() },
         SelectOption { value: "boxes".to_string(), label: "Boxes".to_string() },
-    ]
-}
-
-fn warehouse_options() -> Vec<SelectOption> {
-    vec![
-        SelectOption { value: "Main Warehouse".to_string(), label: "Main Warehouse".to_string() },
-        SelectOption { value: "Raw Materials Store".to_string(), label: "Raw Materials Store".to_string() },
-        SelectOption { value: "Equipment Storage".to_string(), label: "Equipment Storage".to_string() },
-        SelectOption { value: "Consumables Store".to_string(), label: "Consumables Store".to_string() },
-        SelectOption { value: "Packaging Store".to_string(), label: "Packaging Store".to_string() },
-        SelectOption { value: "Safety Equipment".to_string(), label: "Safety Equipment".to_string() },
     ]
 }
 
@@ -408,7 +395,6 @@ pub fn ItemCreatePage() -> Element {
         let mut i_cost = standard_cost.clone();
         let mut i_price = selling_price.clone();
         let mut i_reorder = reorder_level.clone();
-        let mut i_warehouse = warehouse.clone();
         let mut i_notes = notes.clone();
         let mut i_raw = is_raw_material.clone();
         let mut i_finished = is_finished_good.clone();
@@ -482,7 +468,6 @@ pub fn ItemCreatePage() -> Element {
                 i_cost.set(String::new());
                 i_price.set(String::new());
                 i_reorder.set(String::new());
-                i_warehouse.set("Main Warehouse".to_string());
                 i_notes.set(String::new());
                 i_active.set(true);
                 i_raw.set(false);
@@ -709,20 +694,10 @@ pub fn ItemCreatePage() -> Element {
                 }
             }
 
-            // ── Section: Warehouse & Status ──
+            // ── Section: Status ──
             div { class: "item-section",
-                h2 { "Warehouse & Status" }
+                h2 { "Status" }
                 div { class: "item-form-row",
-                    div {
-                        SearchableSelect {
-                            options: warehouse_options(),
-                            selected_value: Some(warehouse.read().clone()),
-                            on_select: on_warehouse_change,
-                            placeholder: "Select warehouse…",
-                            searchable: true,
-                            class: Some("cb-input-group".to_string()),
-                        }
-                    }
                     div {
                         label { class: "cb-input-label", style: "margin-bottom: 6px; display: block;", "Status" }
                         button {

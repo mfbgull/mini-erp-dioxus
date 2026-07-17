@@ -38,10 +38,6 @@ pub struct InventoryItem {
     pub warehouse: String,
 }
 
-// ============================================================================
-// Sample Data
-// ============================================================================
-
 /// Derive a display status string from the server-side item model.
 pub fn derive_status(item: &crate::models::Item) -> String {
     if !item.is_active {

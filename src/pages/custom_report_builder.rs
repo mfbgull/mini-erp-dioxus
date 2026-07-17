@@ -85,15 +85,6 @@ fn sales_fields() -> Vec<(&'static str, &'static str)> {
     ]
 }
 
-fn preview_data() -> Vec<Vec<String>> {
-    vec![
-        vec!["INV-2026-0045".to_string(), "Alpha Traders".to_string(), "2026-06-22".to_string(), "156,000".to_string(), "23,400".to_string(), "179,400".to_string(), "Unpaid".to_string(), "Widgets".to_string()],
-        vec!["INV-2026-0044".to_string(), "Delta Corp".to_string(), "2026-06-21".to_string(), "98,765".to_string(), "14,815".to_string(), "113,580".to_string(), "Paid".to_string(), "Fasteners".to_string()],
-        vec!["INV-2026-0043".to_string(), "Gamma Supplies".to_string(), "2026-06-20".to_string(), "234,500".to_string(), "35,175".to_string(), "269,675".to_string(), "Partially Paid".to_string(), "Electrical".to_string()],
-        vec!["INV-2026-0042".to_string(), "Epsilon LLC".to_string(), "2026-06-19".to_string(), "67,500".to_string(), "10,125".to_string(), "77,625".to_string(), "Overdue".to_string(), "Consumables".to_string()],
-    ]
-}
-
 // ============================================================================
 // Component
 // ============================================================================
@@ -133,8 +124,6 @@ pub fn CustomReportBuilderPage() -> Element {
             }
         }
     };
-
-    let preview = preview_data();
 
     let on_preview = {
         let mut sp = show_preview.clone();
@@ -366,31 +355,11 @@ pub fn CustomReportBuilderPage() -> Element {
                         div { class: "crb-empty-preview", "Select fields above to see preview data." }
                     } else {
                         div { class: "crb-preview-box",
-                            table { class: "crb-mock-table",
-                                thead {
-                                    tr {
-                                        {fields_list.iter().map(|(_, label)| rsx! {
-                                            th { key: "{label}", "{label}" }
-                                        })}
-                                    }
-                                }
-                                tbody {
-                                    {preview.iter().map(|row| rsx! {
-                                        tr {
-                                            {fields_list.iter().map(|(key, _)| {
-                                                let idx = fields.iter().position(|(k, _)| k == key).unwrap_or(0);
-                                                rsx! {
-                                                    td { key: "{key}", "{row[idx]}" }
-                                                }
-                                            })}
-                                        }
-                                    })}
-                                }
+                            p { style: "color: var(--text-secondary); font-size: 13px; padding: 20px; text-align: center;",
+                                "Run a report to see actual data."
                             }
                         }
                     }
-                } else {
-                    div { class: "crb-empty-preview", "Click \"Refresh Preview\" to see sample data." }
                 }
             }
 

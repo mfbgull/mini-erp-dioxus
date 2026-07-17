@@ -121,11 +121,10 @@ fn sostatus_class(status: &str) -> &'static str {
 pub fn SalesOrderDetailPage(id: String) -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
-    let id_display = id.clone();
 
+    let api = use_auth().api;
     let resource = use_resource(move || {
         let pid = id.clone();
-        let api = use_auth().api;
         async move {
             let parsed = pid.parse::<i64>().ok()?;
             let client = api.with(|c| c.clone());
@@ -161,9 +160,7 @@ pub fn SalesOrderDetailPage(id: String) -> Element {
 
     let is_loading = resource.read().is_none();
     let so_opt = resource.read().as_ref().cloned().flatten();
-    let mut show_delete_modal = use_signal(|| false);
 
-    
     if is_loading {
         return rsx! {
             style { "{PAGE_CSS}" }
@@ -188,12 +185,118 @@ pub fn SalesOrderDetailPage(id: String) -> Element {
         };
     }
     let so = so_opt.as_ref().unwrap();
+    let sid = so.id;
+
+    let on_back = { let nav = navigator; move |_| { nav.push("/sales/sales-orders"); } };
+    let on_convert = {
+        let toast = toast.clone();
+        move |_| {
+            let mut toast = toast.clone();
+            let nav = navigator;
+            spawn(async move {
+                let client = api.read().clone();
+                match client.convert_sales_order(sid).await {
+                    Ok(_) => {
+                        toast.success("Converted", "Sales order converted to invoice.");
+                        nav.push("/sales/sales-orders");
+                    }
+                    Err(e) => toast.error("Error", &e),
+                }
+            });
+        }
+    };
+    let on_cancel = {
+        let toast = toast.clone();
+        move |_| {
+            let mut toast = toast.clone();
+            let nav = navigator;
+            spawn(async move {
+                let client = api.read().clone();
+                match client.cancel_sales_order(sid).await {
+                    Ok(_) => {
+                        toast.success("Cancelled", "Sales order has been cancelled.");
+                        nav.push("/sales/sales-orders");
+                    }
+                    Err(e) => toast.error("Error", &e),
+                }
+            });
+        }
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }
         div { class: "page sodetail-page",
-            div { class: "empty-state",
-                p { "Sales order detail view — coming soon" }
+            div { class: "sodetail-header",
+                div { class: "sodetail-title-group",
+                    button { class: "sodetail-back", onclick: on_back, "← Back to Sales Orders" }
+                    div { class: "sodetail-title-row",
+                        h1 { "{so.order_no}" }
+                        span { class: "sodetail-status-badge {sostatus_class(&so.status)}", "{so.status}" }
+                    }
+                }
+            }
+
+            div { class: "sodetail-section",
+                div { class: "sodetail-section-header", h2 { "Details" } }
+                div { class: "sodetail-info-grid",
+                    div { class: "sodetail-field",
+                        span { class: "sodetail-field-label", "Customer" }
+                        span { class: "sodetail-field-value", "{so.customer_name}" }
+                    }
+                    div { class: "sodetail-field",
+                        span { class: "sodetail-field-label", "Order Date" }
+                        span { class: "sodetail-field-value", "{so.order_date}" }
+                    }
+                    div { class: "sodetail-field",
+                        span { class: "sodetail-field-label", "Delivery Date" }
+                        span { class: "sodetail-field-value", "{so.delivery_date}" }
+                    }
+                    div { class: "sodetail-field",
+                        span { class: "sodetail-field-label", "Total" }
+                        span { class: "sodetail-field-value", "{so.total:.2}" }
+                    }
+                }
+            }
+
+            div { class: "sodetail-section",
+                div { class: "sodetail-section-header", h2 { "Line Items" } }
+                table { class: "sodetail-items-table",
+                    thead {
+                        tr {
+                            th { "#" }
+                            th { "Code" }
+                            th { "Item" }
+                            th { class: "text-right", "Qty" }
+                            th { class: "text-right", "Unit Price" }
+                            th { class: "text-right", "Net Amount" }
+                        }
+                    }
+                    tbody {
+                        for item in so.items.iter() {
+                            tr {
+                                td { "{item.line_no}" }
+                                td { "{item.item_code}" }
+                                td { "{item.item_name}" }
+                                td { class: "text-right", "{item.quantity:.2}" }
+                                td { class: "text-right", "{item.unit_price:.2}" }
+                                td { class: "text-right", "{item.net_amount:.2}" }
+                            }
+                        }
+                    }
+                }
+
+                if !so.notes.is_empty() {
+                    p { class: "sodetail-notes", style: "margin-top: 16px;", "{so.notes}" }
+                }
+
+                div { class: "sodetail-actions",
+                    div { class: "sodetail-actions-left",
+                        button { class: "sodetail-back", onclick: on_cancel, "Cancel Order" }
+                    }
+                    div { class: "sodetail-actions-right",
+                        button { class: "sodetail-back", onclick: on_convert, "Convert to Invoice" }
+                    }
+                }
             }
         }
     }

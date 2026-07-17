@@ -151,12 +151,12 @@ pub fn QuotationDetailPage(id: String) -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
 
-    let auth = use_auth();
+    let api = use_auth().api;
     let resource = use_resource(move || {
         let fetch_id = id.clone();
         async move {
             let parsed = fetch_id.parse::<i64>().ok()?;
-            let api = auth.api.read();
+            let api = api.read();
             let client = api.clone();
             drop(api);
             let resp = client.get_quotation(parsed).await.ok()?;
@@ -169,9 +169,7 @@ pub fn QuotationDetailPage(id: String) -> Element {
 
     let is_loading = resource.read().is_none();
     let q_opt = resource.read().as_ref().cloned().flatten();
-    let mut show_delete_modal = use_signal(|| false);
 
-    
     if is_loading {
         return rsx! {
             style { "{PAGE_CSS}" }
@@ -196,12 +194,103 @@ pub fn QuotationDetailPage(id: String) -> Element {
         };
     }
     let q = q_opt.as_ref().unwrap();
+    let qid = q.id;
+
+    let on_back = { let nav = navigator; move |_| { nav.push("/sales/quotations"); } };
+    let on_convert = {
+        let toast = toast.clone();
+        move |_| {
+            let mut toast = toast.clone();
+            let nav = navigator;
+            spawn(async move {
+                let client = api.read().clone();
+                match client.convert_quotation(qid).await {
+                    Ok(_) => {
+                        toast.success("Converted", "Quotation converted to invoice.");
+                        nav.push("/sales/quotations");
+                    }
+                    Err(e) => toast.error("Error", &e),
+                }
+            });
+        }
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }
         div { class: "page qdetail-page",
-            div { class: "empty-state",
-                p { "Quotation detail view — coming soon" }
+            div { class: "qdetail-header",
+                div { class: "qdetail-title-group",
+                    button { class: "qdetail-back", onclick: on_back, "← Back to Quotations" }
+                    div { class: "qdetail-title-row",
+                        h1 { "{q.quotation_no}" }
+                        span { class: "qdetail-status-badge {qstatus_class(&q.status)}", "{q.status}" }
+                    }
+                }
+            }
+
+            div { class: "qdetail-section",
+                div { class: "qdetail-section-header", h2 { "Details" } }
+                div { class: "qdetail-info-grid",
+                    div { class: "qdetail-field",
+                        span { class: "qdetail-field-label", "Customer" }
+                        span { class: "qdetail-field-value", "{q.customer_name}" }
+                    }
+                    div { class: "qdetail-field",
+                        span { class: "qdetail-field-label", "Quotation Date" }
+                        span { class: "qdetail-field-value", "{q.date}" }
+                    }
+                    div { class: "qdetail-field",
+                        span { class: "qdetail-field-label", "Valid Until" }
+                        span { class: "qdetail-field-value", "{q.valid_until}" }
+                    }
+                    div { class: "qdetail-field",
+                        span { class: "qdetail-field-label", "Total" }
+                        span { class: "qdetail-field-value", "{q.total:.2}" }
+                    }
+                }
+            }
+
+            div { class: "qdetail-section",
+                div { class: "qdetail-section-header", h2 { "Line Items" } }
+                table { class: "qdetail-items-table",
+                    thead {
+                        tr {
+                            th { "#" }
+                            th { "Code" }
+                            th { "Item" }
+                            th { class: "text-right", "Qty" }
+                            th { class: "text-right", "Unit Price" }
+                            th { class: "text-right", "Discount" }
+                            th { class: "text-right", "Tax %" }
+                            th { class: "text-right", "Net Amount" }
+                        }
+                    }
+                    tbody {
+                        for item in q.items.iter() {
+                            tr {
+                                td { "{item.line_no}" }
+                                td { "{item.item_code}" }
+                                td { "{item.item_name}" }
+                                td { class: "text-right", "{item.quantity:.2}" }
+                                td { class: "text-right", "{item.unit_price:.2}" }
+                                td { class: "text-right", "{item.discount:.2}" }
+                                td { class: "text-right", "{item.tax_rate:.2}" }
+                                td { class: "text-right", "{item.net_amount:.2}" }
+                            }
+                        }
+                    }
+                }
+
+                if !q.notes.is_empty() {
+                    p { class: "qdetail-notes", style: "margin-top: 16px;", "{q.notes}" }
+                }
+
+                div { class: "qdetail-actions",
+                    div { class: "qdetail-actions-left" }
+                    div { class: "qdetail-actions-right",
+                        button { class: "qdetail-back", onclick: on_convert, "Convert to Invoice" }
+                    }
+                }
             }
         }
     }

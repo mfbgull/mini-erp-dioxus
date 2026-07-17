@@ -10,9 +10,10 @@ use crate::components::common::{
     Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
     SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
 };
-use crate::models::{SalesOrderForm, SalesOrderItemForm};
+use crate::models::{Customer, Item, SalesOrderForm, SalesOrderItemForm};
 use chrono::NaiveDate;
 use dioxus::prelude::*;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 // ============================================================================
@@ -106,48 +107,6 @@ impl LineItem {
 }
 
 // ============================================================================
-// Sample Data
-// ============================================================================
-
-fn customer_options() -> Vec<SelectOption> {
-    vec![
-        SelectOption { value: "CUST-001".to_string(), label: "Alpha Traders".to_string() },
-        SelectOption { value: "CUST-002".to_string(), label: "Beta Industries".to_string() },
-        SelectOption { value: "CUST-003".to_string(), label: "Gamma Supplies".to_string() },
-        SelectOption { value: "CUST-004".to_string(), label: "Delta Corp".to_string() },
-        SelectOption { value: "CUST-005".to_string(), label: "Epsilon LLC".to_string() },
-        SelectOption { value: "CUST-006".to_string(), label: "Zeta Enterprises".to_string() },
-        SelectOption { value: "CUST-007".to_string(), label: "Eta Manufacturing".to_string() },
-        SelectOption { value: "CUST-008".to_string(), label: "Theta Retail".to_string() },
-    ]
-}
-
-fn item_options() -> Vec<SelectOption> {
-    vec![
-        SelectOption { value: "ITM-0001".to_string(), label: "Premium Widget Alpha".to_string() },
-        SelectOption { value: "ITM-0002".to_string(), label: "Industrial Bolt M12".to_string() },
-        SelectOption { value: "ITM-0003".to_string(), label: "Steel Rod 12mm x 6m".to_string() },
-        SelectOption { value: "ITM-0004".to_string(), label: "Hydraulic Pump HPD-200".to_string() },
-        SelectOption { value: "ITM-0005".to_string(), label: "Rubber Gasket Set".to_string() },
-        SelectOption { value: "ITM-0006".to_string(), label: "Copper Wire 2.5mm (100m)".to_string() },
-        SelectOption { value: "ITM-0007".to_string(), label: "LED Panel Light 24W".to_string() },
-        SelectOption { value: "ITM-0008".to_string(), label: "Packaging Box 40x30x20cm".to_string() },
-    ]
-}
-
-fn item_price(code: &str) -> f64 {
-    match code {
-        "ITM-0001" => 29.99,   "ITM-0002" => 0.45,   "ITM-0003" => 15.75,
-        "ITM-0004" => 1250.00, "ITM-0005" => 8.99,   "ITM-0006" => 45.00,
-        "ITM-0007" => 18.50,   "ITM-0008" => 1.20,   _ => 0.0,
-    }
-}
-
-fn item_name(code: &str) -> String {
-    item_options().into_iter().find(|o| o.value == code).map(|o| o.label).unwrap_or_default()
-}
-
-// ============================================================================
 // Component
 // ============================================================================
 
@@ -175,6 +134,44 @@ pub fn SalesOrderCreatePage() -> Element {
     let mut is_dirty = use_signal(|| false);
     let show_discard_modal = use_signal(|| false);
 
+    // ── API-loaded data (real ids, not hardcoded codes) ──
+    let customer_map = use_signal(HashMap::<String, Customer>::new);
+    let item_map = use_signal(HashMap::<String, Item>::new);
+    let customer_options = use_signal(Vec::<SelectOption>::new);
+    let item_options_signal = use_signal(Vec::<SelectOption>::new);
+    {
+        let auth_api = api;
+        let mut cust_map = customer_map.clone();
+        let mut cust_opts = customer_options.clone();
+        let mut it_map = item_map.clone();
+        let mut it_opts = item_options_signal.clone();
+        use_effect(move || {
+            let client = auth_api.with(|c| c.clone());
+            spawn(async move {
+                if let Ok(customers) = client.list_customers().await {
+                    let mut map = HashMap::new();
+                    let mut opts = Vec::new();
+                    for c in &customers {
+                        opts.push(SelectOption { value: c.customer_code.clone(), label: format!("{} ({})", c.customer_name, c.customer_code) });
+                        map.insert(c.customer_code.clone(), c.clone());
+                    }
+                    cust_map.set(map);
+                    cust_opts.set(opts);
+                }
+                if let Ok(items) = client.list_items_catalog().await {
+                    let mut map = HashMap::new();
+                    let mut opts = Vec::new();
+                    for i in items {
+                        opts.push(SelectOption { value: i.item_code.clone(), label: format!("{} ({})", i.item_name, i.item_code) });
+                        map.insert(i.item_code.clone(), i);
+                    }
+                    it_map.set(map);
+                    it_opts.set(opts);
+                }
+            });
+        });
+    }
+
     let item_totals: Vec<f64> = items.read().iter().map(|li| li.net_amount()).collect();
     let discount_val = discount_pct.read().parse::<f64>().unwrap_or(0.0);
     let tax_rate_val = tax_rate_str.read().parse::<f64>().unwrap_or(0.0);
@@ -191,9 +188,10 @@ pub fn SalesOrderCreatePage() -> Element {
         let mut code = customer_code.clone();
         let mut name = customer_name.clone();
         let mut dirty = is_dirty.clone();
+        let cust_map = customer_map.clone();
         move |value: String| {
-            code.set(value.clone());
-            name.set(customer_options().into_iter().find(|o| o.value == value).map(|o| o.label).unwrap_or_default());
+            name.set(cust_map.read().get(&value).map(|c| c.customer_name.clone()).unwrap_or_default());
+            code.set(value);
             dirty.set(true);
         }
     };
@@ -221,6 +219,8 @@ pub fn SalesOrderCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
         let navigator = navigator.clone();
         let api = api.clone();
+        let cust_map = customer_map.clone();
+        let it_map = item_map.clone();
 
         move |_| {
             if c_code.read().is_empty() {
@@ -231,19 +231,23 @@ pub fn SalesOrderCreatePage() -> Element {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
+            let customer_id = cust_map.read().get(&*c_code.read()).map(|c| c.id).unwrap_or(0);
+            if customer_id == 0 {
+                toast.error("Validation Error", "Selected customer is not valid.");
+                return;
+            }
             saving.set(true);
             let mut toast = toast.clone();
             let nav = navigator.clone();
             let api = api.clone();
             let mut saving = saving.clone();
             let mut dirty = dirty.clone();
-            let customer_id = c_code.read().parse::<i64>().unwrap_or(0);
             let so_date = (*o_date.read()).map(|d| d.to_string()).unwrap_or_default();
             let notes_val = nts.read().clone();
             let order_items: Vec<SalesOrderItemForm> = its.read().iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| SalesOrderItemForm {
-                    item_id: li.item_code.parse::<i64>().unwrap_or(0),
+                    item_id: it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0),
                     description: None,
                     quantity: li.quantity,
                     unit_price: li.unit_price,
@@ -278,6 +282,8 @@ pub fn SalesOrderCreatePage() -> Element {
         let mut tax_str = tax_rate_str.clone();
         let mut dirty = is_dirty.clone();
         let api = api.clone();
+        let cust_map = customer_map.clone();
+        let it_map = item_map.clone();
 
         move |_| {
             if c_code.read().is_empty() {
@@ -288,18 +294,22 @@ pub fn SalesOrderCreatePage() -> Element {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
+            let customer_id = cust_map.read().get(&*c_code.read()).map(|c| c.id).unwrap_or(0);
+            if customer_id == 0 {
+                toast.error("Validation Error", "Selected customer is not valid.");
+                return;
+            }
             saving.set(true);
             let mut toast = toast.clone();
             let api = api.clone();
             let mut saving = saving.clone();
             let mut dirty = dirty.clone();
-            let customer_id = c_code.read().parse::<i64>().unwrap_or(0);
             let so_date = (*o_date.read()).map(|d| d.to_string()).unwrap_or_default();
             let notes_val = nts.read().clone();
             let order_items: Vec<SalesOrderItemForm> = its.read().iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| SalesOrderItemForm {
-                    item_id: li.item_code.parse::<i64>().unwrap_or(0),
+                    item_id: it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0),
                     description: None,
                     quantity: li.quantity,
                     unit_price: li.unit_price,
@@ -372,7 +382,7 @@ pub fn SalesOrderCreatePage() -> Element {
                 div { class: "socreate-form-row",
                     div {
                         SearchableSelect {
-                            options: customer_options(),
+                            options: customer_options.read().clone(),
                             selected_value: Some(customer_code.read().clone()),
                             on_select: on_customer_select,
                             placeholder: "Select customer…",
@@ -434,12 +444,16 @@ pub fn SalesOrderCreatePage() -> Element {
                                     let mut its = items.clone();
                                     let mut dirty = is_dirty.clone();
                                     let id = item_data.id;
+                                    let it_map = item_map.clone();
                                     move |value: String| {
+                                        let looked_up = it_map.read().get(&value).map(|i| (i.item_name.clone(), i.selling_price));
                                         let mut w = its.write();
                                         if let Some(line) = w.iter_mut().find(|x| x.id == id) {
                                             line.item_code = value.clone();
-                                            line.item_name = item_name(&value);
-                                            line.unit_price = item_price(&value);
+                                            if let Some((name, price)) = looked_up {
+                                                line.item_name = name;
+                                                line.unit_price = price;
+                                            }
                                         }
                                         dirty.set(true);
                                     }
@@ -468,7 +482,7 @@ pub fn SalesOrderCreatePage() -> Element {
                                         td { class: "socreate-item-num", "{idx + 1}" }
                                         td {
                                             SearchableSelect {
-                                                options: item_options(),
+                                                options: item_options_signal.read().clone(),
                                                 selected_value: (!item_data.item_code.is_empty()).then(|| item_data.item_code.clone()),
                                                 on_select: on_item_select,
                                                 placeholder: "Search item…",
