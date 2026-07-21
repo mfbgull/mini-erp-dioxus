@@ -773,6 +773,10 @@ async fn create_stock_movement(
     Json(form): Json<StockMovementForm>,
 ) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
+        tracing::error!("Failed to begin transaction: {}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
+    }
 
     // Generate movement number
     let seq: i64 = db
@@ -805,10 +809,14 @@ async fn create_stock_movement(
 
         // Update batch quantities in DB
         for updated in &fifo_result.updated_batches {
-            db.execute(
+            if let Err(e) = db.execute(
                 "UPDATE stock_batches SET quantity_remaining = ?1 WHERE id = ?2",
                 rusqlite::params![updated.quantity_remaining, updated.id],
-            ).ok();
+            ) {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to update stock batch: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update stock batch." })));
+            }
         }
 
         let last_batch_id = batches.last().map(|b| b.id);
@@ -865,19 +873,25 @@ async fn create_stock_movement(
                 _ => form.quantity,
             };
             if exists {
-                db.execute(
+                if let Err(e) = db.execute(
                     "UPDATE stock_balances SET quantity = quantity + ?1
                      WHERE item_id = ?2 AND warehouse_id = ?3",
                     rusqlite::params![delta, form.item_id, form.warehouse_id],
-                )
-                .ok();
+                ) {
+                    let _ = db.execute_batch("ROLLBACK");
+                    tracing::error!("Failed to update stock balance: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update stock balance." })));
+                }
             } else {
-                db.execute(
+                if let Err(e) = db.execute(
                     "INSERT INTO stock_balances (item_id, warehouse_id, quantity)
                      VALUES (?1, ?2, ?3)",
                     rusqlite::params![form.item_id, form.warehouse_id, delta],
-                )
-                .ok();
+                ) {
+                    let _ = db.execute_batch("ROLLBACK");
+                    tracing::error!("Failed to insert stock balance: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create stock balance." })));
+                }
             }
 
             // Update item current_stock
@@ -889,22 +903,29 @@ async fn create_stock_movement(
                 )
                 .unwrap_or(0.0);
 
-            db.execute(
+            if let Err(e) = db.execute(
                 "UPDATE items SET current_stock = ?1, updated_at = datetime('now') WHERE id = ?2",
                 rusqlite::params![total_balance, form.item_id],
-            )
-            .ok();
+            ) {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to update item stock: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update item stock." })));
+            }
 
             // For IN movements, create a stock batch
             if form.movement_type == "IN" {
                 let batch_no = format!("{}-BATCH", movement_no);
-                db.execute(
+                if let Err(e) = db.execute(
                     "INSERT INTO stock_batches (batch_no, item_id, warehouse_id, source_type, source_id,
                         quantity_original, quantity_remaining, unit_cost, received_date)
                      VALUES (?1, ?2, ?3, 'MOVEMENT', ?4, ?5, ?5, ?6, datetime('now'))",
                     rusqlite::params![batch_no, form.item_id, form.warehouse_id, movement_id,
                         form.quantity, effective_unit_cost],
-                ).ok();
+                ) {
+                    let _ = db.execute_batch("ROLLBACK");
+                    tracing::error!("Failed to create stock batch: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create stock batch." })));
+                }
             }
 
             // ── Financial posting for ADJUSTMENT movements ──
@@ -925,17 +946,25 @@ async fn create_stock_movement(
                     } else {
                         format!("Stock addition: {} units @ {:.2}", form.quantity.abs(), std_cost)
                     };
-                    db.execute(
+                    if let Err(e) = db.execute(
                         "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('stock_adjustment', ?1, ?2)",
                         rusqlite::params![movement_id, today],
-                    ).ok();
+                    ) {
+                        let _ = db.execute_batch("ROLLBACK");
+                        tracing::error!("Failed to create adjustment journal entry: {}", e);
+                        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create adjustment journal entry." })));
+                    }
                     let je_id = db.last_insert_rowid();
-                    db.execute(
+                    if let Err(e) = db.execute(
                         "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date, reference_type, reference_id)
                          VALUES (?1, ?2, ?3, 0, ?5, ?6, 'stock_adjustment', ?7),
                                 (?1, ?4, 0, ?3, ?5, ?6, 'stock_adjustment', ?7)",
                         rusqlite::params![je_id, dr_acct, value, cr_acct, desc, today, movement_id],
-                    ).ok();
+                    ) {
+                        let _ = db.execute_batch("ROLLBACK");
+                        tracing::error!("Failed to create adjustment journal lines: {}", e);
+                        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create adjustment journal lines." })));
+                    }
                 }
             }
 
@@ -972,12 +1001,19 @@ async fn create_stock_movement(
             )
             .unwrap();
 
+            if let Err(e) = db.execute_batch("COMMIT") {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to commit stock movement: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to commit transaction." })));
+            }
+
             (
                 StatusCode::CREATED,
                 Json(json!({ "success": true, "data": movement })),
             )
         }
         Err(e) => {
+            let _ = db.execute_batch("ROLLBACK");
             tracing::error!("Failed to create stock movement: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,

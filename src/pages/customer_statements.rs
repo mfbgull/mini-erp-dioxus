@@ -1,7 +1,7 @@
 //! Customer Statements Page — Detailed account statements with running balance.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, StatCard, StatCardVariant, use_toast};
+use crate::components::common::{Button, ButtonVariant, SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast};
 use crate::models;
 use dioxus::prelude::*;
 
@@ -43,7 +43,7 @@ struct StatementLine { date: String, reference: String, description: String, deb
 pub fn CustomerStatementsPage() -> Element {
     let toast = use_toast();
     let api = use_auth().api;
-    let customers = use_signal(Vec::<models::Customer>::new);
+    let customer_options = use_signal(Vec::<SelectOption>::new);
     let selected_id = use_signal(|| 0i64);
     let from_date = use_signal(|| "2026-06-01".to_string());
     let to_date = use_signal(|| "2026-06-30".to_string());
@@ -53,14 +53,18 @@ pub fn CustomerStatementsPage() -> Element {
     // Load customer list on mount
     {
         let api = api.clone();
-        let mut customers = customers.clone();
+        let mut cust_opts = customer_options.clone();
         use_effect(move || {
             let api = api.clone();
-            let mut customers = customers.clone();
+            let mut cust_opts = cust_opts.clone();
             spawn(async move {
                 let client = api.read().clone();
                 if let Ok(list) = client.list_customers().await {
-                    customers.set(list);
+                    let opts: Vec<SelectOption> = list.iter().map(|c| SelectOption {
+                        value: c.id.to_string(),
+                        label: format!("{} ({})", c.customer_name, c.customer_code),
+                    }).collect();
+                    cust_opts.set(opts);
                 }
             });
         });
@@ -69,46 +73,47 @@ pub fn CustomerStatementsPage() -> Element {
     // Load statement when customer or date range changes
     {
         let api = api.clone();
-        let id = *selected_id.read();
-        let from = from_date.read().clone();
-        let to = to_date.read().clone();
         let mut cust_info = cust_info.clone();
         let mut statement = statement.clone();
-        if id > 0 {
-            use_effect(move || {
-                let api = api.clone();
-                let mut cust_info = cust_info.clone();
-                let mut statement = statement.clone();
-                let from = from.clone();
-                let to = to.clone();
-                spawn(async move {
-                    let client = api.read().clone();
-                    let customer = client.get_customer(id).await.ok();
-                    let ledger = client.get_customer_ledger(id).await.ok().unwrap_or_default();
-                    if let Some(c) = customer {
-                        cust_info.set(CustomerInfo {
-                            name: c.customer_name, code: c.customer_code,
-                            address: c.billing_address, phone: c.phone, email: c.email,
-                        });
-                    }
-                    let lines: Vec<StatementLine> = ledger.iter()
-                        .filter(|l| l.transaction_date >= from && l.transaction_date <= to)
-                        .map(|l| StatementLine {
-                            date: l.transaction_date.clone(), reference: l.reference_no.clone(),
-                            description: l.transaction_type.clone(),
-                            debit: l.debit, credit: l.credit, balance: l.balance,
-                        })
-                        .collect();
-                    statement.set(lines);
-                });
+        use_effect(move || {
+            let api = api.clone();
+            let mut cust_info = cust_info.clone();
+            let mut statement = statement.clone();
+            let id = *selected_id.read();
+            let from = from_date.read().clone();
+            let to = to_date.read().clone();
+            spawn(async move {
+                if id <= 0 {
+                    cust_info.set(CustomerInfo::default());
+                    statement.set(Vec::new());
+                    return;
+                }
+                let client = api.read().clone();
+                let customer = client.get_customer(id).await.ok();
+                let ledger = client.get_customer_ledger(id).await.ok().unwrap_or_default();
+                if let Some(c) = customer {
+                    cust_info.set(CustomerInfo {
+                        name: c.customer_name, code: c.customer_code,
+                        address: c.billing_address, phone: c.phone, email: c.email,
+                    });
+                }
+                let lines: Vec<StatementLine> = ledger.iter()
+                    .filter(|l| l.transaction_date >= from && l.transaction_date <= to)
+                    .map(|l| StatementLine {
+                        date: l.transaction_date.clone(), reference: l.reference_no.clone(),
+                        description: l.transaction_type.clone(),
+                        debit: l.debit, credit: l.credit, balance: l.balance,
+                    })
+                    .collect();
+                statement.set(lines);
             });
-        }
+        });
     }
 
-    let on_customer_change = {
+    let on_customer_select = {
         let mut selected_id = selected_id;
-        move |e: Event<FormData>| {
-            if let Ok(id) = e.value().parse::<i64>() { selected_id.set(id); }
+        move |value: String| {
+            if let Ok(id) = value.parse::<i64>() { selected_id.set(id); }
         }
     };
     let on_from_change = { let mut from_date = from_date; move |e: Event<FormData>| { from_date.set(e.value()); } };
@@ -123,7 +128,6 @@ pub fn CustomerStatementsPage() -> Element {
     let total_dr: f64 = s.iter().map(|x| x.debit).sum();
     let total_cr: f64 = s.iter().map(|x| x.credit).sum();
     let cv = if closing > 300_000.0 { StatCardVariant::Warning } else { StatCardVariant::Primary };
-    let cust_list = customers.read();
 
     rsx! {
         style { "{PAGE_CSS}" }
@@ -137,12 +141,12 @@ pub fn CustomerStatementsPage() -> Element {
             }
             div { class: "cs-filter-bar",
                 label { "Customer" }
-                select { style: "min-width: 200px;", onchange: on_customer_change,
-                    option { value: "0", "Select a customer…" }
-                    {cust_list.iter().map(|c| {
-                        let label = format!("{} ({})", c.customer_name, c.customer_code);
-                        rsx! { option { value: "{c.id}", "{label}" } }
-                    })}
+                SearchableSelect {
+                    options: customer_options.read().clone(),
+                    selected_value: if *selected_id.read() > 0 { Some(selected_id.read().to_string()) } else { None },
+                    on_select: on_customer_select.clone(),
+                    placeholder: "Search customer…",
+                    searchable: true,
                 }
                 label { "From" }
                 input { r#type: "date", value: "{from_date}", onchange: on_from_change }

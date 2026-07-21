@@ -75,13 +75,16 @@ async fn report_ar_aging(State(_state): State<AppState>) -> impl IntoResponse {
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let items = query_report!(db,
         "SELECT c.id, c.customer_name, c.current_balance,
-            CASE WHEN i.due_date >= ?1 THEN i.balance_amount ELSE 0 END as current,
-            CASE WHEN i.due_date < ?1 AND i.due_date >= date(?1, '-30 days') THEN i.balance_amount ELSE 0 END as days_1_30,
-            CASE WHEN i.due_date < date(?1, '-30 days') AND i.due_date >= date(?1, '-60 days') THEN i.balance_amount ELSE 0 END as days_31_60,
-            CASE WHEN i.due_date < date(?1, '-60 days') AND i.due_date >= date(?1, '-90 days') THEN i.balance_amount ELSE 0 END as days_61_90,
-            CASE WHEN i.due_date < date(?1, '-90 days') THEN i.balance_amount ELSE 0 END as days_90_plus
-         FROM customers c LEFT JOIN invoices i ON c.id = i.customer_id AND i.status IN ('Unpaid','Partially Paid')
-         WHERE c.is_active = 1 GROUP BY c.id HAVING current_balance > 0"
+            SUM(CASE WHEN i.due_date >= ?1 THEN i.balance_amount ELSE 0 END) as current,
+            SUM(CASE WHEN i.due_date < ?1 AND i.due_date >= date(?1, '-30 days') THEN i.balance_amount ELSE 0 END) as days_1_30,
+            SUM(CASE WHEN i.due_date < date(?1, '-30 days') AND i.due_date >= date(?1, '-60 days') THEN i.balance_amount ELSE 0 END) as days_31_60,
+            SUM(CASE WHEN i.due_date < date(?1, '-60 days') AND i.due_date >= date(?1, '-90 days') THEN i.balance_amount ELSE 0 END) as days_61_90,
+            SUM(CASE WHEN i.due_date < date(?1, '-90 days') THEN i.balance_amount ELSE 0 END) as days_90_plus
+         FROM customers c
+         JOIN invoices i ON c.id = i.customer_id AND i.status IN ('Unpaid','Partially Paid')
+         WHERE c.is_active = 1
+         GROUP BY c.id
+         HAVING SUM(i.balance_amount) > 0"
     );
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
 }
@@ -615,13 +618,14 @@ async fn report_income_statement(State(_state): State<AppState>) -> impl IntoRes
 
 async fn report_tax_summary(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    // returns sales_tax, income_tax, withholding_tax arrays grouped by month
+    // Tax is computed on the pre-tax base. Since total_amount is tax-inclusive,
+    // back out the pre-tax base: taxable = total * 100 / (100 + rate)
     let sales_tax = query_report!(db,
         "SELECT strftime('%Y-%m', i.invoice_date) as period,
-                SUM(i.total_amount) as tax_base,
+                SUM(CASE WHEN i.tax_rate > 0 THEN i.total_amount * 100.0 / (100.0 + i.tax_rate) ELSE 0 END) as tax_base,
                 COALESCE(AVG(i.tax_rate), 0) as rate,
-                SUM(i.total_amount * i.tax_rate / 100) as tax_amount,
-                SUM(i.paid_amount * i.tax_rate / 100) as paid_amount
+                SUM(CASE WHEN i.tax_rate > 0 THEN i.total_amount * 100.0 / (100.0 + i.tax_rate) * i.tax_rate / 100.0 ELSE 0 END) as tax_amount,
+                SUM(CASE WHEN i.tax_rate > 0 THEN i.paid_amount * 100.0 / (100.0 + i.tax_rate) * i.tax_rate / 100.0 ELSE 0 END) as paid_amount
          FROM invoices i
          WHERE i.status != 'Cancelled' AND i.tax_rate > 0
          GROUP BY strftime('%Y-%m', i.invoice_date)

@@ -1,20 +1,26 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Tech stack: Rust, Dioxus (WASM frontend), Axum (HTTP server), rusqlite (SQLite)
+  Domain: Manufacturing ERP — invoicing, purchasing, inventory, production, accounting
+  Currency: PKR (Rs.) — all monetary values use 2 decimal places
+  Database: SQLite with WAL mode, single global Mutex<Connection>
+  Conventions: Model structs in models.rs, route handlers in src/server/*_routes.rs,
+    UI pages in src/pages/, API client in api.rs, calculations in src/calculations/
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Always reference audit finding IDs (F1-F24) when applicable
+    - Include "Impact" section listing affected files
+    - Mark dependencies on other changes
+  tasks:
+    - Break tasks into chunks of max 2 hours
+    - Each task should be independently testable
+    - Include verification tasks at the end
+  specs:
+    - Use SHALL for mandatory requirements
+    - Include concrete scenarios with expected values
+    - Reference specific file locations and line numbers
+  design:
+    - Document decisions with rationale and alternatives considered
+    - Note risks and mitigation strategies

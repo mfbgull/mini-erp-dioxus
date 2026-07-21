@@ -13,3 +13,5 @@ node_modules/
 .kilocode/
 .opencode/
 .trae/
+# Added by code-review-graph
+.code-review-graph/

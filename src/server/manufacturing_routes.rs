@@ -261,6 +261,10 @@ async fn get_production(State(_state): State<AppState>, Path(id): Path<i64>) -> 
 
 async fn create_production(State(_state): State<AppState>, Json(form): Json<ProductionForm>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
+        tracing::error!("Failed to begin transaction: {}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
+    }
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM productions", [], |row| row.get(0)).unwrap_or(1);
     let pno = format!("PRD-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let result = db.execute(
@@ -283,31 +287,51 @@ async fn create_production(State(_state): State<AppState>, Json(form): Json<Prod
             // Create stock movement for output (IN)
             let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
             let mno_out = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
-            db.execute(
+            if let Err(e) = db.execute(
                 "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
                  VALUES (?1, ?2, ?3, 'IN', ?4, ?5, 'PRODUCTION', ?6, ?7)",
                 rusqlite::params![mno_out, form.output_item_id, form.warehouse_id, form.output_quantity, output_cost, pno, format!("Production Output {}", pno)],
-            ).ok();
+            ) {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to create output stock movement: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create output stock movement." })));
+            }
 
             // Add output to stock
             let exists: bool = db.query_row("SELECT COUNT(*) > 0 FROM stock_balances WHERE item_id = ?1 AND warehouse_id = ?2",
                 rusqlite::params![form.output_item_id, form.warehouse_id], |row| row.get(0)).unwrap_or(false);
             if exists {
-                db.execute("UPDATE stock_balances SET quantity = quantity + ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
-                    rusqlite::params![form.output_quantity, form.output_item_id, form.warehouse_id]).ok();
+                if let Err(e) = db.execute("UPDATE stock_balances SET quantity = quantity + ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+                    rusqlite::params![form.output_quantity, form.output_item_id, form.warehouse_id]) {
+                    let _ = db.execute_batch("ROLLBACK");
+                    tracing::error!("Failed to update output stock balance: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update output stock balance." })));
+                }
             } else {
-                db.execute("INSERT INTO stock_balances (item_id, warehouse_id, quantity) VALUES (?1, ?2, ?3)",
-                    rusqlite::params![form.output_item_id, form.warehouse_id, form.output_quantity]).ok();
+                if let Err(e) = db.execute("INSERT INTO stock_balances (item_id, warehouse_id, quantity) VALUES (?1, ?2, ?3)",
+                    rusqlite::params![form.output_item_id, form.warehouse_id, form.output_quantity]) {
+                    let _ = db.execute_batch("ROLLBACK");
+                    tracing::error!("Failed to insert output stock balance: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create output stock balance." })));
+                }
             }
-            db.execute("UPDATE items SET current_stock = current_stock + ?1, updated_at = datetime('now') WHERE id = ?2",
-                rusqlite::params![form.output_quantity, form.output_item_id]).ok();
+            if let Err(e) = db.execute("UPDATE items SET current_stock = current_stock + ?1, updated_at = datetime('now') WHERE id = ?2",
+                rusqlite::params![form.output_quantity, form.output_item_id]) {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to update output item stock: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update output item stock." })));
+            }
 
             // Record inputs and create stock movements
             for input in &form.inputs {
-                db.execute(
+                if let Err(e) = db.execute(
                     "INSERT INTO production_inputs (production_id, item_id, quantity, warehouse_id) VALUES (?1, ?2, ?3, ?4)",
                     rusqlite::params![prod_id, input.item_id, input.quantity, input.warehouse_id],
-                ).ok();
+                ) {
+                    let _ = db.execute_batch("ROLLBACK");
+                    tracing::error!("Failed to create production input: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create production input." })));
+                }
 
                 // Get input item unit cost
                 let input_cost: f64 = db.query_row(
@@ -319,21 +343,38 @@ async fn create_production(State(_state): State<AppState>, Json(form): Json<Prod
                 // Create stock movement for input (OUT)
                 let mseq_in: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
                 let mno_in = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq_in);
-                db.execute(
+                if let Err(e) = db.execute(
                     "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
                      VALUES (?1, ?2, ?3, 'OUT', ?4, ?5, 'PRODUCTION', ?6, ?7)",
                     rusqlite::params![mno_in, input.item_id, input.warehouse_id, input.quantity, input_cost, pno, format!("Production Input {}", pno)],
-                ).ok();
+                ) {
+                    let _ = db.execute_batch("ROLLBACK");
+                    tracing::error!("Failed to create input stock movement: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create input stock movement." })));
+                }
 
                 // Deduct input stock
-                db.execute("UPDATE stock_balances SET quantity = quantity - ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
-                    rusqlite::params![input.quantity, input.item_id, input.warehouse_id]).ok();
-                db.execute("UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
-                    rusqlite::params![input.quantity, input.item_id]).ok();
+                if let Err(e) = db.execute("UPDATE stock_balances SET quantity = quantity - ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+                    rusqlite::params![input.quantity, input.item_id, input.warehouse_id]) {
+                    let _ = db.execute_batch("ROLLBACK");
+                    tracing::error!("Failed to update input stock balance: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update input stock balance." })));
+                }
+                if let Err(e) = db.execute("UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
+                    rusqlite::params![input.quantity, input.item_id]) {
+                    let _ = db.execute_batch("ROLLBACK");
+                    tracing::error!("Failed to update input item stock: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update input item stock." })));
+                }
+            }
+            if let Err(e) = db.execute_batch("COMMIT") {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to commit production: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to commit transaction." })));
             }
             (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": prod_id, "production_no": pno } })))
         }
-        Err(e) => { tracing::error!("Failed to create production: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create production." }))) }
+        Err(e) => { let _ = db.execute_batch("ROLLBACK"); tracing::error!("Failed to create production: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create production." }))) }
     }
 }
 
@@ -364,13 +405,90 @@ async fn update_production(State(_state): State<AppState>, Path(id): Path<i64>, 
 
 async fn delete_production(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    db.execute("DELETE FROM production_inputs WHERE production_id = ?1", [id]).ok();
-    let result = db.execute("DELETE FROM productions WHERE id = ?1", [id]);
-    match result {
-        Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Production deleted." } }))),
-        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Production not found." }))),
-        Err(e) => { tracing::error!("Failed to delete production: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to delete production." }))) }
+
+    if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
+        tracing::error!("Failed to begin transaction: {}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
     }
+
+    // 1. Get production record
+    let (output_item_id, output_quantity, warehouse_id, production_no): (i64, f64, i64, String) = match db.query_row(
+        "SELECT output_item_id, output_quantity, warehouse_id, production_no FROM productions WHERE id = ?1",
+        [id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+    ) {
+        Ok(v) => v,
+        Err(_) => { let _ = db.execute_batch("ROLLBACK"); return (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Production not found." }))); }
+    };
+
+    // 2. Get production inputs
+    let inputs: Vec<(i64, f64, i64)> = {
+        let mut stmt = db.prepare("SELECT item_id, quantity, warehouse_id FROM production_inputs WHERE production_id = ?1").unwrap();
+        stmt.query_map([id], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .unwrap().filter_map(|r| r.ok()).collect()
+    };
+
+    // 3. Reverse output: create stock movement OUT (remove produced items)
+    {
+        let unit_cost: f64 = db.query_row(
+            "SELECT COALESCE(standard_cost, 0) FROM items WHERE id = ?1", [output_item_id],
+            |row| row.get(0),
+        ).unwrap_or(0.0);
+        let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+        let mno = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
+        if let Err(e) = db.execute(
+            "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+             VALUES (?1, ?2, ?3, 'OUT', ?4, ?5, 'PRODUCTION_DELETE', ?6, ?7)",
+            rusqlite::params![mno, output_item_id, warehouse_id, output_quantity, unit_cost, production_no, format!("Production deleted {}", production_no)],
+        ) {
+            let _ = db.execute_batch("ROLLBACK");
+            tracing::error!("Failed to create output reversal movement: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to delete production (transaction rolled back)." })));
+        }
+        let _ = db.execute(
+            "UPDATE stock_balances SET quantity = quantity - ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+            rusqlite::params![output_quantity, output_item_id, warehouse_id],
+        );
+        let _ = db.execute(
+            "UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
+            rusqlite::params![output_quantity, output_item_id],
+        );
+    }
+
+    // 4. Reverse inputs: create stock movement IN for each (restore consumed stock)
+    for (item_id, quantity, wh_id) in &inputs {
+        let unit_cost: f64 = db.query_row(
+            "SELECT COALESCE(standard_cost, 0) FROM items WHERE id = ?1", [*item_id],
+            |row| row.get(0),
+        ).unwrap_or(0.0);
+        let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+        let mno = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
+        let _ = db.execute(
+            "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
+             VALUES (?1, ?2, ?3, 'IN', ?4, ?5, 'PRODUCTION_DELETE', ?6, ?7)",
+            rusqlite::params![mno, item_id, wh_id, quantity, unit_cost, production_no, format!("Input restored {}", production_no)],
+        );
+        let _ = db.execute(
+            "UPDATE stock_balances SET quantity = quantity + ?1 WHERE item_id = ?2 AND warehouse_id = ?3",
+            rusqlite::params![quantity, item_id, wh_id],
+        );
+        let _ = db.execute(
+            "UPDATE items SET current_stock = current_stock + ?1, updated_at = datetime('now') WHERE id = ?2",
+            rusqlite::params![quantity, item_id],
+        );
+    }
+
+    // 5. Delete records
+    let _ = db.execute("DELETE FROM production_inputs WHERE production_id = ?1", [id]);
+    let _ = db.execute("DELETE FROM productions WHERE id = ?1", [id]);
+
+    if let Err(e) = db.execute_batch("COMMIT") {
+        let _ = db.execute_batch("ROLLBACK");
+        tracing::error!("Failed to commit production deletion: {}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to delete production (transaction rolled back)." })));
+    }
+
+    (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Production deleted and stock reversed.", "inputs_restored": inputs.len() } })))
 }
 
 async fn production_summary_by_item(State(_state): State<AppState>, Path(item_id): Path<i64>) -> impl IntoResponse {

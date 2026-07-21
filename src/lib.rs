@@ -19,6 +19,7 @@
 
 pub mod calculations;
 pub mod models;
+pub mod money;
 pub mod api;
 pub mod auth;
 pub mod utils;

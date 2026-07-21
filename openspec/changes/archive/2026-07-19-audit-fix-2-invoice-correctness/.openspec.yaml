@@ -1,0 +1,5 @@
+name: audit-fix-2-invoice-correctness
+schema: spec-driven
+status: implemented
+created: 2026-07-19
+depends: audit-fix-1-transaction-atomicity

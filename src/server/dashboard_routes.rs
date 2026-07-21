@@ -33,6 +33,7 @@ async fn dashboard_summary(State(_state): State<AppState>) -> impl IntoResponse 
     let total_revenue: f64 = db.query_row("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status != 'Cancelled'", [], |r| r.get(0)).unwrap_or(0.0);
     let total_expenses: f64 = db.query_row("SELECT COALESCE(SUM(amount), 0) FROM expenses", [], |r| r.get(0)).unwrap_or(0.0);
     let outstanding_ar: f64 = db.query_row("SELECT COALESCE(SUM(balance_amount), 0) FROM invoices WHERE status IN ('Unpaid', 'Partially Paid')", [], |r| r.get(0)).unwrap_or(0.0);
+    let outstanding_ap: f64 = db.query_row("SELECT COALESCE(SUM(debit) - SUM(credit), 0) FROM supplier_ledger", [], |r| r.get(0)).unwrap_or(0.0);
     let low_stock: i64 = db.query_row("SELECT COUNT(*) FROM items WHERE is_active = 1 AND current_stock <= reorder_level", [], |r| r.get(0)).unwrap_or(0);
     let stock_value: f64 = db.query_row("SELECT COALESCE(SUM(current_stock * standard_cost), 0) FROM items WHERE is_active = 1", [], |r| r.get(0)).unwrap_or(0.0);
     (StatusCode::OK, Json(json!({
@@ -40,7 +41,7 @@ async fn dashboard_summary(State(_state): State<AppState>) -> impl IntoResponse 
         "data": {
             "total_items": total_items, "total_customers": total_customers, "total_suppliers": total_suppliers,
             "total_invoices": total_invoices, "total_revenue": total_revenue, "total_expenses": total_expenses,
-            "outstanding_ar": outstanding_ar, "outstanding_ap": 0, "low_stock_count": low_stock, "stock_value": stock_value,
+            "outstanding_ar": outstanding_ar, "outstanding_ap": outstanding_ap, "low_stock_count": low_stock, "stock_value": stock_value,
         }
     })))
 }
@@ -64,7 +65,17 @@ async fn sales_summary(State(_state): State<AppState>) -> impl IntoResponse {
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let today_sales: f64 = db.query_row("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE invoice_date = ?1 AND status != 'Cancelled'", [&today], |r| r.get(0)).unwrap_or(0.0);
     let today_count: i64 = db.query_row("SELECT COUNT(*) FROM invoices WHERE invoice_date = ?1 AND status != 'Cancelled'", [&today], |r| r.get(0)).unwrap_or(0);
-    (StatusCode::OK, Json(json!({ "success": true, "data": { "today": today_sales, "this_week": today_sales * 5.0, "this_month": today_sales * 22.0, "invoice_count_today": today_count } })))
+    // Real weekly sales: Monday of current week to today
+    let this_week: f64 = db.query_row(
+        "SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE invoice_date >= date('now', 'weekday 0', '-6 days') AND status != 'Cancelled'",
+        [], |r| r.get(0),
+    ).unwrap_or(0.0);
+    // Real monthly sales: first day of current month to today
+    let this_month: f64 = db.query_row(
+        "SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE invoice_date >= date('now', 'start of month') AND status != 'Cancelled'",
+        [], |r| r.get(0),
+    ).unwrap_or(0.0);
+    (StatusCode::OK, Json(json!({ "success": true, "data": { "today": today_sales, "this_week": this_week, "this_month": this_month, "invoice_count_today": today_count } })))
 }
 
 async fn expense_summary(State(_state): State<AppState>) -> impl IntoResponse {

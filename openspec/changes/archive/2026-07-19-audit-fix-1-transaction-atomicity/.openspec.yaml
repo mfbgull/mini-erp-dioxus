@@ -1,0 +1,4 @@
+name: audit-fix-1-transaction-atomicity
+schema: spec-driven
+status: implemented
+created: 2026-07-19

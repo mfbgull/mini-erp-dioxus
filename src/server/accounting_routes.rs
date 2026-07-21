@@ -191,6 +191,10 @@ async fn get_expense(State(_state): State<AppState>, Path(id): Path<i64>) -> imp
 
 async fn create_expense(State(_state): State<AppState>, Json(form): Json<ExpenseForm>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
+        tracing::error!("Failed to begin transaction: {}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
+    }
     let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM expenses", [], |row| row.get(0)).unwrap_or(1);
     let eno = format!("EXP-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let result = db.execute(
@@ -209,31 +213,71 @@ async fn create_expense(State(_state): State<AppState>, Json(form): Json<Expense
                 "office supplies" => 17,
                 _ => 15, // default to Rent Expense
             };
-            db.execute(
+            if let Err(e) = db.execute(
                 "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('expense', ?1, ?2)",
                 rusqlite::params![expense_id, form.expense_date],
-            ).ok();
+            ) {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to create expense journal entry: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create expense journal entry." })));
+            }
             let je_id = db.last_insert_rowid();
-            db.execute(
+            if let Err(e) = db.execute(
                 "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
                  VALUES (?1, ?3, ?2, 0, ?4, ?5),
                         (?1, 1, 0, ?2, ?6, ?5)",
                 rusqlite::params![je_id, form.amount, expense_account_id,
                     format!("Expense {}", eno), form.expense_date, format!("Cash - Expense {}", eno)],
-            ).ok();
+            ) {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to create expense journal lines: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create expense journal lines." })));
+            }
+            if let Err(e) = db.execute_batch("COMMIT") {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to commit expense: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to commit transaction." })));
+            }
             (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": expense_id, "expense_no": eno } })))
         }
-        Err(e) => { tracing::error!("Failed to create expense: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create expense." }))) }
+        Err(e) => { let _ = db.execute_batch("ROLLBACK"); tracing::error!("Failed to create expense: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create expense." }))) }
     }
 }
 
 async fn delete_expense(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+
+    if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
+        tracing::error!("Failed to begin transaction: {}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
+    }
+
+    // 1. Find associated journal entry
+    let je_id: Option<i64> = db.query_row(
+        "SELECT id FROM journal_entries WHERE reference_type = 'expense' AND reference_id = ?1",
+        [id],
+        |row| row.get(0),
+    ).ok();
+
+    // 2. Delete journal lines
+    if let Some(je) = je_id {
+        let _ = db.execute("DELETE FROM journal_lines WHERE journal_entry_id = ?1", [je]);
+        let _ = db.execute("DELETE FROM journal_entries WHERE id = ?1", [je]);
+    }
+
+    // 3. Delete expense
     let result = db.execute("DELETE FROM expenses WHERE id = ?1", [id]);
     match result {
-        Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Expense deleted." } }))),
-        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Expense not found." }))),
-        Err(e) => { tracing::error!("Failed to delete expense: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to delete expense." }))) }
+        Ok(rows) if rows > 0 => {
+            if let Err(e) = db.execute_batch("COMMIT") {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to commit expense deletion: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to delete expense (transaction rolled back)." })));
+            }
+            (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Expense deleted and GL entry reversed." } })))
+        }
+        Ok(_) => { let _ = db.execute_batch("ROLLBACK"); (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Expense not found." }))) }
+        Err(e) => { let _ = db.execute_batch("ROLLBACK"); tracing::error!("Failed to delete expense: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to delete expense." }))) }
     }
 }
 
@@ -375,6 +419,11 @@ async fn pay_salary(State(_state): State<AppState>, Path(id): Path<i64>, Json(fo
         return (StatusCode::CONFLICT, Json(json!({ "success": false, "error": "Salary already paid for this month." })));
     }
 
+    if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
+        tracing::error!("Failed to begin transaction: {}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
+    }
+
     let result = db.execute(
         "INSERT INTO salary_payments (employee_id, amount, payment_date) VALUES (?1, ?2, ?3)",
         rusqlite::params![id, form.amount, form.payment_date],
@@ -383,22 +432,35 @@ async fn pay_salary(State(_state): State<AppState>, Path(id): Path<i64>, Json(fo
         Ok(_) => {
             let sp_id = db.last_insert_rowid();
             // Auto-journal: debit Salary Expense (account_id=14), credit Cash (account_id=1)
-            db.execute(
+            if let Err(e) = db.execute(
                 "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES ('salary', ?1, ?2)",
                 rusqlite::params![sp_id, form.payment_date],
-            ).ok();
+            ) {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to create salary journal entry: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create salary journal entry." })));
+            }
             let je_id = db.last_insert_rowid();
-            db.execute(
+            if let Err(e) = db.execute(
                 "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date)
                  VALUES (?1, 14, ?2, 0, ?3, ?4),
                         (?1, 1, 0, ?2, ?5, ?4)",
                 rusqlite::params![je_id, form.amount,
                     format!("Salary - Employee {}", id), form.payment_date,
                     format!("Cash - Salary Employee {}", id)],
-            ).ok();
+            ) {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to create salary journal lines: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create salary journal lines." })));
+            }
+            if let Err(e) = db.execute_batch("COMMIT") {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to commit salary: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to commit transaction." })));
+            }
             (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": sp_id, "message": "Salary payment recorded." } })))
         }
-        Err(e) => { tracing::error!("Failed to record salary: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to record salary payment." }))) }
+        Err(e) => { let _ = db.execute_batch("ROLLBACK"); tracing::error!("Failed to record salary: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to record salary payment." }))) }
     }
 }
 
@@ -454,6 +516,10 @@ async fn create_journal_entry(
         })));
     }
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
+        tracing::error!("Failed to begin transaction: {}", e);
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
+    }
     let result = db.execute(
         "INSERT INTO journal_entries (reference_type, reference_id, entry_date) VALUES (?1, ?2, ?3)",
         rusqlite::params![form.reference_type, form.reference_id, form.entry_date],
@@ -462,17 +528,27 @@ async fn create_journal_entry(
         Ok(_) => {
             let entry_id = db.last_insert_rowid();
             for line in &form.lines {
-                db.execute(
+                if let Err(e) = db.execute(
                     "INSERT INTO journal_lines (journal_entry_id, account_id, debit, credit, description, line_date, reference_type, reference_id)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                     rusqlite::params![entry_id, line.account_id, line.debit, line.credit,
                         line.description.as_deref().unwrap_or(""), form.entry_date,
                         form.reference_type, form.reference_id],
-                ).ok();
+                ) {
+                    let _ = db.execute_batch("ROLLBACK");
+                    tracing::error!("Failed to create journal line: {}", e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create journal line." })));
+                }
+            }
+            if let Err(e) = db.execute_batch("COMMIT") {
+                let _ = db.execute_batch("ROLLBACK");
+                tracing::error!("Failed to commit journal entry: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to commit transaction." })));
             }
             (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": entry_id } })))
         }
         Err(e) => {
+            let _ = db.execute_batch("ROLLBACK");
             tracing::error!("Failed to create journal entry: {}", e);
             (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create journal entry." })))
         }

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "command": "uvx",
+      "args": [
+        "code-review-graph",
+        "serve"
+      ],
+      "cwd": "/media/fawad/26F2EFA7F2EF7987/D/mierp-dioxus"
+    }
+  }
+}
