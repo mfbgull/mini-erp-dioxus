@@ -1291,6 +1291,9 @@ pub struct ForecastModelConfig {
     pub alpha: Option<f64>,
     pub beta: Option<f64>,
     pub gamma: Option<f64>,
+    #[serde(skip)]
+    pub params_json: Option<String>,
+    pub model_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1301,6 +1304,8 @@ pub struct ForecastModelConfigForm {
     pub alpha: Option<f64>,
     pub beta: Option<f64>,
     pub gamma: Option<f64>,
+    pub params: Option<serde_json::Value>,
+    pub model_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

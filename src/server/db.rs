@@ -120,6 +120,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         ("054_activity_log", MIGRATION_054_ACTIVITY_LOG),
         ("055_bom_add_description_created_by", MIGRATION_055_BOM_DESCRIPTION_CREATED_BY),
         ("056_add_missing_fields", MIGRATION_056_ADD_MISSING_FIELDS),
+        ("057_forecast_config_params_json", MIGRATION_057_FORECAST_CONFIG_PARAMS_JSON),
     ];
 
     for (name, sql) in &migrations {
@@ -964,6 +965,8 @@ CREATE TABLE IF NOT EXISTS forecast_model_config (
     alpha REAL,
     beta REAL,
     gamma REAL,
+    params_json TEXT,
+    model_name TEXT,
     FOREIGN KEY (item_id) REFERENCES items(id)
 );
 ";
@@ -1059,6 +1062,11 @@ ALTER TABLE customers ADD COLUMN last_invoice_date TEXT;
 ALTER TABLE users ADD COLUMN last_login TEXT;
 ALTER TABLE warehouses ADD COLUMN capacity REAL NOT NULL DEFAULT 0;
 ALTER TABLE boms ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+";
+
+const MIGRATION_057_FORECAST_CONFIG_PARAMS_JSON: &str = "
+ALTER TABLE forecast_model_config ADD COLUMN params_json TEXT;
+ALTER TABLE forecast_model_config ADD COLUMN model_name TEXT;
 ";
 
 const MIGRATION_054_ACTIVITY_LOG: &str = "

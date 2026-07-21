@@ -707,11 +707,13 @@ where
             aria_label: "Data grid",
             aria_rowcount: total_items,
 
-            // Close column visibility menu when clicking anywhere on the grid
+            // Close column visibility menu and filter dropdown when clicking anywhere on the grid
             onclick: {
                 let mut show_menu = show_column_menu.clone();
+                let mut open_filter = open_filter.clone();
                 move |_| {
                     show_menu.set(false);
+                    open_filter.set(None);
                 }
             },
 

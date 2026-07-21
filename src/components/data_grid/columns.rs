@@ -578,7 +578,10 @@ pub fn render_header_row<T: 'static + Clone>(
                         if has_filter {
                             div {
                                 class: "dg-filter-btn-wrapper",
-                                onclick: |e| e.stop_propagation(),
+                                onclick: move |e| {
+                                    e.stop_propagation();
+                                    on_toggle(key);
+                                },
                                 {render_filter_button(is_filter_active, is_filter_open)}
                             }
                         }

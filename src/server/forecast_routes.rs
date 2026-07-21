@@ -6,7 +6,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, put},
+    routing::{get, post, put, delete},
     Json, Router,
 };
 use serde_json::json;
@@ -18,7 +18,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/forecasts/runs", get(list_forecast_runs))
         .route("/api/forecasts/accuracy", get(list_forecast_accuracy))
         .route("/api/forecasts/config", get(list_model_configs).post(create_model_config))
-        .route("/api/forecasts/config/{id}", put(update_model_config).delete(delete_model_config))
+        .route("/api/forecasts/config/{id}", get(get_model_config).put(update_model_config).delete(delete_model_config))
         .route("/api/forecasts/seasonal-events", get(list_seasonal_events).post(create_seasonal_event))
         .route("/api/forecasts/seasonal-events/{id}", put(update_seasonal_event).delete(delete_seasonal_event))
         .route("/api/forecasts/demand-timeline", get(report_demand_timeline))
@@ -89,21 +89,66 @@ async fn list_forecast_accuracy(State(_state): State<AppState>) -> impl IntoResp
 
 async fn list_model_configs(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    let mut stmt = db.prepare("SELECT id, item_id, category, model_type, alpha, beta, gamma FROM forecast_model_config").unwrap();
-    let items: Vec<ForecastModelConfig> = stmt.query_map([], |row| {
-        Ok(ForecastModelConfig {
-            id: row.get(0)?, item_id: row.get(1)?, category: row.get(2)?,
-            model_type: row.get(3)?, alpha: row.get(4)?, beta: row.get(5)?, gamma: row.get(6)?,
-        })
+    let mut stmt = db.prepare(
+        "SELECT id, item_id, category, model_type, alpha, beta, gamma, params_json, model_name
+         FROM forecast_model_config"
+    ).unwrap();
+    let items: Vec<serde_json::Value> = stmt.query_map([], |row| {
+        let params_json: Option<String> = row.get(7).ok().flatten();
+        let params: Option<serde_json::Value> = params_json
+            .as_deref()
+            .and_then(|s| serde_json::from_str(s).ok());
+        Ok(json!({
+            "id": row.get::<_, i64>(0).unwrap_or(0),
+            "item_id": row.get::<_, Option<i64>>(1).unwrap_or(None),
+            "category": row.get::<_, Option<String>>(2).unwrap_or(None),
+            "model_type": row.get::<_, String>(3).unwrap_or_default(),
+            "alpha": row.get::<_, Option<f64>>(4).unwrap_or(None),
+            "beta": row.get::<_, Option<f64>>(5).unwrap_or(None),
+            "gamma": row.get::<_, Option<f64>>(6).unwrap_or(None),
+            "params": params,
+            "model_name": row.get::<_, Option<String>>(8).unwrap_or(None),
+        }))
     }).unwrap().filter_map(|r| r.ok()).collect();
     (StatusCode::OK, Json(json!({ "success": true, "data": items })))
 }
 
+async fn get_model_config(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+    let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let result = db.query_row(
+        "SELECT id, item_id, category, model_type, alpha, beta, gamma, params_json, model_name
+         FROM forecast_model_config WHERE id = ?1",
+        [id],
+        |row| {
+            let params_json: Option<String> = row.get(7).ok().flatten();
+            let params: Option<serde_json::Value> = params_json
+                .as_deref()
+                .and_then(|s| serde_json::from_str(s).ok());
+            Ok(json!({
+                "id": row.get::<_, i64>(0).unwrap_or(0),
+                "item_id": row.get::<_, Option<i64>>(1).unwrap_or(None),
+                "category": row.get::<_, Option<String>>(2).unwrap_or(None),
+                "model_type": row.get::<_, String>(3).unwrap_or_default(),
+                "alpha": row.get::<_, Option<f64>>(4).unwrap_or(None),
+                "beta": row.get::<_, Option<f64>>(5).unwrap_or(None),
+                "gamma": row.get::<_, Option<f64>>(6).unwrap_or(None),
+                "params": params,
+                "model_name": row.get::<_, Option<String>>(8).unwrap_or(None),
+            }))
+        },
+    );
+    match result {
+        Ok(item) => (StatusCode::OK, Json(json!({ "success": true, "data": item }))),
+        Err(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Config not found." }))),
+    }
+}
+
 async fn create_model_config(State(_state): State<AppState>, Json(form): Json<ForecastModelConfigForm>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let params_json = form.params.as_ref().map(|v| v.to_string());
     let result = db.execute(
-        "INSERT INTO forecast_model_config (item_id, category, model_type, alpha, beta, gamma) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        rusqlite::params![form.item_id, form.category, form.model_type, form.alpha, form.beta, form.gamma],
+        "INSERT INTO forecast_model_config (item_id, category, model_type, alpha, beta, gamma, params_json, model_name) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        rusqlite::params![form.item_id, form.category, form.model_type, form.alpha, form.beta, form.gamma, params_json, form.model_name],
     );
     match result {
         Ok(_) => (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": db.last_insert_rowid() } }))),
@@ -113,9 +158,10 @@ async fn create_model_config(State(_state): State<AppState>, Json(form): Json<Fo
 
 async fn update_model_config(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<ForecastModelConfigForm>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
+    let params_json = form.params.as_ref().map(|v| v.to_string());
     let result = db.execute(
-        "UPDATE forecast_model_config SET item_id=?1, category=?2, model_type=?3, alpha=?4, beta=?5, gamma=?6 WHERE id=?7",
-        rusqlite::params![form.item_id, form.category, form.model_type, form.alpha, form.beta, form.gamma, id],
+        "UPDATE forecast_model_config SET item_id=?1, category=?2, model_type=?3, alpha=?4, beta=?5, gamma=?6, params_json=?7, model_name=?8 WHERE id=?9",
+        rusqlite::params![form.item_id, form.category, form.model_type, form.alpha, form.beta, form.gamma, params_json, form.model_name, id],
     );
     match result {
         Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Config updated." } }))),

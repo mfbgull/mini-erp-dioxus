@@ -36,6 +36,10 @@ const PAGE_CSS: &str = r##"
 .mc-status { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 6px; font-size: 13px; margin-top: 12px; }
 .mc-status-ready { background: rgba(40, 167, 69, 0.08); color: #28a745; }
 .mc-status-training { background: rgba(74, 144, 217, 0.08); color: #4a90d9; }
+
+.mc-selector { margin-bottom: 20px; }
+.mc-selector-row { display: flex; gap: 10px; align-items: flex-end; }
+.mc-selector-row > .mc-selector-dropdown { flex: 1; }
 "##;
 
 // ============================================================================
@@ -51,6 +55,78 @@ fn algorithm_options() -> Vec<SelectOption> {
     ]
 }
 
+fn reset_form(
+    model_name: &mut Signal<String>,
+    algorithm: &mut Signal<String>,
+    training_start: &mut Signal<String>,
+    training_end: &mut Signal<String>,
+    auto_tune: &mut Signal<bool>,
+    seasonality: &mut Signal<bool>,
+    arima_p: &mut Signal<String>,
+    arima_d: &mut Signal<String>,
+    arima_q: &mut Signal<String>,
+    ets_error: &mut Signal<String>,
+    ets_trend: &mut Signal<String>,
+    ets_seasonal: &mut Signal<String>,
+    prophet_growth: &mut Signal<String>,
+    prophet_seasonality: &mut Signal<String>,
+    neural_layers: &mut Signal<String>,
+    neural_units: &mut Signal<String>,
+    neural_epochs: &mut Signal<String>,
+) {
+    model_name.set("Demand Forecast ARIMA".to_string());
+    algorithm.set("arima".to_string());
+    training_start.set("2024-01-01".to_string());
+    training_end.set("2026-06-27".to_string());
+    auto_tune.set(true);
+    seasonality.set(true);
+    arima_p.set("2".to_string());
+    arima_d.set("1".to_string());
+    arima_q.set("2".to_string());
+    ets_error.set("A".to_string());
+    ets_trend.set("A".to_string());
+    ets_seasonal.set("A".to_string());
+    prophet_growth.set("linear".to_string());
+    prophet_seasonality.set("weekly".to_string());
+    neural_layers.set("2".to_string());
+    neural_units.set("64".to_string());
+    neural_epochs.set("100".to_string());
+}
+
+fn populate_from_config(
+    cfg: &serde_json::Value,
+    model_name: &mut Signal<String>,
+    algorithm: &mut Signal<String>,
+    arima_p: &mut Signal<String>,
+    arima_d: &mut Signal<String>,
+    arima_q: &mut Signal<String>,
+    ets_error: &mut Signal<String>,
+    ets_trend: &mut Signal<String>,
+    ets_seasonal: &mut Signal<String>,
+    prophet_growth: &mut Signal<String>,
+    prophet_seasonality: &mut Signal<String>,
+    neural_layers: &mut Signal<String>,
+    neural_units: &mut Signal<String>,
+    neural_epochs: &mut Signal<String>,
+) {
+    model_name.set(cfg["model_name"].as_str().unwrap_or("").to_string());
+    algorithm.set(cfg["model_type"].as_str().unwrap_or("arima").to_string());
+    let params = &cfg["params"];
+    if params.is_object() {
+        arima_p.set(params["p"].as_str().unwrap_or("2").to_string());
+        arima_d.set(params["d"].as_str().unwrap_or("1").to_string());
+        arima_q.set(params["q"].as_str().unwrap_or("2").to_string());
+        ets_error.set(params["error"].as_str().unwrap_or("A").to_string());
+        ets_trend.set(params["trend"].as_str().unwrap_or("A").to_string());
+        ets_seasonal.set(params["seasonal"].as_str().unwrap_or("A").to_string());
+        prophet_growth.set(params["growth"].as_str().unwrap_or("linear").to_string());
+        prophet_seasonality.set(params["seasonality_mode"].as_str().unwrap_or("weekly").to_string());
+        neural_layers.set(params["layers"].as_str().unwrap_or("2").to_string());
+        neural_units.set(params["units"].as_str().unwrap_or("64").to_string());
+        neural_epochs.set(params["epochs"].as_str().unwrap_or("100").to_string());
+    }
+}
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -58,15 +134,28 @@ fn algorithm_options() -> Vec<SelectOption> {
 #[component]
 pub fn ForecastModelConfigPage() -> Element {
     let mut toast = use_toast();
+    let api = use_auth().api;
+
+    // Config list — loaded on mount via use_resource
+    let configs = use_resource(move || {
+        let api = api.clone();
+        async move {
+            api.with(|c| c.clone()).list_forecast_configs().await.unwrap_or_default()
+        }
+    });
+
+    let mut selected_config_id: Signal<Option<i64>> = use_signal(|| None);
+
+    // Form signals
     let mut model_name = use_signal(|| "Demand Forecast ARIMA".to_string());
     let mut algorithm = use_signal(|| "arima".to_string());
     let mut training_start = use_signal(|| "2024-01-01".to_string());
     let mut training_end = use_signal(|| "2026-06-27".to_string());
     let mut auto_tune = use_signal(|| true);
     let mut seasonality = use_signal(|| true);
-    let is_saving = use_signal(|| false);
-    let is_testing = use_signal(|| false);
-    let status = use_signal(|| "ready".to_string()); // ready, training, saved
+    let mut is_saving = use_signal(|| false);
+    let mut is_testing = use_signal(|| false);
+    let mut status = use_signal(|| "ready".to_string());
 
     let mut arima_p = use_signal(|| "2".to_string());
     let mut arima_d = use_signal(|| "1".to_string());
@@ -83,22 +172,79 @@ pub fn ForecastModelConfigPage() -> Element {
     let mut neural_units = use_signal(|| "64".to_string());
     let mut neural_epochs = use_signal(|| "100".to_string());
 
-    let api = use_auth().api;
+    // Build selector options from loaded configs
+    let config_options = use_memo(move || {
+        let snapshot = configs.read();
+        let list = snapshot.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
+        let mut opts = vec![SelectOption {
+            value: "new".to_string(),
+            label: "New Config…".to_string(),
+        }];
+        for cfg in list {
+            let id = cfg["id"].as_i64().unwrap_or(0);
+            let name = cfg["model_name"].as_str().unwrap_or("Unnamed");
+            opts.push(SelectOption {
+                value: id.to_string(),
+                label: name.to_string(),
+            });
+        }
+        opts
+    });
+
+    // Handle config selection — uses a snapshot of the config list captured at call time
+    let on_select_config = {
+        // Clone the current config list into the closure so it owns its data
+        let snapshot: Vec<serde_json::Value> = configs
+            .read()
+            .as_ref()
+            .map(|v| v.clone())
+            .unwrap_or_default();
+
+        move |val: String| {
+            if val == "new" {
+                selected_config_id.set(None);
+                reset_form(
+                    &mut model_name, &mut algorithm, &mut training_start, &mut training_end,
+                    &mut auto_tune, &mut seasonality,
+                    &mut arima_p, &mut arima_d, &mut arima_q,
+                    &mut ets_error, &mut ets_trend, &mut ets_seasonal,
+                    &mut prophet_growth, &mut prophet_seasonality,
+                    &mut neural_layers, &mut neural_units, &mut neural_epochs,
+                );
+            } else if let Ok(id) = val.parse::<i64>() {
+                selected_config_id.set(Some(id));
+                if let Some(cfg) = snapshot.iter().find(|c| c["id"].as_i64() == Some(id)) {
+                    populate_from_config(
+                        cfg,
+                        &mut model_name, &mut algorithm,
+                        &mut arima_p, &mut arima_d, &mut arima_q,
+                        &mut ets_error, &mut ets_trend, &mut ets_seasonal,
+                        &mut prophet_growth, &mut prophet_seasonality,
+                        &mut neural_layers, &mut neural_units, &mut neural_epochs,
+                    );
+                }
+            }
+        }
+    };
+
+    // Save handler
     let t_save = toast.clone();
     let on_save = {
-        let mut saving = is_saving.clone();
-        let mut s = status.clone();
+        let mut is_saving = is_saving.clone();
+        let mut status = status.clone();
         let api = api.clone();
+        let selected_config_id = selected_config_id.clone();
+        let configs = configs.clone();
         move |_| {
             let mut t = t_save.clone();
             let api = api.clone();
-            saving.set(true);
-            s.set("training".to_string());
+            is_saving.set(true);
+            status.set("training".to_string());
             let n = model_name.read().clone();
             let algo = algorithm.read().clone();
-            let params = serde_json::json!({
-                "model_name": n,
-                "algorithm": algo,
+            let payload = serde_json::json!({
+                "model_name": n.clone(),
+                "model_type": algo,
                 "training_start": training_start.read().clone(),
                 "training_end": training_end.read().clone(),
                 "auto_tune": *auto_tune.read(),
@@ -111,34 +257,43 @@ pub fn ForecastModelConfigPage() -> Element {
                     _ => serde_json::json!({}),
                 },
             });
-            let mut t2 = t.clone();
+            let mut configs = configs.clone();
+            let selected_id = *selected_config_id.read();
             spawn(async move {
                 let client = api.with(|c| c.clone());
-                match client.create_forecast_config(&params).await {
+                let result = if let Some(id) = selected_id {
+                    client.update_forecast_config(id, &payload).await
+                } else {
+                    client.create_forecast_config(&payload).await
+                };
+                match result {
                     Ok(_) => {
-                        saving.set(false);
-                        s.set("saved".to_string());
-                        t2.success("Model Saved", &format!("\"{}\" configuration saved and model trained.", n));
+                        is_saving.set(false);
+                        status.set("saved".to_string());
+                        configs.restart();
+                        t.success("Model Saved", &format!("\"{}\" configuration saved.", n));
                     }
                     Err(e) => {
-                        saving.set(false);
-                        s.set("ready".to_string());
-                        t2.error("Save Failed", &e);
+                        is_saving.set(false);
+                        status.set("ready".to_string());
+                        t.error("Save Failed", &e);
                     }
                 }
             });
         }
     };
 
+    // Test Run handler
+    let t_test = toast.clone();
     let on_test = {
-        let mut testing = is_testing.clone();
-        let mut s = status.clone();
+        let mut is_testing = is_testing.clone();
+        let mut status = status.clone();
         let api = api.clone();
         move |_| {
-            let mut t = toast.clone();
+            let mut t = t_test.clone();
             let api = api.clone();
-            testing.set(true);
-            s.set("training".to_string());
+            is_testing.set(true);
+            status.set("training".to_string());
             let n = model_name.read().clone();
             let algo = algorithm.read().clone();
             let params = serde_json::json!({
@@ -149,19 +304,18 @@ pub fn ForecastModelConfigPage() -> Element {
                 "auto_tune": *auto_tune.read(),
                 "seasonality": *seasonality.read(),
             });
-            let mut t2 = t.clone();
             spawn(async move {
                 let client = api.with(|c| c.clone());
                 match client.run_forecast(&params).await {
                     Ok(_) => {
-                        testing.set(false);
-                        s.set("ready".to_string());
-                        t2.success("Test Run Complete", &format!("\"{}\" test run completed.", n));
+                        is_testing.set(false);
+                        status.set("ready".to_string());
+                        t.success("Test Run Complete", &format!("\"{}\" test run completed.", n));
                     }
                     Err(e) => {
-                        testing.set(false);
-                        s.set("ready".to_string());
-                        t2.error("Test Run Failed", &e);
+                        is_testing.set(false);
+                        status.set("ready".to_string());
+                        t.error("Test Run Failed", &e);
                     }
                 }
             });
@@ -175,7 +329,7 @@ pub fn ForecastModelConfigPage() -> Element {
     };
 
     let status_text = match status.read().as_str() {
-        "saved" => "✅ Model trained and saved — last trained Jun 27, 2026",
+        "saved" => "✅ Model trained and saved",
         "training" => "⏳ Training in progress…",
         _ => "🟢 Model ready for configuration",
     };
@@ -186,6 +340,41 @@ pub fn ForecastModelConfigPage() -> Element {
 
             div { class: "mc-header",
                 h1 { "Forecast Model Configuration" }
+            }
+
+            // ── Config selector ──
+            div { class: "mc-section mc-selector",
+                h2 { "Select Configuration" }
+                div { class: "mc-selector-row",
+                    div { class: "mc-selector-dropdown",
+                        SearchableSelect {
+                            options: config_options.read().clone(),
+                            selected_value: Some(
+                                (*selected_config_id.read()).map(|id| id.to_string()).unwrap_or_else(|| "new".to_string())
+                            ),
+                            on_select: on_select_config,
+                            placeholder: "Select a config…",
+                            searchable: false,
+                            class: Some("cb-input-group".to_string()),
+                        }
+                    }
+                    Button {
+                        variant: ButtonVariant::Ghost,
+                        onclick: move |_| {
+                            selected_config_id.set(None);
+                            reset_form(
+                                &mut model_name, &mut algorithm, &mut training_start, &mut training_end,
+                                &mut auto_tune, &mut seasonality,
+                                &mut arima_p, &mut arima_d, &mut arima_q,
+                                &mut ets_error, &mut ets_trend, &mut ets_seasonal,
+                                &mut prophet_growth, &mut prophet_seasonality,
+                                &mut neural_layers, &mut neural_units, &mut neural_epochs,
+                            );
+                        },
+                        icon: Some("+".to_string()),
+                        "New"
+                    }
+                }
             }
 
             // Basic info
@@ -361,7 +550,7 @@ pub fn ForecastModelConfigPage() -> Element {
                     onclick: on_save,
                     loading: *is_saving.read(),
                     icon: Some("💾".to_string()),
-                    "Save Model"
+                    if selected_config_id.read().is_some() { "Update Model" } else { "Save Model" }
                 }
             }
         }
