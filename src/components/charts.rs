@@ -148,8 +148,9 @@ pub fn render_pie_chart(data: &PieData, width: u32, height: u32) -> String {
             let color = data.colors.get(i).copied().unwrap_or(PALETTE[i % 8]);
             let points: Vec<(i32, i32)> = (0..=50)
                 .map(|step| {
-                    let angle = (start_pct + sweep_pct * (step as f64 / 50.0)) * std::f64::consts::PI * 2.0
-                        - std::f64::consts::PI;
+                    let angle =
+                        (start_pct + sweep_pct * (step as f64 / 50.0)) * std::f64::consts::PI * 2.0
+                            - std::f64::consts::PI;
                     let x = center.0 + (radius as f64 * angle.cos()) as i32;
                     let y = center.1 + (radius as f64 * angle.sin()) as i32;
                     (x, y)
@@ -198,7 +199,8 @@ pub fn render_gauge(data: &GaugeData, width: u32, height: u32) -> String {
             .take((ratio * 50.0) as usize + 1)
             .collect();
         if fg_points.len() >= 2 {
-            root.draw(&Polygon::new(fg_points, arc_color.filled())).unwrap();
+            root.draw(&Polygon::new(fg_points, arc_color.filled()))
+                .unwrap();
         }
         root.present().unwrap();
     }
@@ -219,7 +221,11 @@ pub fn render_confidence_chart(data: &ConfidenceData, width: u32, height: u32) -
             .collect();
         let max_val = all_vals.iter().cloned().fold(0.0f64, f64::max);
         let min_val = all_vals.iter().cloned().fold(f64::INFINITY, f64::min);
-        let lo = if min_val == f64::INFINITY { 0.0 } else { min_val * 0.9 };
+        let lo = if min_val == f64::INFINITY {
+            0.0
+        } else {
+            min_val * 0.9
+        };
         let hi = if max_val == 0.0 { 100.0 } else { max_val * 1.1 };
         let mut chart = ChartBuilder::on(&root)
             .build_cartesian_2d(0..data.labels.len(), lo..hi)
@@ -235,10 +241,7 @@ pub fn render_confidence_chart(data: &ConfidenceData, width: u32, height: u32) -
         }
         chart
             .draw_series(LineSeries::new(
-                data.predicted
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &v)| (i, v)),
+                data.predicted.iter().enumerate().map(|(i, &v)| (i, v)),
                 &PALETTE[0],
             ))
             .unwrap();

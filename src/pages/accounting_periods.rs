@@ -18,8 +18,6 @@ pub struct AccountingPeriod {
     pub is_active: bool,
 }
 
-
-
 fn badge_class(status: &str) -> &'static str {
     match status {
         "Open" => "customer-table-badge-green",
@@ -40,14 +38,17 @@ pub fn AccountingPeriodsPage() -> Element {
             let _ = *counter.read();
             let result = api.read().clone().list_accounting_periods().await;
             match result {
-                Ok(list) => list.into_iter().map(|p| AccountingPeriod {
-                    id: p.id,
-                    period_name: p.period_name,
-                    start_date: p.start_date,
-                    end_date: p.end_date,
-                    status: p.status.clone(),
-                    is_active: p.status != "Closed",
-                }).collect(),
+                Ok(list) => list
+                    .into_iter()
+                    .map(|p| AccountingPeriod {
+                        id: p.id,
+                        period_name: p.period_name,
+                        start_date: p.start_date,
+                        end_date: p.end_date,
+                        status: p.status.clone(),
+                        is_active: p.status != "Closed",
+                    })
+                    .collect(),
                 Err(_) => vec![],
             }
         }
@@ -58,13 +59,17 @@ pub fn AccountingPeriodsPage() -> Element {
     let periods = resource.read().cloned().unwrap_or_default();
 
     let columns: Vec<ColumnDef<AccountingPeriod>> = vec![
-        ColumnDef::text("name", "Period Name", |p: &AccountingPeriod| p.period_name.clone())
-            .with_width(ColumnWidth::Fr(0.8))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("start", "Start Date", |p: &AccountingPeriod| p.start_date.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
+        ColumnDef::text("name", "Period Name", |p: &AccountingPeriod| {
+            p.period_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(0.8))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("start", "Start Date", |p: &AccountingPeriod| {
+            p.start_date.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
         ColumnDef::text("end", "End Date", |p: &AccountingPeriod| p.end_date.clone())
             .with_width(ColumnWidth::Px(120))
             .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
@@ -80,20 +85,32 @@ pub fn AccountingPeriodsPage() -> Element {
                 default_color: BadgeColor::Yellow,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Open".to_string(), "Closed".to_string(), "Locked".to_string()],
+                options: vec![
+                    "Open".to_string(),
+                    "Closed".to_string(),
+                    "Locked".to_string(),
+                ],
             }),
-        ColumnDef::text("active", "Active", |p: &AccountingPeriod| if p.is_active { "Active" } else { "Inactive" }.into())
-            .with_width(ColumnWidth::Px(90))
-            .with_renderer(CellRenderer::Badge {
-                color_map: vec![("Active", BadgeColor::Green), ("Inactive", BadgeColor::Gray)],
-                default_color: BadgeColor::Gray,
-            })
-            .with_filter(FilterType::Select {
-                options: vec!["Active".to_string(), "Inactive".to_string()],
-            }),
+        ColumnDef::text("active", "Active", |p: &AccountingPeriod| {
+            if p.is_active { "Active" } else { "Inactive" }.into()
+        })
+        .with_width(ColumnWidth::Px(90))
+        .with_renderer(CellRenderer::Badge {
+            color_map: vec![
+                ("Active", BadgeColor::Green),
+                ("Inactive", BadgeColor::Gray),
+            ],
+            default_color: BadgeColor::Gray,
+        })
+        .with_filter(FilterType::Select {
+            options: vec!["Active".to_string(), "Inactive".to_string()],
+        }),
     ];
 
-    let on_refresh = { let mut c = counter.clone(); move |_| c += 1 };
+    let on_refresh = {
+        let mut c = counter.clone();
+        move |_| c += 1
+    };
 
     rsx! {
         div { class: "page",

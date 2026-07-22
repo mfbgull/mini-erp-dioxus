@@ -25,8 +25,6 @@ pub struct StockMovementItem {
     pub created_at: String,
 }
 
-
-
 #[component]
 pub fn StockMovementListPage() -> Element {
     let api = use_auth().api;
@@ -35,7 +33,9 @@ pub fn StockMovementListPage() -> Element {
     let movements_resource = use_resource(move || async move {
         let _ = *refresh_counter.read();
         let client = api.read().clone();
-        client.list_stock_movements().await
+        client
+            .list_stock_movements()
+            .await
             .unwrap_or_default()
             .into_iter()
             .map(|m| StockMovementItem {
@@ -63,44 +63,59 @@ pub fn StockMovementListPage() -> Element {
         .unwrap_or_default();
 
     let columns: Vec<ColumnDef<StockMovementItem>> = vec![
-        ColumnDef::text("no", "Movement No", |m: &StockMovementItem| m.movement_no.clone())
-            .with_width(ColumnWidth::Px(150))
-            .with_filter(FilterType::Text),
+        ColumnDef::text("no", "Movement No", |m: &StockMovementItem| {
+            m.movement_no.clone()
+        })
+        .with_width(ColumnWidth::Px(150))
+        .with_filter(FilterType::Text),
         ColumnDef::text("item", "Item", |m: &StockMovementItem| {
             format!("{} - {}", m.item_code, m.item_name)
         })
         .with_width(ColumnWidth::Fr(1.0))
         .with_filter(FilterType::Text),
-        ColumnDef::text("warehouse", "Warehouse", |m: &StockMovementItem| m.warehouse_name.clone())
-            .with_width(ColumnWidth::Px(150)),
-        ColumnDef::text("type", "Type", |m: &StockMovementItem| m.movement_type.clone())
-            .with_width(ColumnWidth::Px(110))
-            .with_renderer(CellRenderer::Badge {
-                color_map: vec![
-                    ("IN", BadgeColor::Green),
-                    ("OUT", BadgeColor::Red),
-                    ("ADJUSTMENT", BadgeColor::Yellow),
-                    ("TRANSFER", BadgeColor::Blue),
-                ],
-                default_color: BadgeColor::Gray,
-            })
-            .with_filter(FilterType::Select {
-                options: vec!["IN".to_string(), "OUT".to_string(), "ADJUSTMENT".to_string(), "TRANSFER".to_string()],
-            }),
-        ColumnDef::text("qty", "Quantity", |m: &StockMovementItem| m.quantity.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(100))
-            .with_renderer(CellRenderer::Number {
-                prefix: "",
-                decimals: 0,
-            }),
-        ColumnDef::text("cost", "Unit Cost", |m: &StockMovementItem| m.unit_cost.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(110))
-            .with_renderer(CellRenderer::Currency {
-                code: "PKR",
-                decimals: 2,
-            }),
+        ColumnDef::text("warehouse", "Warehouse", |m: &StockMovementItem| {
+            m.warehouse_name.clone()
+        })
+        .with_width(ColumnWidth::Px(150)),
+        ColumnDef::text("type", "Type", |m: &StockMovementItem| {
+            m.movement_type.clone()
+        })
+        .with_width(ColumnWidth::Px(110))
+        .with_renderer(CellRenderer::Badge {
+            color_map: vec![
+                ("IN", BadgeColor::Green),
+                ("OUT", BadgeColor::Red),
+                ("ADJUSTMENT", BadgeColor::Yellow),
+                ("TRANSFER", BadgeColor::Blue),
+            ],
+            default_color: BadgeColor::Gray,
+        })
+        .with_filter(FilterType::Select {
+            options: vec![
+                "IN".to_string(),
+                "OUT".to_string(),
+                "ADJUSTMENT".to_string(),
+                "TRANSFER".to_string(),
+            ],
+        }),
+        ColumnDef::text("qty", "Quantity", |m: &StockMovementItem| {
+            m.quantity.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(100))
+        .with_renderer(CellRenderer::Number {
+            prefix: "",
+            decimals: 0,
+        }),
+        ColumnDef::text("cost", "Unit Cost", |m: &StockMovementItem| {
+            m.unit_cost.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(110))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 2,
+        }),
         ColumnDef::text("ref", "Reference", |m: &StockMovementItem| {
             match (&m.reference_doctype, &m.reference_docno) {
                 (Some(dt), Some(dn)) => format!("{} {}", dt, dn),
@@ -110,9 +125,7 @@ pub fn StockMovementListPage() -> Element {
         .with_width(ColumnWidth::Px(150)),
         ColumnDef::text("date", "Date", |m: &StockMovementItem| m.created_at.clone())
             .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date {
-                format: "%d-%b-%Y",
-            })
+            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
             .with_filter(FilterType::Date),
     ];
 
@@ -120,7 +133,12 @@ pub fn StockMovementListPage() -> Element {
         tracing::info!("Clicked movement: {}", m.movement_no);
     };
 
-    let on_new = { let mut m = show_modal.clone(); move |_| { m.set(true); } };
+    let on_new = {
+        let mut m = show_modal.clone();
+        move |_| {
+            m.set(true);
+        }
+    };
 
     let on_refresh = {
         let mut counter = refresh_counter.clone();
@@ -132,9 +150,17 @@ pub fn StockMovementListPage() -> Element {
     let on_modal_success = {
         let mut m = show_modal.clone();
         let mut counter = refresh_counter.clone();
-        move |_| { m.set(false); counter += 1; }
+        move |_| {
+            m.set(false);
+            counter += 1;
+        }
     };
-    let on_modal_cancel = { let mut m = show_modal.clone(); move |_| { m.set(false); } };
+    let on_modal_cancel = {
+        let mut m = show_modal.clone();
+        move |_| {
+            m.set(false);
+        }
+    };
 
     rsx! {
         div { class: "page",

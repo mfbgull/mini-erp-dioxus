@@ -23,8 +23,6 @@ pub struct Supplier {
     pub supplier_type: String,
 }
 
-
-
 struct SupplierSummary {
     total_count: usize,
     active_count: usize,
@@ -78,19 +76,26 @@ pub fn SupplierListPage() -> Element {
             let _ = *refresh_counter.read();
             let result = api.read().clone().list_suppliers().await;
             match result {
-                Ok(models) => models.into_iter().map(|m| Supplier {
-                    id: m.id,
-                    supplier_code: m.supplier_code,
-                    supplier_name: m.supplier_name,
-                    email: m.email,
-                    phone: m.phone,
-                    city: m.address.split(',').next().unwrap_or("").trim().to_string(),
-                    payment_terms: "Net 30".to_string(),
-                    credit_limit: 0.0,
-                    current_balance: 0.0,
-                    status: if m.is_active { "Active".to_string() } else { "Inactive".to_string() },
-                    supplier_type: "Local".to_string(),
-                }).collect(),
+                Ok(models) => models
+                    .into_iter()
+                    .map(|m| Supplier {
+                        id: m.id,
+                        supplier_code: m.supplier_code,
+                        supplier_name: m.supplier_name,
+                        email: m.email,
+                        phone: m.phone,
+                        city: m.address.split(',').next().unwrap_or("").trim().to_string(),
+                        payment_terms: "Net 30".to_string(),
+                        credit_limit: 0.0,
+                        current_balance: 0.0,
+                        status: if m.is_active {
+                            "Active".to_string()
+                        } else {
+                            "Inactive".to_string()
+                        },
+                        supplier_type: "Local".to_string(),
+                    })
+                    .collect(),
                 Err(_) => vec![],
             }
         }
@@ -106,14 +111,27 @@ pub fn SupplierListPage() -> Element {
         ColumnDef::text("code", "Code", |s: &Supplier| s.supplier_code.clone())
             .with_width(ColumnWidth::Px(110))
             .with_filter(FilterType::Text),
-        ColumnDef::text("name", "Supplier Name", |s: &Supplier| s.supplier_name.clone())
-            .with_width(ColumnWidth::Fr(1.2))
-            .with_filter(FilterType::Text)
-            .with_resizable(true),
+        ColumnDef::text("name", "Supplier Name", |s: &Supplier| {
+            s.supplier_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.2))
+        .with_filter(FilterType::Text)
+        .with_resizable(true),
         ColumnDef::text("city", "City", |s: &Supplier| s.city.clone())
             .with_width(ColumnWidth::Px(120))
             .with_filter(FilterType::Select {
-                options: vec!["Lahore".to_string(), "Karachi".to_string(), "Rawalpindi".to_string(), "Faisalabad".to_string(), "Sialkot".to_string(), "Multan".to_string(), "Gujranwala".to_string(), "Islamabad".to_string(), "Peshawar".to_string(), "Dubai".to_string()],
+                options: vec![
+                    "Lahore".to_string(),
+                    "Karachi".to_string(),
+                    "Rawalpindi".to_string(),
+                    "Faisalabad".to_string(),
+                    "Sialkot".to_string(),
+                    "Multan".to_string(),
+                    "Gujranwala".to_string(),
+                    "Islamabad".to_string(),
+                    "Peshawar".to_string(),
+                    "Dubai".to_string(),
+                ],
             }),
         ColumnDef::text("type", "Type", |s: &Supplier| s.supplier_type.clone())
             .with_width(ColumnWidth::Px(100))
@@ -121,7 +139,10 @@ pub fn SupplierListPage() -> Element {
                 options: vec!["Local".to_string(), "International".to_string()],
             })
             .with_renderer(CellRenderer::Badge {
-                color_map: vec![("Local", BadgeColor::Green), ("International", BadgeColor::Blue)],
+                color_map: vec![
+                    ("Local", BadgeColor::Green),
+                    ("International", BadgeColor::Blue),
+                ],
                 default_color: BadgeColor::Gray,
             }),
         ColumnDef::text("status", "Status", |s: &Supplier| s.status.clone())
@@ -130,23 +151,44 @@ pub fn SupplierListPage() -> Element {
                 options: vec!["Active".to_string(), "Inactive".to_string()],
             })
             .with_renderer(CellRenderer::Badge {
-                color_map: vec![("Active", BadgeColor::Green), ("Inactive", BadgeColor::Gray)],
+                color_map: vec![
+                    ("Active", BadgeColor::Green),
+                    ("Inactive", BadgeColor::Gray),
+                ],
                 default_color: BadgeColor::Blue,
             }),
         ColumnDef::text("terms", "Terms", |s: &Supplier| s.payment_terms.clone())
             .with_width(ColumnWidth::Px(100))
             .with_filter(FilterType::Select {
-                options: vec!["Net 15".to_string(), "Net 30".to_string(), "Net 45".to_string(), "Net 60".to_string(), "COD".to_string(), "Due on Receipt".to_string(), "LC 60".to_string()],
+                options: vec![
+                    "Net 15".to_string(),
+                    "Net 30".to_string(),
+                    "Net 45".to_string(),
+                    "Net 60".to_string(),
+                    "COD".to_string(),
+                    "Due on Receipt".to_string(),
+                    "LC 60".to_string(),
+                ],
             }),
-        ColumnDef::text("limit", "Credit Limit", |s: &Supplier| s.credit_limit.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 0 })
-            .with_filter(FilterType::Number),
-        ColumnDef::text("balance", "Balance", |s: &Supplier| s.current_balance.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 0 }),
+        ColumnDef::text("limit", "Credit Limit", |s: &Supplier| {
+            s.credit_limit.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(130))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 0,
+        })
+        .with_filter(FilterType::Number),
+        ColumnDef::text("balance", "Balance", |s: &Supplier| {
+            s.current_balance.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(130))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 0,
+        }),
         ColumnDef::text("phone", "Phone", |s: &Supplier| s.phone.clone())
             .with_width(ColumnWidth::Px(140))
             .with_resizable(true),
@@ -163,7 +205,10 @@ pub fn SupplierListPage() -> Element {
 
     let on_new = {
         let nav = navigator.clone();
-        move |_| { nav.push("/suppliers/new"); } };
+        move |_| {
+            nav.push("/suppliers/new");
+        }
+    };
 
     let on_refresh = {
         let mut counter = refresh_counter.clone();

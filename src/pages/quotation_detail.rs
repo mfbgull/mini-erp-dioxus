@@ -2,9 +2,7 @@
 //! line items, action bar, status change, and conversion to invoice.
 
 use crate::auth::use_auth;
-use crate::components::common::{
-    use_toast,
-};
+use crate::components::common::use_toast;
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -100,8 +98,6 @@ struct QuotationDetail {
     items: Vec<QdetailLineItem>,
 }
 
-
-
 fn qstatus_class(status: &str) -> &'static str {
     match status {
         "Draft" => "qstatus-draft",
@@ -113,7 +109,10 @@ fn qstatus_class(status: &str) -> &'static str {
     }
 }
 
-fn to_quotation_detail(q: crate::models::Quotation, items: Vec<crate::models::QuotationItem>) -> QuotationDetail {
+fn to_quotation_detail(
+    q: crate::models::Quotation,
+    items: Vec<crate::models::QuotationItem>,
+) -> QuotationDetail {
     QuotationDetail {
         id: q.id,
         quotation_no: q.quotation_no,
@@ -129,16 +128,20 @@ fn to_quotation_detail(q: crate::models::Quotation, items: Vec<crate::models::Qu
         tax_amount: 0.0,
         total: q.total_amount,
         notes: q.notes.unwrap_or_default(),
-        items: items.into_iter().enumerate().map(|(i, li)| QdetailLineItem {
-            line_no: (i + 1) as i32,
-            item_code: li.item_code.unwrap_or_default(),
-            item_name: li.item_name.unwrap_or_default(),
-            quantity: li.quantity,
-            unit_price: li.unit_price,
-            discount: li.discount,
-            tax_rate: li.tax,
-            net_amount: li.amount,
-        }).collect(),
+        items: items
+            .into_iter()
+            .enumerate()
+            .map(|(i, li)| QdetailLineItem {
+                line_no: (i + 1) as i32,
+                item_code: li.item_code.unwrap_or_default(),
+                item_name: li.item_name.unwrap_or_default(),
+                quantity: li.quantity,
+                unit_price: li.unit_price,
+                discount: li.discount,
+                tax_rate: li.tax,
+                net_amount: li.amount,
+            })
+            .collect(),
     }
 }
 
@@ -161,8 +164,10 @@ pub fn QuotationDetailPage(id: String) -> Element {
             drop(api);
             let resp = client.get_quotation(parsed).await.ok()?;
             let data = resp.get("data")?;
-            let q: crate::models::Quotation = serde_json::from_value(data.get("quotation")?.clone()).ok()?;
-            let items: Vec<crate::models::QuotationItem> = serde_json::from_value(data.get("items")?.clone()).ok()?;
+            let q: crate::models::Quotation =
+                serde_json::from_value(data.get("quotation")?.clone()).ok()?;
+            let items: Vec<crate::models::QuotationItem> =
+                serde_json::from_value(data.get("items")?.clone()).ok()?;
             Some(to_quotation_detail(q, items))
         }
     });
@@ -196,7 +201,12 @@ pub fn QuotationDetailPage(id: String) -> Element {
     let q = q_opt.as_ref().unwrap();
     let qid = q.id;
 
-    let on_back = { let nav = navigator; move |_| { nav.push("/sales/quotations"); } };
+    let on_back = {
+        let nav = navigator;
+        move |_| {
+            nav.push("/sales/quotations");
+        }
+    };
     let on_convert = {
         let toast = toast.clone();
         move |_| {

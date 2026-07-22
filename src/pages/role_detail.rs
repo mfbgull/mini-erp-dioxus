@@ -3,7 +3,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
 use crate::pages::role_list::Role;
 use dioxus::prelude::*;
@@ -65,74 +65,410 @@ struct ModulePermission {
 fn role_permissions(role_name: &str) -> Vec<ModulePermission> {
     match role_name {
         "Admin" => vec![
-            ModulePermission { module: "Dashboard", view: true, edit: true, create: true, delete: true },
-            ModulePermission { module: "Inventory", view: true, edit: true, create: true, delete: true },
-            ModulePermission { module: "Sales", view: true, edit: true, create: true, delete: true },
-            ModulePermission { module: "Purchasing", view: true, edit: true, create: true, delete: true },
-            ModulePermission { module: "Manufacturing", view: true, edit: true, create: true, delete: true },
-            ModulePermission { module: "Accounting", view: true, edit: true, create: true, delete: true },
-            ModulePermission { module: "Reports", view: true, edit: true, create: true, delete: true },
-            ModulePermission { module: "Settings", view: true, edit: true, create: true, delete: true },
+            ModulePermission {
+                module: "Dashboard",
+                view: true,
+                edit: true,
+                create: true,
+                delete: true,
+            },
+            ModulePermission {
+                module: "Inventory",
+                view: true,
+                edit: true,
+                create: true,
+                delete: true,
+            },
+            ModulePermission {
+                module: "Sales",
+                view: true,
+                edit: true,
+                create: true,
+                delete: true,
+            },
+            ModulePermission {
+                module: "Purchasing",
+                view: true,
+                edit: true,
+                create: true,
+                delete: true,
+            },
+            ModulePermission {
+                module: "Manufacturing",
+                view: true,
+                edit: true,
+                create: true,
+                delete: true,
+            },
+            ModulePermission {
+                module: "Accounting",
+                view: true,
+                edit: true,
+                create: true,
+                delete: true,
+            },
+            ModulePermission {
+                module: "Reports",
+                view: true,
+                edit: true,
+                create: true,
+                delete: true,
+            },
+            ModulePermission {
+                module: "Settings",
+                view: true,
+                edit: true,
+                create: true,
+                delete: true,
+            },
         ],
         "Manager" => vec![
-            ModulePermission { module: "Dashboard", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Inventory", view: true, edit: true, create: true, delete: false },
-            ModulePermission { module: "Sales", view: true, edit: true, create: true, delete: false },
-            ModulePermission { module: "Purchasing", view: true, edit: true, create: true, delete: true },
-            ModulePermission { module: "Manufacturing", view: true, edit: true, create: true, delete: false },
-            ModulePermission { module: "Accounting", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Reports", view: true, edit: false, create: true, delete: false },
-            ModulePermission { module: "Settings", view: true, edit: false, create: false, delete: false },
+            ModulePermission {
+                module: "Dashboard",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Inventory",
+                view: true,
+                edit: true,
+                create: true,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Sales",
+                view: true,
+                edit: true,
+                create: true,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Purchasing",
+                view: true,
+                edit: true,
+                create: true,
+                delete: true,
+            },
+            ModulePermission {
+                module: "Manufacturing",
+                view: true,
+                edit: true,
+                create: true,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Accounting",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Reports",
+                view: true,
+                edit: false,
+                create: true,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Settings",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
         ],
         "Sales" => vec![
-            ModulePermission { module: "Dashboard", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Inventory", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Sales", view: true, edit: true, create: true, delete: false },
-            ModulePermission { module: "Purchasing", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Manufacturing", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Accounting", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Reports", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Settings", view: false, edit: false, create: false, delete: false },
+            ModulePermission {
+                module: "Dashboard",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Inventory",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Sales",
+                view: true,
+                edit: true,
+                create: true,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Purchasing",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Manufacturing",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Accounting",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Reports",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Settings",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
         ],
         "Accounts" => vec![
-            ModulePermission { module: "Dashboard", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Inventory", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Sales", view: true, edit: true, create: false, delete: false },
-            ModulePermission { module: "Purchasing", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Manufacturing", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Accounting", view: true, edit: true, create: true, delete: false },
-            ModulePermission { module: "Reports", view: true, edit: false, create: true, delete: false },
-            ModulePermission { module: "Settings", view: false, edit: false, create: false, delete: false },
+            ModulePermission {
+                module: "Dashboard",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Inventory",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Sales",
+                view: true,
+                edit: true,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Purchasing",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Manufacturing",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Accounting",
+                view: true,
+                edit: true,
+                create: true,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Reports",
+                view: true,
+                edit: false,
+                create: true,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Settings",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
         ],
         "Inventory" => vec![
-            ModulePermission { module: "Dashboard", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Inventory", view: true, edit: true, create: true, delete: false },
-            ModulePermission { module: "Sales", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Purchasing", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Manufacturing", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Accounting", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Reports", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Settings", view: false, edit: false, create: false, delete: false },
+            ModulePermission {
+                module: "Dashboard",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Inventory",
+                view: true,
+                edit: true,
+                create: true,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Sales",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Purchasing",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Manufacturing",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Accounting",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Reports",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Settings",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
         ],
         "Production" => vec![
-            ModulePermission { module: "Dashboard", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Inventory", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Sales", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Purchasing", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Manufacturing", view: true, edit: true, create: true, delete: false },
-            ModulePermission { module: "Accounting", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Reports", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Settings", view: false, edit: false, create: false, delete: false },
+            ModulePermission {
+                module: "Dashboard",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Inventory",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Sales",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Purchasing",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Manufacturing",
+                view: true,
+                edit: true,
+                create: true,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Accounting",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Reports",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Settings",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
         ],
         _ => vec![
-            ModulePermission { module: "Dashboard", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Inventory", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Sales", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Purchasing", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Manufacturing", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Accounting", view: false, edit: false, create: false, delete: false },
-            ModulePermission { module: "Reports", view: true, edit: false, create: false, delete: false },
-            ModulePermission { module: "Settings", view: false, edit: false, create: false, delete: false },
+            ModulePermission {
+                module: "Dashboard",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Inventory",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Sales",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Purchasing",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Manufacturing",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Accounting",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Reports",
+                view: true,
+                edit: false,
+                create: false,
+                delete: false,
+            },
+            ModulePermission {
+                module: "Settings",
+                view: false,
+                edit: false,
+                create: false,
+                delete: false,
+            },
         ],
     }
 }
@@ -184,16 +520,22 @@ pub fn RoleDetailPage(id: String) -> Element {
     let mut show_delete_modal = use_signal(|| false);
 
     // ── Handlers ──
-    let on_back = move |_: Event<MouseData>| { navigator.push("/roles"); };
+    let on_back = move |_: Event<MouseData>| {
+        navigator.push("/roles");
+    };
 
     let on_edit = {
         let mut toast = toast.clone();
-        move |_| { toast.info("Edit Role", "Role editing is not yet available."); }
+        move |_| {
+            toast.info("Edit Role", "Role editing is not yet available.");
+        }
     };
 
     let on_delete = {
         let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(true); }
+        move |_| {
+            modal.set(true);
+        }
     };
 
     let confirm_delete = {
@@ -209,7 +551,9 @@ pub fn RoleDetailPage(id: String) -> Element {
 
     let cancel_delete = {
         let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(false); }
+        move |_| {
+            modal.set(false);
+        }
     };
 
     if is_loading {
@@ -238,7 +582,11 @@ pub fn RoleDetailPage(id: String) -> Element {
     let permissions = role_permissions(&role.role_name);
     let users = users_resource.read().cloned().unwrap_or_default();
     let can_edit = !role.is_system;
-    let is_system_str = if role.is_system { "System Role" } else { "Custom Role" };
+    let is_system_str = if role.is_system {
+        "System Role"
+    } else {
+        "Custom Role"
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }

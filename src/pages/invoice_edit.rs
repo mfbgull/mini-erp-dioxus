@@ -1,12 +1,12 @@
 //! Invoice Edit Page — Edit an existing invoice with pre-filled form data,
 //! customer credit info, and existing payments management.
 
-use crate::components::common::{
-    Button, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption, StatCard,
-    StatCardVariant, use_toast,
-};
 use crate::auth::use_auth;
-use crate::models::{Customer, Item, Payment, InvoiceForm, InvoiceItemForm};
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption,
+    StatCard, StatCardVariant,
+};
+use crate::models::{Customer, InvoiceForm, InvoiceItemForm, Item, Payment};
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -119,7 +119,11 @@ pub fn InvoiceEditPage(id: String) -> Element {
 
                 // Fetch customer credit info
                 if let Ok(cust) = client.get_customer(cust_id).await {
-                    credit.set(Some((cust.credit_limit, cust.credit_balance, cust.current_balance)));
+                    credit.set(Some((
+                        cust.credit_limit,
+                        cust.credit_balance,
+                        cust.current_balance,
+                    )));
                 }
 
                 // Fetch existing payments
@@ -159,13 +163,50 @@ pub fn InvoiceEditPage(id: String) -> Element {
     let inv = inv_data.as_ref().unwrap();
 
     let customer_code = use_signal(|| String::new());
-    let customer_name = use_signal(|| inv.get("customer_name").and_then(|v| v.as_str()).unwrap_or("").to_string());
-    let source_type = use_signal(|| inv.get("source_type").and_then(|v| v.as_str()).unwrap_or("Direct").to_string());
-    let invoice_date = use_signal(|| inv.get("invoice_date").and_then(|v| v.as_str()).and_then(|s| s.parse::<chrono::NaiveDate>().ok()));
-    let due_date = use_signal(|| inv.get("due_date").and_then(|v| v.as_str()).and_then(|s| s.parse::<chrono::NaiveDate>().ok()));
-    let discount_pct = use_signal(|| format!("{}", inv.get("discount_value").and_then(|v| v.as_f64()).unwrap_or(0.0)));
-    let tax_rate_str = use_signal(|| format!("{}", inv.get("tax_rate").and_then(|v| v.as_f64()).unwrap_or(DEFAULT_TAX_RATE)));
-    let notes = use_signal(|| inv.get("notes").and_then(|v| v.as_str()).unwrap_or("").to_string());
+    let customer_name = use_signal(|| {
+        inv.get("customer_name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string()
+    });
+    let source_type = use_signal(|| {
+        inv.get("source_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Direct")
+            .to_string()
+    });
+    let invoice_date = use_signal(|| {
+        inv.get("invoice_date")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<chrono::NaiveDate>().ok())
+    });
+    let due_date = use_signal(|| {
+        inv.get("due_date")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse::<chrono::NaiveDate>().ok())
+    });
+    let discount_pct = use_signal(|| {
+        format!(
+            "{}",
+            inv.get("discount_value")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0)
+        )
+    });
+    let tax_rate_str = use_signal(|| {
+        format!(
+            "{}",
+            inv.get("tax_rate")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(DEFAULT_TAX_RATE)
+        )
+    });
+    let notes = use_signal(|| {
+        inv.get("notes")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string()
+    });
 
     let items = use_signal(|| -> Vec<EditLineItem> { Vec::new() });
 
@@ -180,13 +221,39 @@ pub fn InvoiceEditPage(id: String) -> Element {
                     if let Some(items_arr) = data.get("items").and_then(|v| v.as_array()) {
                         let mut result = Vec::new();
                         for (i, item) in items_arr.iter().enumerate() {
-                            let item_code = item.get("item_code").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                            let item_name = item.get("item_name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                            let quantity = item.get("quantity").and_then(|v| v.as_f64()).unwrap_or(1.0);
-                            let unit_price = item.get("unit_price").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                            let tax_rate = item.get("tax_rate").and_then(|v| v.as_f64()).unwrap_or(DEFAULT_TAX_RATE);
-                            let discount_value = item.get("discount_value").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                            result.push(EditLineItem { id: (i + 1) as u64, item_code, item_name, quantity, unit_price, tax_rate, discount_value });
+                            let item_code = item
+                                .get("item_code")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string();
+                            let item_name = item
+                                .get("item_name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("")
+                                .to_string();
+                            let quantity =
+                                item.get("quantity").and_then(|v| v.as_f64()).unwrap_or(1.0);
+                            let unit_price = item
+                                .get("unit_price")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(0.0);
+                            let tax_rate = item
+                                .get("tax_rate")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(DEFAULT_TAX_RATE);
+                            let discount_value = item
+                                .get("discount_value")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(0.0);
+                            result.push(EditLineItem {
+                                id: (i + 1) as u64,
+                                item_code,
+                                item_name,
+                                quantity,
+                                unit_price,
+                                tax_rate,
+                                discount_value,
+                            });
                         }
                         if result.is_empty() {
                             result.push(EditLineItem::default());
@@ -204,11 +271,14 @@ pub fn InvoiceEditPage(id: String) -> Element {
     let disc_val: f64 = discount_pct.read().parse().unwrap_or(0.0);
     let (subtotal, discount_amount, tax_amount, total) = {
         let its = items.read();
-        let sub: f64 = its.iter().map(|li| {
-            let base = li.quantity * li.unit_price;
-            let item_disc = base * li.discount_value / 100.0;
-            base - item_disc
-        }).sum();
+        let sub: f64 = its
+            .iter()
+            .map(|li| {
+                let base = li.quantity * li.unit_price;
+                let item_disc = base * li.discount_value / 100.0;
+                base - item_disc
+            })
+            .sum();
         let disc = sub * disc_val / 100.0;
         let after_disc = sub - disc;
         let tax = after_disc * tax_rate_val / 100.0;
@@ -223,7 +293,11 @@ pub fn InvoiceEditPage(id: String) -> Element {
         let cust_map = customer_map.clone();
         move |value: String| {
             code.set(value.clone());
-            let label = cust_map.read().get(&value).map(|c| c.customer_name.clone()).unwrap_or_default();
+            let label = cust_map
+                .read()
+                .get(&value)
+                .map(|c| c.customer_name.clone())
+                .unwrap_or_default();
             name.set(label);
             dirty.set(true);
         }
@@ -232,13 +306,19 @@ pub fn InvoiceEditPage(id: String) -> Element {
     let add_item = {
         let mut its = items.clone();
         let mut dirty = is_dirty.clone();
-        move |_| { its.write().push(EditLineItem::default()); dirty.set(true); }
+        move |_| {
+            its.write().push(EditLineItem::default());
+            dirty.set(true);
+        }
     };
 
     let remove_item = {
         let mut its = items.clone();
         let mut dirty = is_dirty.clone();
-        move |id: u64| { its.write().retain(|li| li.id != id); dirty.set(true); }
+        move |id: u64| {
+            its.write().retain(|li| li.id != id);
+            dirty.set(true);
+        }
     };
 
     let delete_payment = {
@@ -276,14 +356,24 @@ pub fn InvoiceEditPage(id: String) -> Element {
                 toast.error("Validation Error", "Please select a customer.");
                 return;
             }
-            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
+            let filled = its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count();
             if filled == 0 {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
 
-            let cust_id = cust_map.read().get(&c_code.read().clone()).map(|c| c.id).unwrap_or(0);
-            let form_items: Vec<InvoiceItemForm> = its.read().iter()
+            let cust_id = cust_map
+                .read()
+                .get(&c_code.read().clone())
+                .map(|c| c.id)
+                .unwrap_or(0);
+            let form_items: Vec<InvoiceItemForm> = its
+                .read()
+                .iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| {
                     let item_id = it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0);
@@ -293,15 +383,28 @@ pub fn InvoiceEditPage(id: String) -> Element {
                         quantity: li.quantity,
                         unit_price: li.unit_price,
                         tax_rate: Some(li.tax_rate),
-                        discount_type: if li.discount_value > 0.0 { Some("percentage".to_string()) } else { None },
-                        discount_value: if li.discount_value > 0.0 { Some(li.discount_value) } else { None },
+                        discount_type: if li.discount_value > 0.0 {
+                            Some("percentage".to_string())
+                        } else {
+                            None
+                        },
+                        discount_value: if li.discount_value > 0.0 {
+                            Some(li.discount_value)
+                        } else {
+                            None
+                        },
                     }
-                }).collect();
+                })
+                .collect();
 
             let deleted_ids = deleted.read().clone();
             let form = InvoiceForm {
                 customer_id: cust_id,
-                invoice_date: inv_date.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
+                invoice_date: inv_date
+                    .read()
+                    .as_ref()
+                    .map(|d| d.to_string())
+                    .unwrap_or_default(),
                 due_date: d_date.read().as_ref().map(|d| d.to_string()),
                 source_type: Some(source_type.read().clone()),
                 warehouse_id: None,
@@ -314,7 +417,11 @@ pub fn InvoiceEditPage(id: String) -> Element {
                 record_payment: None,
                 payment_amount: None,
                 payment_method: None,
-                deleted_payment_ids: if deleted_ids.is_empty() { None } else { Some(deleted_ids) },
+                deleted_payment_ids: if deleted_ids.is_empty() {
+                    None
+                } else {
+                    Some(deleted_ids)
+                },
             };
 
             saving.set(true);
@@ -326,7 +433,10 @@ pub fn InvoiceEditPage(id: String) -> Element {
             spawn(async move {
                 match client.update_invoice(inv_id, &form).await {
                     Ok(_) => {
-                        toast.success("Invoice Updated", &format!("Invoice for {} updated.", customer));
+                        toast.success(
+                            "Invoice Updated",
+                            &format!("Invoice for {} updated.", customer),
+                        );
                         saving.set(false);
                         nav.push(format!("/sales/invoices/{}", inv_id));
                     }
@@ -339,13 +449,16 @@ pub fn InvoiceEditPage(id: String) -> Element {
         }
     };
 
-    let open_discard = move |_| { navigator.push("/sales/invoices"); };
+    let open_discard = move |_| {
+        navigator.push("/sales/invoices");
+    };
     let inv_no = inv.get("invoice_no").and_then(|v| v.as_str()).unwrap_or("");
 
     // Compute paid amount from non-deleted payments
     let deleted_ids = deleted_payment_ids.read();
     let payments = existing_payments.read();
-    let paid_amount: f64 = payments.iter()
+    let paid_amount: f64 = payments
+        .iter()
         .filter(|p| !deleted_ids.contains(&p.id))
         .map(|p| p.amount)
         .sum();

@@ -217,7 +217,15 @@ fn en_translations() -> Translations {
     modules.insert("forecasts", "Forecasts");
     modules.insert("admin", "Administration");
 
-    Translations { common, nav, actions, status, fields, messages, modules }
+    Translations {
+        common,
+        nav,
+        actions,
+        status,
+        fields,
+        messages,
+        modules,
+    }
 }
 
 fn ur_translations() -> Translations {
@@ -400,7 +408,15 @@ fn ur_translations() -> Translations {
     modules.insert("forecasts", "پیش گوئیاں");
     modules.insert("admin", "انتظامیہ");
 
-    Translations { common, nav, actions, status, fields, messages, modules }
+    Translations {
+        common,
+        nav,
+        actions,
+        status,
+        fields,
+        messages,
+        modules,
+    }
 }
 
 pub fn get_translations(lang: Lang) -> Translations {

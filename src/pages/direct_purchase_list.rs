@@ -19,8 +19,6 @@ pub struct DirectPurchase {
     pub item_count: i32,
 }
 
-
-
 #[component]
 pub fn DirectPurchaseListPage() -> Element {
     let navigator = use_navigator();
@@ -32,15 +30,18 @@ pub fn DirectPurchaseListPage() -> Element {
             let _ = *refresh_counter.read();
             let result = api.read().clone().list_direct_purchases().await;
             match result {
-                Ok(models) => models.into_iter().map(|m| DirectPurchase {
-                    id: m.id,
-                    dp_no: m.purchase_no,
-                    supplier_name: m.supplier_name,
-                    date: m.purchase_date,
-                    status: m.status,
-                    total_amount: m.total_cost,
-                    item_count: 0, // server model lacks item_count
-                }).collect(),
+                Ok(models) => models
+                    .into_iter()
+                    .map(|m| DirectPurchase {
+                        id: m.id,
+                        dp_no: m.purchase_no,
+                        supplier_name: m.supplier_name,
+                        date: m.purchase_date,
+                        status: m.status,
+                        total_amount: m.total_cost,
+                        item_count: 0, // server model lacks item_count
+                    })
+                    .collect(),
                 Err(_) => vec![],
             }
         }
@@ -54,9 +55,11 @@ pub fn DirectPurchaseListPage() -> Element {
         ColumnDef::text("dp_no", "DP #", |d: &DirectPurchase| d.dp_no.clone())
             .with_width(ColumnWidth::Px(140))
             .with_filter(FilterType::Text),
-        ColumnDef::text("supplier", "Supplier", |d: &DirectPurchase| d.supplier_name.clone())
-            .with_width(ColumnWidth::Fr(1.0))
-            .with_filter(FilterType::Text),
+        ColumnDef::text("supplier", "Supplier", |d: &DirectPurchase| {
+            d.supplier_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.0))
+        .with_filter(FilterType::Text),
         ColumnDef::text("date", "Date", |d: &DirectPurchase| d.date.clone())
             .with_width(ColumnWidth::Px(120))
             .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
@@ -73,16 +76,31 @@ pub fn DirectPurchaseListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Draft".to_string(), "Approved".to_string(), "Received".to_string(), "Cancelled".to_string()],
+                options: vec![
+                    "Draft".to_string(),
+                    "Approved".to_string(),
+                    "Received".to_string(),
+                    "Cancelled".to_string(),
+                ],
             }),
-        ColumnDef::text("amount", "Amount", |d: &DirectPurchase| d.total_amount.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(140))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 }),
-        ColumnDef::text("items", "Items", |d: &DirectPurchase| d.item_count.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(80))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 }),
+        ColumnDef::text("amount", "Amount", |d: &DirectPurchase| {
+            d.total_amount.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(140))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 2,
+        }),
+        ColumnDef::text("items", "Items", |d: &DirectPurchase| {
+            d.item_count.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(80))
+        .with_renderer(CellRenderer::Number {
+            prefix: "",
+            decimals: 0,
+        }),
     ];
 
     let total_amount: f64 = items.iter().map(|d| d.total_amount).sum();
@@ -94,7 +112,10 @@ pub fn DirectPurchaseListPage() -> Element {
 
     let on_new = {
         let nav = navigator.clone();
-        move |_| { nav.push("/purchases/direct/new"); } };
+        move |_| {
+            nav.push("/purchases/direct/new");
+        }
+    };
 
     let on_refresh = {
         let mut counter = refresh_counter.clone();

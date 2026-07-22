@@ -3,10 +3,10 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
 use crate::components::invoice::{InvoicePaymentPanel, PaymentInfo};
-use crate::models as models;
+use crate::models;
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -115,7 +115,6 @@ struct InvoiceDetail {
     items: Vec<InvoiceLineItem>,
 }
 
-
 fn status_class(status: &str) -> &'static str {
     match status {
         "Paid" => "invoice-status-paid",
@@ -147,7 +146,8 @@ pub fn InvoiceDetailPage(id: String) -> Element {
             let result = client.get_invoice(parsed).await.ok()?;
             let data = result.get("data")?;
             let inv: models::Invoice = serde_json::from_value(data.get("invoice")?.clone()).ok()?;
-            let items: Vec<models::InvoiceItem> = serde_json::from_value(data.get("items")?.clone()).ok()?;
+            let items: Vec<models::InvoiceItem> =
+                serde_json::from_value(data.get("items")?.clone()).ok()?;
             Some(InvoiceDetail {
                 id: inv.id,
                 invoice_no: inv.invoice_no,
@@ -164,17 +164,21 @@ pub fn InvoiceDetailPage(id: String) -> Element {
                 tax_rate: inv.tax_rate.unwrap_or(0.0),
                 notes: inv.notes.clone().unwrap_or_default(),
                 source_type: inv.source_type.clone(),
-                items: items.into_iter().enumerate().map(|(i, ii)| InvoiceLineItem {
-                    line_no: (i + 1) as i32,
-                    item_code: ii.item_code.clone().unwrap_or_default(),
-                    item_name: ii.item_name.clone().unwrap_or_default(),
-                    quantity: ii.quantity,
-                    unit_price: ii.unit_price,
-                    discount: ii.discount_value.unwrap_or(0.0),
-                    tax_rate: ii.tax_rate,
-                    net_amount: ii.amount,
-                    item_id: Some(ii.item_id),
-                }).collect(),
+                items: items
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, ii)| InvoiceLineItem {
+                        line_no: (i + 1) as i32,
+                        item_code: ii.item_code.clone().unwrap_or_default(),
+                        item_name: ii.item_name.clone().unwrap_or_default(),
+                        quantity: ii.quantity,
+                        unit_price: ii.unit_price,
+                        discount: ii.discount_value.unwrap_or(0.0),
+                        tax_rate: ii.tax_rate,
+                        net_amount: ii.amount,
+                        item_id: Some(ii.item_id),
+                    })
+                    .collect(),
             })
         }
     });
@@ -215,14 +219,61 @@ pub fn InvoiceDetailPage(id: String) -> Element {
     }
     let inv = inv_opt.as_ref().unwrap();
     let status_cls = status_class(&inv.status);
-    let on_back = { let nav = navigator.clone(); move |_| { nav.push("/sales/invoices"); } };
-    let on_print = { let nav = navigator.clone(); let i = inv.id; move |_| { nav.push(format!("/sales/invoices/{}/print", i)); } };
-    let on_edit = { let nav = navigator.clone(); let i = inv.id; move |_| { nav.push(format!("/sales/invoices/{}/edit", i)); } };
-    let on_payment = { let mut modal = show_payment_modal.clone(); let mut pay = payment_info.clone(); let total = inv.balance_amount; move |_| { pay.set(PaymentInfo { record_payment: true, amount: total, ..PaymentInfo::default() }); modal.set(true); } };
-    let on_delete = { let mut m = show_delete_modal.clone(); move |_| m.set(true) };
-    let confirm_delete = { let nav = navigator.clone(); let mut m = show_delete_modal.clone(); let mut t = toast.clone(); move |_| { m.set(false); t.success("Deleted", "Invoice has been deleted."); nav.push("/sales/invoices"); } };
-    let cancel_delete = { let mut m = show_delete_modal.clone(); move |_| m.set(false) };
-    let cancel_payment = { let mut m = show_payment_modal.clone(); move |_| m.set(false) };
+    let on_back = {
+        let nav = navigator.clone();
+        move |_| {
+            nav.push("/sales/invoices");
+        }
+    };
+    let on_print = {
+        let nav = navigator.clone();
+        let i = inv.id;
+        move |_| {
+            nav.push(format!("/sales/invoices/{}/print", i));
+        }
+    };
+    let on_edit = {
+        let nav = navigator.clone();
+        let i = inv.id;
+        move |_| {
+            nav.push(format!("/sales/invoices/{}/edit", i));
+        }
+    };
+    let on_payment = {
+        let mut modal = show_payment_modal.clone();
+        let mut pay = payment_info.clone();
+        let total = inv.balance_amount;
+        move |_| {
+            pay.set(PaymentInfo {
+                record_payment: true,
+                amount: total,
+                ..PaymentInfo::default()
+            });
+            modal.set(true);
+        }
+    };
+    let on_delete = {
+        let mut m = show_delete_modal.clone();
+        move |_| m.set(true)
+    };
+    let confirm_delete = {
+        let nav = navigator.clone();
+        let mut m = show_delete_modal.clone();
+        let mut t = toast.clone();
+        move |_| {
+            m.set(false);
+            t.success("Deleted", "Invoice has been deleted.");
+            nav.push("/sales/invoices");
+        }
+    };
+    let cancel_delete = {
+        let mut m = show_delete_modal.clone();
+        move |_| m.set(false)
+    };
+    let cancel_payment = {
+        let mut m = show_payment_modal.clone();
+        move |_| m.set(false)
+    };
     let submit_payment = {
         let api = api.clone();
         let mut toast = toast.clone();
@@ -256,7 +307,10 @@ pub fn InvoiceDetailPage(id: String) -> Element {
             spawn(async move {
                 match client.create_payment(&body).await {
                     Ok(_) => {
-                        toast2.success("Payment Recorded", &format!("Payment for {} recorded successfully.", inv_no2));
+                        toast2.success(
+                            "Payment Recorded",
+                            &format!("Payment for {} recorded successfully.", inv_no2),
+                        );
                         modal.set(false);
                         pay_sig.set(PaymentInfo::default());
                         saving_sig.set(false);

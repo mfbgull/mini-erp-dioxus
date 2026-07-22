@@ -18,8 +18,8 @@ pub struct ActivityEntry {
     pub id: i64,
     pub timestamp: String,
     pub user: String,
-    pub action: String,      // "Create" | "Update" | "Delete" | "Login"
-    pub module: String,      // "Inventory" | "Sales" | "Purchasing" | etc.
+    pub action: String, // "Create" | "Update" | "Delete" | "Login"
+    pub module: String, // "Inventory" | "Sales" | "Purchasing" | etc.
     pub description: String,
     pub ip_address: String,
 }
@@ -40,17 +40,21 @@ pub fn ActivityLogPage() -> Element {
         async move {
             let _ = *refresh_counter.read();
             let client = api.with(|c| c.clone());
-            client.list_activity_logs().await
+            client
+                .list_activity_logs()
+                .await
                 .map(|logs| {
-                    logs.into_iter().map(|l| ActivityEntry {
-                        id: l.id,
-                        timestamp: l.created_at,
-                        user: l.username.unwrap_or_default(),
-                        action: l.action,
-                        module: l.entity_type,
-                        description: l.metadata.unwrap_or_default(),
-                        ip_address: l.ip_address.unwrap_or_default(),
-                    }).collect::<Vec<_>>()
+                    logs.into_iter()
+                        .map(|l| ActivityEntry {
+                            id: l.id,
+                            timestamp: l.created_at,
+                            user: l.username.unwrap_or_default(),
+                            action: l.action,
+                            module: l.entity_type,
+                            description: l.metadata.unwrap_or_default(),
+                            ip_address: l.ip_address.unwrap_or_default(),
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .unwrap_or_default()
         }
@@ -65,18 +69,26 @@ pub fn ActivityLogPage() -> Element {
     let action_filter = use_signal(|| String::new());
 
     // ── Filtered data ──
-    let filtered: Vec<ActivityEntry> = entries.clone().into_iter().filter(|e| {
-        let module_match = module_filter.read().is_empty() || e.module == *module_filter.read();
-        let action_match = action_filter.read().is_empty() || e.action == *action_filter.read();
-        module_match && action_match
-    }).collect();
+    let filtered: Vec<ActivityEntry> = entries
+        .clone()
+        .into_iter()
+        .filter(|e| {
+            let module_match = module_filter.read().is_empty() || e.module == *module_filter.read();
+            let action_match = action_filter.read().is_empty() || e.action == *action_filter.read();
+            module_match && action_match
+        })
+        .collect();
 
     // ── Column definitions ──
     let columns: Vec<ColumnDef<ActivityEntry>> = vec![
-        ColumnDef::text("timestamp", "Timestamp", |e: &ActivityEntry| e.timestamp.clone())
-            .with_width(ColumnWidth::Px(160))
-            .with_renderer(CellRenderer::DateTime { format: "%d-%b-%Y %H:%M" })
-            .with_filter(FilterType::Date),
+        ColumnDef::text("timestamp", "Timestamp", |e: &ActivityEntry| {
+            e.timestamp.clone()
+        })
+        .with_width(ColumnWidth::Px(160))
+        .with_renderer(CellRenderer::DateTime {
+            format: "%d-%b-%Y %H:%M",
+        })
+        .with_filter(FilterType::Date),
         ColumnDef::text("user", "User", |e: &ActivityEntry| e.user.clone())
             .with_width(ColumnWidth::Px(130))
             .with_filter(FilterType::Text),
@@ -92,19 +104,32 @@ pub fn ActivityLogPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Create".to_string(), "Update".to_string(), "Delete".to_string(), "Login".to_string()],
+                options: vec![
+                    "Create".to_string(),
+                    "Update".to_string(),
+                    "Delete".to_string(),
+                    "Login".to_string(),
+                ],
             }),
         ColumnDef::text("module", "Module", |e: &ActivityEntry| e.module.clone())
             .with_width(ColumnWidth::Px(120))
             .with_filter(FilterType::Select {
                 options: vec![
-                    "System".to_string(), "Inventory".to_string(), "Sales".to_string(), "Purchasing".to_string(),
-                    "Manufacturing".to_string(), "Accounting".to_string(), "Settings".to_string(), "Reports".to_string(),
+                    "System".to_string(),
+                    "Inventory".to_string(),
+                    "Sales".to_string(),
+                    "Purchasing".to_string(),
+                    "Manufacturing".to_string(),
+                    "Accounting".to_string(),
+                    "Settings".to_string(),
+                    "Reports".to_string(),
                 ],
             }),
-        ColumnDef::text("description", "Description", |e: &ActivityEntry| e.description.clone())
-            .with_width(ColumnWidth::Fr(1.5))
-            .with_filter(FilterType::Text),
+        ColumnDef::text("description", "Description", |e: &ActivityEntry| {
+            e.description.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.5))
+        .with_filter(FilterType::Text),
         ColumnDef::text("ip", "IP Address", |e: &ActivityEntry| e.ip_address.clone())
             .with_width(ColumnWidth::Px(130)),
     ];
@@ -112,17 +137,23 @@ pub fn ActivityLogPage() -> Element {
     // ── Handlers ──
     let on_refresh = {
         let mut counter = refresh_counter.clone();
-        move |_| { counter += 1; }
+        move |_| {
+            counter += 1;
+        }
     };
 
     let mut on_module_change = {
         let mut mf = module_filter.clone();
-        move |v: String| { mf.set(v); }
+        move |v: String| {
+            mf.set(v);
+        }
     };
 
     let mut on_action_change = {
         let mut af = action_filter.clone();
-        move |v: String| { af.set(v); }
+        move |v: String| {
+            af.set(v);
+        }
     };
 
     let module_options = {

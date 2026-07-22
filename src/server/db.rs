@@ -8,9 +8,7 @@ use std::sync::Mutex;
 
 /// Global database connection (wrapped in Mutex for thread safety).
 static DB: once_cell::sync::Lazy<Mutex<Connection>> =
-    once_cell::sync::Lazy::new(|| {
-        Mutex::new(open_database().expect("Failed to open database"))
-    });
+    once_cell::sync::Lazy::new(|| Mutex::new(open_database().expect("Failed to open database")));
 
 /// Get a handle to the global database connection.
 pub fn get_db() -> &'static Mutex<Connection> {
@@ -30,7 +28,7 @@ fn open_database() -> Result<Connection> {
         "PRAGMA journal_mode=WAL;
          PRAGMA synchronous=NORMAL;
          PRAGMA busy_timeout=15000;
-         PRAGMA foreign_keys=ON;"
+         PRAGMA foreign_keys=ON;",
     )?;
 
     run_migrations(&conn)?;
@@ -43,8 +41,7 @@ fn open_database() -> Result<Connection> {
 /// Determine the database file path.
 /// Uses the `MINI_ERP_DB_PATH` env var, or defaults to `./mini-erp.db`.
 fn get_db_path() -> String {
-    std::env::var("MINI_ERP_DB_PATH")
-        .unwrap_or_else(|_| "./mini-erp.db".to_string())
+    std::env::var("MINI_ERP_DB_PATH").unwrap_or_else(|_| "./mini-erp.db".to_string())
 }
 
 // ============================================================================
@@ -59,7 +56,7 @@ fn run_migrations(conn: &Connection) -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-        );"
+        );",
     )?;
 
     // Define all migrations in order
@@ -90,14 +87,20 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         ("024_suppliers", MIGRATION_024_SUPPLIERS),
         ("025_supplier_ledger", MIGRATION_025_SUPPLIER_LEDGER),
         ("026_purchase_orders", MIGRATION_026_PURCHASE_ORDERS),
-        ("027_purchase_order_items", MIGRATION_027_PURCHASE_ORDER_ITEMS),
+        (
+            "027_purchase_order_items",
+            MIGRATION_027_PURCHASE_ORDER_ITEMS,
+        ),
         ("028_goods_receipts", MIGRATION_028_GOODS_RECEIPTS),
         ("029_goods_receipt_items", MIGRATION_029_GOODS_RECEIPT_ITEMS),
         ("030_purchases", MIGRATION_030_PURCHASES),
         ("031_boms", MIGRATION_031_BOMS),
         ("032_bom_items", MIGRATION_032_BOM_ITEMS),
         ("033_work_orders", MIGRATION_033_WORK_ORDERS),
-        ("034_material_consumption", MIGRATION_034_MATERIAL_CONSUMPTION),
+        (
+            "034_material_consumption",
+            MIGRATION_034_MATERIAL_CONSUMPTION,
+        ),
         ("035_productions", MIGRATION_035_PRODUCTIONS),
         ("036_production_inputs", MIGRATION_036_PRODUCTION_INPUTS),
         ("037_chart_of_accounts", MIGRATION_037_CHART_OF_ACCOUNTS),
@@ -111,16 +114,28 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         ("045_expense_categories", MIGRATION_045_EXPENSE_CATEGORIES),
         ("046_demand_forecasts", MIGRATION_046_DEMAND_FORECASTS),
         ("047_forecast_runs", MIGRATION_047_FORECAST_RUNS),
-        ("048_forecast_model_config", MIGRATION_048_FORECAST_MODEL_CONFIG),
-        ("049_forecast_seasonal_events", MIGRATION_049_FORECAST_SEASONAL_EVENTS),
+        (
+            "048_forecast_model_config",
+            MIGRATION_048_FORECAST_MODEL_CONFIG,
+        ),
+        (
+            "049_forecast_seasonal_events",
+            MIGRATION_049_FORECAST_SEASONAL_EVENTS,
+        ),
         ("050_forecast_accuracy", MIGRATION_050_FORECAST_ACCURACY),
         ("051_custom_reports", MIGRATION_051_CUSTOM_REPORTS),
         ("052_dashboard_layouts", MIGRATION_052_DASHBOARD_LAYOUTS),
         ("053_invoice_drafts", MIGRATION_053_INVOICE_DRAFTS),
         ("054_activity_log", MIGRATION_054_ACTIVITY_LOG),
-        ("055_bom_add_description_created_by", MIGRATION_055_BOM_DESCRIPTION_CREATED_BY),
+        (
+            "055_bom_add_description_created_by",
+            MIGRATION_055_BOM_DESCRIPTION_CREATED_BY,
+        ),
         ("056_add_missing_fields", MIGRATION_056_ADD_MISSING_FIELDS),
-        ("057_forecast_config_params_json", MIGRATION_057_FORECAST_CONFIG_PARAMS_JSON),
+        (
+            "057_forecast_config_params_json",
+            MIGRATION_057_FORECAST_CONFIG_PARAMS_JSON,
+        ),
     ];
 
     for (name, sql) in &migrations {
@@ -1091,11 +1106,7 @@ CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at);
 /// Seed initial data if tables are empty.
 fn seed_data(conn: &Connection) -> Result<()> {
     // Seed admin role
-    let role_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM roles",
-        [],
-        |row| row.get(0),
-    )?;
+    let role_count: i64 = conn.query_row("SELECT COUNT(*) FROM roles", [], |row| row.get(0))?;
 
     if role_count == 0 {
         tracing::info!("Seeding roles…");
@@ -1120,10 +1131,9 @@ fn seed_data(conn: &Connection) -> Result<()> {
 
     if user_count == 0 {
         tracing::info!("Seeding admin user…");
-        let admin_password = std::env::var("DEFAULT_ADMIN_PASSWORD")
-            .unwrap_or_else(|_| "admin123".to_string());
-        let hash = bcrypt::hash(&admin_password, 12)
-            .expect("Failed to hash admin password");
+        let admin_password =
+            std::env::var("DEFAULT_ADMIN_PASSWORD").unwrap_or_else(|_| "admin123".to_string());
+        let hash = bcrypt::hash(&admin_password, 12).expect("Failed to hash admin password");
 
         conn.execute(
             "INSERT INTO users (username, email, password_hash, full_name, role, is_active)
@@ -1133,11 +1143,8 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // Seed permissions
-    let perm_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM permissions",
-        [],
-        |row| row.get(0),
-    )?;
+    let perm_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM permissions", [], |row| row.get(0))?;
 
     if perm_count == 0 {
         tracing::info!("Seeding permissions…");
@@ -1160,9 +1167,24 @@ fn seed_data(conn: &Connection) -> Result<()> {
             ("invoices.update", "invoices", "update", "Update invoices"),
             ("invoices.delete", "invoices", "delete", "Delete invoices"),
             ("customers.read", "customers", "read", "View customers"),
-            ("customers.create", "customers", "create", "Create customers"),
-            ("customers.update", "customers", "update", "Update customers"),
-            ("customers.delete", "customers", "delete", "Delete customers"),
+            (
+                "customers.create",
+                "customers",
+                "create",
+                "Create customers",
+            ),
+            (
+                "customers.update",
+                "customers",
+                "update",
+                "Update customers",
+            ),
+            (
+                "customers.delete",
+                "customers",
+                "delete",
+                "Delete customers",
+            ),
             ("settings.read", "settings", "read", "View settings"),
             ("settings.update", "settings", "update", "Update settings"),
         ];
@@ -1199,11 +1221,7 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Warehouses ──
-    let wh_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM warehouses",
-        [],
-        |row| row.get(0),
-    )?;
+    let wh_count: i64 = conn.query_row("SELECT COUNT(*) FROM warehouses", [], |row| row.get(0))?;
 
     if wh_count == 0 {
         tracing::info!("Seeding warehouses…");
@@ -1220,34 +1238,173 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Items ──
-    let item_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM items",
-        [],
-        |row| row.get(0),
-    )?;
+    let item_count: i64 = conn.query_row("SELECT COUNT(*) FROM items", [], |row| row.get(0))?;
 
     if item_count == 0 {
         tracing::info!("Seeding items…");
         let items = vec![
-            ("ITM-0001", "Premium Widget Alpha", "High-quality widget", "Widgets", "pcs", 150.0, 50.0, 25.0, 29.99, 0, 0, 1, 0),
-            ("ITM-0002", "Industrial Bolt M12", "Stainless steel bolt", "Fasteners", "pcs", 3400.0, 500.0, 0.35, 0.45, 0, 0, 1, 0),
-            ("ITM-0003", "Steel Rod 12mm x 6m", "Raw steel material", "Raw Materials", "pcs", 80.0, 100.0, 12.0, 15.75, 1, 0, 1, 0),
-            ("ITM-0004", "Hydraulic Pump HPD-200", "Industrial hydraulic pump", "Equipment", "pcs", 5.0, 10.0, 980.0, 1250.0, 0, 0, 1, 0),
-            ("ITM-0005", "Rubber Gasket Set", "Replacement gasket kit", "Consumables", "pcs", 0.0, 50.0, 6.5, 8.99, 0, 0, 1, 0),
-            ("ITM-0006", "Copper Wire 2.5mm (100m)", "Electrical copper wire", "Raw Materials", "rolls", 25.0, 50.0, 38.0, 45.00, 1, 0, 1, 0),
-            ("ITM-0007", "LED Panel Light 24W", "Office ceiling light", "Electrical", "pcs", 200.0, 250.0, 14.0, 18.50, 0, 0, 1, 0),
-            ("ITM-0008", "Packaging Box 40x30x20cm", "Corrugated shipping box", "Packaging", "pcs", 1200.0, 200.0, 0.85, 1.20, 0, 0, 1, 0),
-            ("ITM-0009", "Safety Helmet (Yellow)", "Construction safety helmet", "Safety", "pcs", 60.0, 100.0, 8.0, 12.00, 0, 0, 1, 0),
-            ("ITM-0010", "Assembly Robot Arm v3", "Automated assembly arm", "Equipment", "pcs", 2.0, 5.0, 12000.0, 15999.99, 0, 0, 1, 0),
+            (
+                "ITM-0001",
+                "Premium Widget Alpha",
+                "High-quality widget",
+                "Widgets",
+                "pcs",
+                150.0,
+                50.0,
+                25.0,
+                29.99,
+                0,
+                0,
+                1,
+                0,
+            ),
+            (
+                "ITM-0002",
+                "Industrial Bolt M12",
+                "Stainless steel bolt",
+                "Fasteners",
+                "pcs",
+                3400.0,
+                500.0,
+                0.35,
+                0.45,
+                0,
+                0,
+                1,
+                0,
+            ),
+            (
+                "ITM-0003",
+                "Steel Rod 12mm x 6m",
+                "Raw steel material",
+                "Raw Materials",
+                "pcs",
+                80.0,
+                100.0,
+                12.0,
+                15.75,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "ITM-0004",
+                "Hydraulic Pump HPD-200",
+                "Industrial hydraulic pump",
+                "Equipment",
+                "pcs",
+                5.0,
+                10.0,
+                980.0,
+                1250.0,
+                0,
+                0,
+                1,
+                0,
+            ),
+            (
+                "ITM-0005",
+                "Rubber Gasket Set",
+                "Replacement gasket kit",
+                "Consumables",
+                "pcs",
+                0.0,
+                50.0,
+                6.5,
+                8.99,
+                0,
+                0,
+                1,
+                0,
+            ),
+            (
+                "ITM-0006",
+                "Copper Wire 2.5mm (100m)",
+                "Electrical copper wire",
+                "Raw Materials",
+                "rolls",
+                25.0,
+                50.0,
+                38.0,
+                45.00,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "ITM-0007",
+                "LED Panel Light 24W",
+                "Office ceiling light",
+                "Electrical",
+                "pcs",
+                200.0,
+                250.0,
+                14.0,
+                18.50,
+                0,
+                0,
+                1,
+                0,
+            ),
+            (
+                "ITM-0008",
+                "Packaging Box 40x30x20cm",
+                "Corrugated shipping box",
+                "Packaging",
+                "pcs",
+                1200.0,
+                200.0,
+                0.85,
+                1.20,
+                0,
+                0,
+                1,
+                0,
+            ),
+            (
+                "ITM-0009",
+                "Safety Helmet (Yellow)",
+                "Construction safety helmet",
+                "Safety",
+                "pcs",
+                60.0,
+                100.0,
+                8.0,
+                12.00,
+                0,
+                0,
+                1,
+                0,
+            ),
+            (
+                "ITM-0010",
+                "Assembly Robot Arm v3",
+                "Automated assembly arm",
+                "Equipment",
+                "pcs",
+                2.0,
+                5.0,
+                12000.0,
+                15999.99,
+                0,
+                0,
+                1,
+                0,
+            ),
         ];
 
-        for (code, name, desc, cat, uom, stock, reorder, cost, price, raw, fg, purch, mfg) in &items {
+        for (code, name, desc, cat, uom, stock, reorder, cost, price, raw, fg, purch, mfg) in &items
+        {
             conn.execute(
                 "INSERT INTO items (item_code, item_name, description, category, unit_of_measure,
                     current_stock, reorder_level, standard_cost, selling_price,
                     is_raw_material, is_finished_good, is_purchased, is_manufactured)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-                rusqlite::params![code, name, desc, cat, uom, stock, reorder, cost, price, raw, fg, purch, mfg],
+                rusqlite::params![
+                    code, name, desc, cat, uom, stock, reorder, cost, price, raw, fg, purch, mfg
+                ],
             )?;
         }
 
@@ -1273,13 +1430,17 @@ fn seed_data(conn: &Connection) -> Result<()> {
     let tax_count: i64 = conn.query_row("SELECT COUNT(*) FROM tax_rates", [], |row| row.get(0))?;
     if tax_count == 0 {
         tracing::info!("Seeding tax rates…");
-        conn.execute("INSERT INTO tax_rates (name, rate, is_default, is_active) VALUES ('No Tax', 0, 1, 1)", [])?;
+        conn.execute(
+            "INSERT INTO tax_rates (name, rate, is_default, is_active) VALUES ('No Tax', 0, 1, 1)",
+            [],
+        )?;
         conn.execute("INSERT INTO tax_rates (name, rate, is_default, is_active) VALUES ('Standard 17%', 17.0, 0, 1)", [])?;
         conn.execute("INSERT INTO tax_rates (name, rate, is_default, is_active) VALUES ('Reduced 5%', 5.0, 0, 1)", [])?;
     }
 
     // ── Seed Payment Terms ──
-    let pt_count: i64 = conn.query_row("SELECT COUNT(*) FROM payment_terms", [], |row| row.get(0))?;
+    let pt_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM payment_terms", [], |row| row.get(0))?;
     if pt_count == 0 {
         tracing::info!("Seeding payment terms…");
         conn.execute("INSERT INTO payment_terms (name, days, is_default, is_active) VALUES ('Due on Receipt', 0, 1, 1)", [])?;
@@ -1289,22 +1450,40 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Expense Categories ──
-    let ec_count: i64 = conn.query_row("SELECT COUNT(*) FROM expense_categories", [], |row| row.get(0))?;
+    let ec_count: i64 = conn.query_row("SELECT COUNT(*) FROM expense_categories", [], |row| {
+        row.get(0)
+    })?;
     if ec_count == 0 {
         tracing::info!("Seeding expense categories…");
         let cats = vec![
-            "Rent", "Utilities", "Salaries", "Office Supplies", "Travel",
-            "Marketing", "Insurance", "Maintenance", "Telecommunications",
-            "Professional Services", "Taxes", "Shipping", "Raw Materials",
-            "Miscellaneous", "Depreciation",
+            "Rent",
+            "Utilities",
+            "Salaries",
+            "Office Supplies",
+            "Travel",
+            "Marketing",
+            "Insurance",
+            "Maintenance",
+            "Telecommunications",
+            "Professional Services",
+            "Taxes",
+            "Shipping",
+            "Raw Materials",
+            "Miscellaneous",
+            "Depreciation",
         ];
         for cat in &cats {
-            conn.execute("INSERT INTO expense_categories (category_name, is_active) VALUES (?1, 1)", [cat])?;
+            conn.execute(
+                "INSERT INTO expense_categories (category_name, is_active) VALUES (?1, 1)",
+                [cat],
+            )?;
         }
     }
 
     // ── Seed Chart of Accounts ──
-    let coa_count: i64 = conn.query_row("SELECT COUNT(*) FROM chart_of_accounts", [], |row| row.get(0))?;
+    let coa_count: i64 = conn.query_row("SELECT COUNT(*) FROM chart_of_accounts", [], |row| {
+        row.get(0)
+    })?;
     if coa_count == 0 {
         tracing::info!("Seeding chart of accounts…");
         let accounts = vec![
@@ -1352,7 +1531,9 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Accounting Periods ──
-    let ap_count: i64 = conn.query_row("SELECT COUNT(*) FROM accounting_periods", [], |row| row.get(0))?;
+    let ap_count: i64 = conn.query_row("SELECT COUNT(*) FROM accounting_periods", [], |row| {
+        row.get(0)
+    })?;
     if ap_count == 0 {
         tracing::info!("Seeding accounting periods…");
         let periods = vec![
@@ -1372,7 +1553,10 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Seasonal Events ──
-    let se_count: i64 = conn.query_row("SELECT COUNT(*) FROM forecast_seasonal_events", [], |row| row.get(0))?;
+    let se_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM forecast_seasonal_events", [], |row| {
+            row.get(0)
+        })?;
     if se_count == 0 {
         tracing::info!("Seeding seasonal events…");
         let events = vec![
@@ -1391,33 +1575,128 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Employees ──
-    let emp_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM employees",
-        [],
-        |row| row.get(0),
-    )?;
+    let emp_count: i64 = conn.query_row("SELECT COUNT(*) FROM employees", [], |row| row.get(0))?;
 
     if emp_count == 0 {
         tracing::info!("Seeding employees…");
         let employees = vec![
-            ("EMP-001", "Ahmed", "Hassan", "ahmed.hassan@minierp.local", "+92-300-111-0001",
-             "61101-1234567-1", "12 Main Street, Gulberg", "Lahore", "Production", "Production Manager",
-             120000.0, "HBL", "PK12HBLB1234567890", "Fatima Hassan", "+92-300-999-0001", 1, "Permanent"),
-            ("EMP-002", "Sara", "Khan", "sara.khan@minierp.local", "+92-300-111-0002",
-             "42201-2345678-3", "45 Clifton Road", "Karachi", "Finance", "Senior Accountant",
-             95000.0, "UBL", "PK12UBLB0987654321", "Ali Khan", "+92-300-999-0002", 1, "Permanent"),
-            ("EMP-003", "Usman", "Malik", "usman.malik@minierp.local", "+92-300-111-0003",
-             "35202-3456789-5", "78 Faisal Town", "Islamabad", "Sales", "Sales Representative",
-             70000.0, "MCB", "PK12MCBC1122334455", "Ayesha Malik", "+92-300-999-0003", 1, "Contract"),
-            ("EMP-004", "Zara", "Qureshi", "zara.qureshi@minierp.local", "+92-300-111-0004",
-             "63301-4567890-7", "23 Satellite Town", "Rawalpindi", "HR", "HR Coordinator",
-             55000.0, "ABL", "PK12ABLB2233445566", "Imran Qureshi", "+92-300-999-0004", 1, "Probation"),
-            ("EMP-005", "Bilal", "Ahmed", "bilal.ahmed@minierp.local", "+92-300-111-0005",
-             "44101-5678901-9", "56 Garden Town", "Lahore", "IT", "IT Support Engineer",
-             65000.0, "HBL", "PK12HBLB3344556677", "Nadia Ahmed", "+92-300-999-0005", 1, "Permanent"),
+            (
+                "EMP-001",
+                "Ahmed",
+                "Hassan",
+                "ahmed.hassan@minierp.local",
+                "+92-300-111-0001",
+                "61101-1234567-1",
+                "12 Main Street, Gulberg",
+                "Lahore",
+                "Production",
+                "Production Manager",
+                120000.0,
+                "HBL",
+                "PK12HBLB1234567890",
+                "Fatima Hassan",
+                "+92-300-999-0001",
+                1,
+                "Permanent",
+            ),
+            (
+                "EMP-002",
+                "Sara",
+                "Khan",
+                "sara.khan@minierp.local",
+                "+92-300-111-0002",
+                "42201-2345678-3",
+                "45 Clifton Road",
+                "Karachi",
+                "Finance",
+                "Senior Accountant",
+                95000.0,
+                "UBL",
+                "PK12UBLB0987654321",
+                "Ali Khan",
+                "+92-300-999-0002",
+                1,
+                "Permanent",
+            ),
+            (
+                "EMP-003",
+                "Usman",
+                "Malik",
+                "usman.malik@minierp.local",
+                "+92-300-111-0003",
+                "35202-3456789-5",
+                "78 Faisal Town",
+                "Islamabad",
+                "Sales",
+                "Sales Representative",
+                70000.0,
+                "MCB",
+                "PK12MCBC1122334455",
+                "Ayesha Malik",
+                "+92-300-999-0003",
+                1,
+                "Contract",
+            ),
+            (
+                "EMP-004",
+                "Zara",
+                "Qureshi",
+                "zara.qureshi@minierp.local",
+                "+92-300-111-0004",
+                "63301-4567890-7",
+                "23 Satellite Town",
+                "Rawalpindi",
+                "HR",
+                "HR Coordinator",
+                55000.0,
+                "ABL",
+                "PK12ABLB2233445566",
+                "Imran Qureshi",
+                "+92-300-999-0004",
+                1,
+                "Probation",
+            ),
+            (
+                "EMP-005",
+                "Bilal",
+                "Ahmed",
+                "bilal.ahmed@minierp.local",
+                "+92-300-111-0005",
+                "44101-5678901-9",
+                "56 Garden Town",
+                "Lahore",
+                "IT",
+                "IT Support Engineer",
+                65000.0,
+                "HBL",
+                "PK12HBLB3344556677",
+                "Nadia Ahmed",
+                "+92-300-999-0005",
+                1,
+                "Permanent",
+            ),
         ];
 
-        for (code, first, last, email, phone, cnic, addr, city, dept, desig, salary, bank, acct, e_contact, e_phone, active, emp_type) in &employees {
+        for (
+            code,
+            first,
+            last,
+            email,
+            phone,
+            cnic,
+            addr,
+            city,
+            dept,
+            desig,
+            salary,
+            bank,
+            acct,
+            e_contact,
+            e_phone,
+            active,
+            emp_type,
+        ) in &employees
+        {
             conn.execute(
                 "INSERT INTO employees (employee_code, first_name, last_name, email, phone,
                     cnic_no, address, city, department, designation, salary,
@@ -1430,11 +1709,7 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed BOMs ──
-    let bom_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM boms",
-        [],
-        |row| row.get(0),
-    )?;
+    let bom_count: i64 = conn.query_row("SELECT COUNT(*) FROM boms", [], |row| row.get(0))?;
 
     if bom_count == 0 {
         tracing::info!("Seeding BOMs…");
@@ -1472,11 +1747,7 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Suppliers ──
-    let sup_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM suppliers",
-        [],
-        |row| row.get(0),
-    )?;
+    let sup_count: i64 = conn.query_row("SELECT COUNT(*) FROM suppliers", [], |row| row.get(0))?;
 
     if sup_count == 0 {
         tracing::info!("Seeding suppliers…");
@@ -1493,11 +1764,7 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Customers ──
-    let cust_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM customers",
-        [],
-        |row| row.get(0),
-    )?;
+    let cust_count: i64 = conn.query_row("SELECT COUNT(*) FROM customers", [], |row| row.get(0))?;
 
     if cust_count == 0 {
         tracing::info!("Seeding customers…");
@@ -1522,11 +1789,7 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Invoices ──
-    let inv_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM invoices",
-        [],
-        |row| row.get(0),
-    )?;
+    let inv_count: i64 = conn.query_row("SELECT COUNT(*) FROM invoices", [], |row| row.get(0))?;
 
     if inv_count == 0 {
         tracing::info!("Seeding invoices…");
@@ -1581,11 +1844,8 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Purchase Orders ──
-    let po_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM purchase_orders",
-        [],
-        |row| row.get(0),
-    )?;
+    let po_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM purchase_orders", [], |row| row.get(0))?;
 
     if po_count == 0 {
         tracing::info!("Seeding purchase orders…");
@@ -1619,11 +1879,8 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Sales Orders ──
-    let so_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM sales_orders",
-        [],
-        |row| row.get(0),
-    )?;
+    let so_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM sales_orders", [], |row| row.get(0))?;
 
     if so_count == 0 {
         tracing::info!("Seeding sales orders…");
@@ -1654,11 +1911,8 @@ fn seed_data(conn: &Connection) -> Result<()> {
     }
 
     // ── Seed Productions ──
-    let prod_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM productions",
-        [],
-        |row| row.get(0),
-    )?;
+    let prod_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM productions", [], |row| row.get(0))?;
 
     if prod_count == 0 {
         tracing::info!("Seeding productions…");
@@ -1699,7 +1953,8 @@ fn seed_data(conn: &Connection) -> Result<()> {
     // Chart of Accounts IDs (auto-incremented): 1=Cash, 2=AR, 3=Inventory, 4=Prepaid, 5=Fixed,
     // 6=AP, 7=Tax Payable, 8=Accrued, 9=Equity, 10=Retained, 11=Revenue, 12=Service Rev,
     // 13=COGS, 14=Salary Exp, 15=Rent Exp, 16=Utilities Exp, 17=Office Supplies Exp
-    let je_count: i64 = conn.query_row("SELECT COUNT(*) FROM journal_entries", [], |row| row.get(0))?;
+    let je_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM journal_entries", [], |row| row.get(0))?;
     if je_count == 0 {
         tracing::info!("Seeding journal entries…");
 

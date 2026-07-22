@@ -85,7 +85,11 @@ pub fn FormInput(props: FormInputProps) -> Element {
 
     let input_class = format!(
         "cb-input{} {}",
-        if is_textarea { " cb-input-textarea" } else { "" },
+        if is_textarea {
+            " cb-input-textarea"
+        } else {
+            ""
+        },
         if has_error { "cb-input-error" } else { "" },
     );
 

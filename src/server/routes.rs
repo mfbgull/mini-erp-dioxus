@@ -1,7 +1,7 @@
 use super::auth_routes::{self, AppState};
 use super::*;
-use axum::Router;
 use axum::http::{HeaderName, HeaderValue};
+use axum::Router;
 use tower_http::cors::{AllowHeaders, AllowMethods, CorsLayer};
 use tower_http::trace::TraceLayer;
 
@@ -16,7 +16,9 @@ pub fn create_router(state: AppState) -> Router {
             "http://127.0.0.1:3001".parse::<HeaderValue>().unwrap(),
         ])
         .allow_methods(AllowMethods::any())
-        .allow_headers(["content-type", "authorization", "accept"].map(|s| s.parse::<HeaderName>().unwrap()));
+        .allow_headers(
+            ["content-type", "authorization", "accept"].map(|s| s.parse::<HeaderName>().unwrap()),
+        );
 
     Router::new()
         .merge(auth_routes::router())

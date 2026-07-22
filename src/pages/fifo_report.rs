@@ -84,13 +84,18 @@ pub fn FifoReportPage() -> Element {
 
     // Extract item list for stock history dropdown
     let item_options: Vec<(i64, String)> = valuation_data
-        .get("items").and_then(|v| v.as_array()).cloned().unwrap_or_default()
-        .iter().filter_map(|i| {
+        .get("items")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|i| {
             let id = i.get("id")?.as_i64()?;
             let code = i.get("item_code")?.as_str()?;
             let name = i.get("item_name")?.as_str()?;
             Some((id, format!("{} - {}", code, name)))
-        }).collect();
+        })
+        .collect();
 
     rsx! {
         style { {PAGE_CSS} }

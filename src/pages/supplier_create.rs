@@ -1,7 +1,9 @@
 //! Supplier Create Page — form to add a new supplier
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonSize, ButtonVariant, FormInput, InputType, use_toast};
+use crate::components::common::{
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType,
+};
 use crate::models::SupplierForm;
 use dioxus::prelude::*;
 
@@ -33,11 +35,36 @@ pub fn SupplierCreatePage() -> Element {
     let mut saving = use_signal(|| false);
 
     // ── Input handlers ──
-    let on_code_change = { let mut s = supplier_code.clone(); move |v: String| { s.set(v); } };
-    let on_name_change = { let mut s = supplier_name.clone(); move |v: String| { s.set(v); } };
-    let on_email_change = { let mut s = email.clone(); move |v: String| { s.set(v); } };
-    let on_phone_change = { let mut s = phone.clone(); move |v: String| { s.set(v); } };
-    let on_address_change = { let mut s = address.clone(); move |v: String| { s.set(v); } };
+    let on_code_change = {
+        let mut s = supplier_code.clone();
+        move |v: String| {
+            s.set(v);
+        }
+    };
+    let on_name_change = {
+        let mut s = supplier_name.clone();
+        move |v: String| {
+            s.set(v);
+        }
+    };
+    let on_email_change = {
+        let mut s = email.clone();
+        move |v: String| {
+            s.set(v);
+        }
+    };
+    let on_phone_change = {
+        let mut s = phone.clone();
+        move |v: String| {
+            s.set(v);
+        }
+    };
+    let on_address_change = {
+        let mut s = address.clone();
+        move |v: String| {
+            s.set(v);
+        }
+    };
 
     let validate = {
         let mut toast = toast.clone();
@@ -79,7 +106,9 @@ pub fn SupplierCreatePage() -> Element {
         let mut validate = validate.clone();
         let mut build_form = build_form.clone();
         move |_: MouseEvent| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let api = api.clone();
             let mut toast = toast.clone();
@@ -90,7 +119,10 @@ pub fn SupplierCreatePage() -> Element {
                 let client = api.read().clone();
                 match client.create_supplier(&form).await {
                     Ok(s) => {
-                        toast.success("Supplier Created", &format!("{} ({})", s.supplier_name, s.supplier_code));
+                        toast.success(
+                            "Supplier Created",
+                            &format!("{} ({})", s.supplier_name, s.supplier_code),
+                        );
                         navigator.push("/suppliers");
                     }
                     Err(e) => {
@@ -114,7 +146,9 @@ pub fn SupplierCreatePage() -> Element {
         let mut phone = phone.clone();
         let mut address = address.clone();
         move |_: MouseEvent| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let api = api.clone();
             let mut toast = toast.clone();

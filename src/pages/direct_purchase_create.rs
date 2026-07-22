@@ -2,8 +2,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
+    SearchableSelect, SelectOption, StatCard, StatCardVariant,
 };
 use crate::models::DirectPurchaseForm;
 use dioxus::prelude::*;
@@ -73,19 +73,39 @@ impl LineItem {
 }
 
 fn build_supplier_options(suppliers: &[crate::models::Supplier]) -> Vec<SelectOption> {
-    suppliers.iter().map(|s| SelectOption { value: s.id.to_string(), label: format!("{} - {}", s.supplier_code, s.supplier_name) }).collect()
+    suppliers
+        .iter()
+        .map(|s| SelectOption {
+            value: s.id.to_string(),
+            label: format!("{} - {}", s.supplier_code, s.supplier_name),
+        })
+        .collect()
 }
 
 fn build_item_options(items: &[crate::models::Item]) -> Vec<SelectOption> {
-    items.iter().map(|i| SelectOption { value: i.id.to_string(), label: format!("{} - {}", i.item_code, i.item_name) }).collect()
+    items
+        .iter()
+        .map(|i| SelectOption {
+            value: i.id.to_string(),
+            label: format!("{} - {}", i.item_code, i.item_name),
+        })
+        .collect()
 }
 
 fn item_price_from_catalog(items: &[crate::models::Item], code: &str) -> f64 {
-    items.iter().find(|i| i.id.to_string() == code).map(|i| i.standard_cost).unwrap_or(0.0)
+    items
+        .iter()
+        .find(|i| i.id.to_string() == code)
+        .map(|i| i.standard_cost)
+        .unwrap_or(0.0)
 }
 
 fn item_name_from_catalog(items: &[crate::models::Item], code: &str) -> String {
-    items.iter().find(|i| i.id.to_string() == code).map(|i| i.item_name.clone()).unwrap_or_default()
+    items
+        .iter()
+        .find(|i| i.id.to_string() == code)
+        .map(|i| i.item_name.clone())
+        .unwrap_or_default()
 }
 
 #[component]
@@ -104,7 +124,13 @@ pub fn DirectPurchaseCreatePage() -> Element {
         }
     });
 
-    let line_items = use_signal(|| { let mut v = Vec::new(); for _ in 0..3 { v.push(LineItem::default()); } v });
+    let line_items = use_signal(|| {
+        let mut v = Vec::new();
+        for _ in 0..3 {
+            v.push(LineItem::default());
+        }
+        v
+    });
     let supplier_code = use_signal(String::new);
     let supplier_name = use_signal(String::new);
     let purchase_date = use_signal(|| chrono::Local::now().date_naive().to_string());
@@ -121,7 +147,10 @@ pub fn DirectPurchaseCreatePage() -> Element {
 
     fn compute_totals(items: &[LineItem]) -> (f64, f64, f64, f64) {
         let subtotal: f64 = items.iter().map(|li| li.quantity * li.rate).sum();
-        let discount_amount: f64 = items.iter().map(|li| (li.quantity * li.rate) * (li.discount_pct / 100.0)).sum();
+        let discount_amount: f64 = items
+            .iter()
+            .map(|li| (li.quantity * li.rate) * (li.discount_pct / 100.0))
+            .sum();
         let taxable = subtotal - discount_amount;
         (subtotal, discount_amount, taxable, taxable)
     }
@@ -139,25 +168,43 @@ pub fn DirectPurchaseCreatePage() -> Element {
         let mut name = supplier_name.clone();
         let mut dirty = is_dirty.clone();
         let opts = supplier_opts.clone();
-        move |v: String| { code.set(v.clone()); name.set(opts.iter().find(|o| o.value == v).map(|o| o.label.clone()).unwrap_or_default()); dirty.set(true); }
+        move |v: String| {
+            code.set(v.clone());
+            name.set(
+                opts.iter()
+                    .find(|o| o.value == v)
+                    .map(|o| o.label.clone())
+                    .unwrap_or_default(),
+            );
+            dirty.set(true);
+        }
     };
 
     let on_date_change = {
         let mut d = purchase_date.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { d.set(v); dirty.set(true); }
+        move |v: String| {
+            d.set(v);
+            dirty.set(true);
+        }
     };
 
     let add_item = {
         let mut its = line_items.clone();
         let mut dirty = is_dirty.clone();
-        move |_| { its.write().push(LineItem::default()); dirty.set(true); }
+        move |_| {
+            its.write().push(LineItem::default());
+            dirty.set(true);
+        }
     };
 
     let mut remove_item = {
         let mut its = line_items.clone();
         let mut dirty = is_dirty.clone();
-        move |id: u64| { its.write().retain(|li| li.id != id); dirty.set(true); }
+        move |id: u64| {
+            its.write().retain(|li| li.id != id);
+            dirty.set(true);
+        }
     };
 
     let save = {
@@ -172,27 +219,58 @@ pub fn DirectPurchaseCreatePage() -> Element {
         let nav = navigator.clone();
         let api = api.clone();
         move |_| {
-            if c_code.read().is_empty() { toast.error("Validation Error", "Please select a supplier."); return; }
-            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
-            if filled == 0 { toast.error("Validation Error", "Please add at least one item."); return; }
+            if c_code.read().is_empty() {
+                toast.error("Validation Error", "Please select a supplier.");
+                return;
+            }
+            let filled = its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count();
+            if filled == 0 {
+                toast.error("Validation Error", "Please add at least one item.");
+                return;
+            }
             saving.set(true);
             let mut toast = toast.clone();
             let nav = nav.clone();
             let api = api.clone();
             let mut saving = saving.clone();
             let mut dirty = dirty.clone();
-            let first_item = its.read().iter().find(|li| !li.item_code.is_empty()).cloned().unwrap_or_default();
+            let first_item = its
+                .read()
+                .iter()
+                .find(|li| !li.item_code.is_empty())
+                .cloned()
+                .unwrap_or_default();
             let supplier_name_val = c_name.read().clone();
             let purchase_date_val = p_date.read().clone();
             let notes_val = nts.read().clone();
             let item_id = first_item.item_code.parse::<i64>().unwrap_or(0);
             spawn(async move {
-                let form = DirectPurchaseForm { item_id, warehouse_id: 1, quantity: first_item.quantity, unit_cost: first_item.rate, supplier_name: supplier_name_val, purchase_date: purchase_date_val, notes: if notes_val.is_empty() { None } else { Some(notes_val) } };
+                let form = DirectPurchaseForm {
+                    item_id,
+                    warehouse_id: 1,
+                    quantity: first_item.quantity,
+                    unit_cost: first_item.rate,
+                    supplier_name: supplier_name_val,
+                    purchase_date: purchase_date_val,
+                    notes: if notes_val.is_empty() {
+                        None
+                    } else {
+                        Some(notes_val)
+                    },
+                };
                 match api.read().create_direct_purchase(&form).await {
                     Ok(body) => {
                         let pno = body["data"]["purchase_no"].as_str().unwrap_or("N/A");
-                        toast.success("Direct Purchase Created", &format!("Purchase {} created.", pno));
-                        saving.set(false); dirty.set(false);
+                        toast.success(
+                            "Direct Purchase Created",
+                            &format!("Purchase {} created.", pno),
+                        );
+                        saving.set(false);
+                        dirty.set(false);
                         nav.push("/purchases/direct");
                     }
                     Err(e) => {
@@ -217,28 +295,60 @@ pub fn DirectPurchaseCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
         let api = api.clone();
         move |_| {
-            if c_code.read().is_empty() { toast.error("Validation Error", "Please select a supplier."); return; }
-            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
-            if filled == 0 { toast.error("Validation Error", "Please add at least one item."); return; }
+            if c_code.read().is_empty() {
+                toast.error("Validation Error", "Please select a supplier.");
+                return;
+            }
+            let filled = its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count();
+            if filled == 0 {
+                toast.error("Validation Error", "Please add at least one item.");
+                return;
+            }
             saving.set(true);
             let mut toast = toast.clone();
             let api = api.clone();
             let mut saving = saving.clone();
             let mut dirty = dirty.clone();
-            let first_item = its.read().iter().find(|li| !li.item_code.is_empty()).cloned().unwrap_or_default();
+            let first_item = its
+                .read()
+                .iter()
+                .find(|li| !li.item_code.is_empty())
+                .cloned()
+                .unwrap_or_default();
             let supplier_name_val = c_name.read().clone();
             let purchase_date_val = p_date.read().clone();
             let notes_val = nts.read().clone();
             let item_id = first_item.item_code.parse::<i64>().unwrap_or(0);
             spawn(async move {
-                let form = DirectPurchaseForm { item_id, warehouse_id: 1, quantity: first_item.quantity, unit_cost: first_item.rate, supplier_name: supplier_name_val, purchase_date: purchase_date_val, notes: if notes_val.is_empty() { None } else { Some(notes_val) } };
+                let form = DirectPurchaseForm {
+                    item_id,
+                    warehouse_id: 1,
+                    quantity: first_item.quantity,
+                    unit_cost: first_item.rate,
+                    supplier_name: supplier_name_val,
+                    purchase_date: purchase_date_val,
+                    notes: if notes_val.is_empty() {
+                        None
+                    } else {
+                        Some(notes_val)
+                    },
+                };
                 match api.read().create_direct_purchase(&form).await {
                     Ok(body) => {
                         let pno = body["data"]["purchase_no"].as_str().unwrap_or("N/A");
-                        toast.success("Direct Purchase Created", &format!("Purchase {} created. Creating another…", pno));
+                        toast.success(
+                            "Direct Purchase Created",
+                            &format!("Purchase {} created. Creating another…", pno),
+                        );
                         c_code.set(String::new());
                         its.write().clear();
-                        for _ in 0..3 { its.write().push(LineItem::default()); }
+                        for _ in 0..3 {
+                            its.write().push(LineItem::default());
+                        }
                         disc_pct.set(String::from("0"));
                         tr.set(String::from("16"));
                         saving.set(false);
@@ -257,13 +367,22 @@ pub fn DirectPurchaseCreatePage() -> Element {
         let mut modal = show_discard_modal.clone();
         let dirty = is_dirty.clone();
         let nav = navigator.clone();
-        move |_| { if *dirty.read() { modal.set(true); } else { nav.push("/purchases/direct"); } }
+        move |_| {
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/purchases/direct");
+            }
+        }
     };
 
     let confirm_discard = {
         let nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
-        move |_| { modal.set(false); nav.push("/purchases/direct"); }
+        move |_| {
+            modal.set(false);
+            nav.push("/purchases/direct");
+        }
     };
 
     let cancel_discard = move |_| show_discard_modal.set(false);

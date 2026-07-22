@@ -60,7 +60,15 @@ pub fn PurchasesDashboardPage() -> Element {
 
     let total_purchases: f64 = orders.iter().map(|o| o.total_amount).sum();
     let order_count = orders.len();
-    let open_count = orders.iter().filter(|o| matches!(o.status.as_str(), "Draft" | "Sent" | "Confirmed" | "Partially Received")).count();
+    let open_count = orders
+        .iter()
+        .filter(|o| {
+            matches!(
+                o.status.as_str(),
+                "Draft" | "Sent" | "Confirmed" | "Partially Received"
+            )
+        })
+        .count();
 
     let format_pkru = |amount: f64| -> String {
         let formatted = amount as u64;
@@ -95,7 +103,11 @@ pub fn PurchasesDashboardPage() -> Element {
         },
         PurchaseKpi {
             title: "Draft Orders".to_string(),
-            value: orders.iter().filter(|o| o.status == "Draft").count().to_string(),
+            value: orders
+                .iter()
+                .filter(|o| o.status == "Draft")
+                .count()
+                .to_string(),
             icon: "📥".to_string(),
             variant: StatCardVariant::Default,
             trend: None,
@@ -103,7 +115,11 @@ pub fn PurchasesDashboardPage() -> Element {
         },
         PurchaseKpi {
             title: "Pending Receipt".to_string(),
-            value: orders.iter().filter(|o| o.status == "Partially Received").count().to_string(),
+            value: orders
+                .iter()
+                .filter(|o| o.status == "Partially Received")
+                .count()
+                .to_string(),
             icon: "📦".to_string(),
             variant: StatCardVariant::Danger,
             trend: None,

@@ -1,7 +1,7 @@
 //! AR Aging Report Page — Outstanding receivables by aging buckets.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, StatCard, StatCardVariant, use_toast};
+use crate::components::common::{use_toast, Button, ButtonVariant, StatCard, StatCardVariant};
 use crate::pages::print_shared::trigger_print;
 use dioxus::prelude::*;
 
@@ -71,15 +71,40 @@ struct AgingCustomer {
 // ============================================================================
 
 fn parse_aging(data: &serde_json::Value) -> Vec<AgingCustomer> {
-    data.as_array().map(|arr| arr.iter().map(|item| AgingCustomer {
-        customer_name: item.get("customer_name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        total_balance: item.get("current_balance").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        current: item.get("current").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        bucket_0_30: item.get("days_1_30").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        bucket_31_60: item.get("days_31_60").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        bucket_61_90: item.get("days_61_90").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        bucket_90_plus: item.get("days_90_plus").and_then(|v| v.as_f64()).unwrap_or(0.0),
-    }).collect()).unwrap_or_default()
+    data.as_array()
+        .map(|arr| {
+            arr.iter()
+                .map(|item| AgingCustomer {
+                    customer_name: item
+                        .get("customer_name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    total_balance: item
+                        .get("current_balance")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0),
+                    current: item.get("current").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                    bucket_0_30: item
+                        .get("days_1_30")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0),
+                    bucket_31_60: item
+                        .get("days_31_60")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0),
+                    bucket_61_90: item
+                        .get("days_61_90")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0),
+                    bucket_90_plus: item
+                        .get("days_90_plus")
+                        .and_then(|v| v.as_f64())
+                        .unwrap_or(0.0),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn bucket_class(bucket: &str) -> &'static str {
@@ -127,11 +152,18 @@ pub fn ArAgingReportPage() -> Element {
     let total_90_plus: f64 = sum_by(&customers, |c| c.bucket_90_plus);
     let overdue_total = total_0_30 + total_31_60 + total_61_90 + total_90_plus;
 
-    let current_customers: Vec<&AgingCustomer> = customers.iter().filter(|c| c.current > 0.0).collect();
-    let bucket_0_30_customers: Vec<&AgingCustomer> = customers.iter().filter(|c| c.bucket_0_30 > 0.0).collect();
-    let bucket_31_60_customers: Vec<&AgingCustomer> = customers.iter().filter(|c| c.bucket_31_60 > 0.0).collect();
-    let bucket_61_90_customers: Vec<&AgingCustomer> = customers.iter().filter(|c| c.bucket_61_90 > 0.0).collect();
-    let bucket_90_plus_customers: Vec<&AgingCustomer> = customers.iter().filter(|c| c.bucket_90_plus > 0.0).collect();
+    let current_customers: Vec<&AgingCustomer> =
+        customers.iter().filter(|c| c.current > 0.0).collect();
+    let bucket_0_30_customers: Vec<&AgingCustomer> =
+        customers.iter().filter(|c| c.bucket_0_30 > 0.0).collect();
+    let bucket_31_60_customers: Vec<&AgingCustomer> =
+        customers.iter().filter(|c| c.bucket_31_60 > 0.0).collect();
+    let bucket_61_90_customers: Vec<&AgingCustomer> =
+        customers.iter().filter(|c| c.bucket_61_90 > 0.0).collect();
+    let bucket_90_plus_customers: Vec<&AgingCustomer> = customers
+        .iter()
+        .filter(|c| c.bucket_90_plus > 0.0)
+        .collect();
 
     let on_export = {
         let mut toast = toast.clone();

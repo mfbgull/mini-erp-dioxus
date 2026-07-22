@@ -19,8 +19,6 @@ pub struct Account {
     pub is_active: bool,
 }
 
-
-
 struct AccountSummary {
     total_assets: f64,
     total_liabilities: f64,
@@ -30,9 +28,17 @@ struct AccountSummary {
 }
 
 fn compute_summary(accounts: &[Account]) -> AccountSummary {
-    let mut summary = AccountSummary { total_assets: 0.0, total_liabilities: 0.0, total_equity: 0.0, total_income: 0.0, total_expense: 0.0 };
+    let mut summary = AccountSummary {
+        total_assets: 0.0,
+        total_liabilities: 0.0,
+        total_equity: 0.0,
+        total_income: 0.0,
+        total_expense: 0.0,
+    };
     for a in accounts {
-        if !a.is_active { continue; }
+        if !a.is_active {
+            continue;
+        }
         match a.account_type.as_str() {
             "Asset" => summary.total_assets += a.balance,
             "Liability" => summary.total_liabilities += a.balance,
@@ -56,15 +62,18 @@ pub fn ChartOfAccountsPage() -> Element {
             let _ = *counter.read();
             let result = api.read().clone().list_account_balances().await;
             match result {
-                Ok(list) => list.into_iter().map(|a| Account {
-                    id: a.id,
-                    account_code: a.code,
-                    account_name: a.name,
-                    account_type: a.account_type,
-                    normal_side: a.normal_balance,
-                    balance: a.balance,
-                    is_active: true,
-                }).collect(),
+                Ok(list) => list
+                    .into_iter()
+                    .map(|a| Account {
+                        id: a.id,
+                        account_code: a.code,
+                        account_name: a.name,
+                        account_type: a.account_type,
+                        normal_side: a.normal_balance,
+                        balance: a.balance,
+                        is_active: true,
+                    })
+                    .collect(),
                 Err(_) => vec![],
             }
         }
@@ -96,24 +105,38 @@ pub fn ChartOfAccountsPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Asset".to_string(), "Liability".to_string(), "Equity".to_string(), "Income".to_string(), "Expense".to_string()],
+                options: vec![
+                    "Asset".to_string(),
+                    "Liability".to_string(),
+                    "Equity".to_string(),
+                    "Income".to_string(),
+                    "Expense".to_string(),
+                ],
             }),
         ColumnDef::text("side", "Normal Side", |a: &Account| a.normal_side.clone())
             .with_width(ColumnWidth::Px(100)),
         ColumnDef::text("balance", "Balance", |a: &Account| a.balance.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(140))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 0 })
+            .with_renderer(CellRenderer::Currency {
+                code: "PKR",
+                decimals: 0,
+            })
             .with_filter(FilterType::Number),
-        ColumnDef::text("active", "Active", |a: &Account| if a.is_active { "Yes" } else { "No" }.into())
-            .with_width(ColumnWidth::Px(80))
-            .with_renderer(CellRenderer::Badge {
-                color_map: vec![("Yes", BadgeColor::Green), ("No", BadgeColor::Gray)],
-                default_color: BadgeColor::Gray,
-            }),
+        ColumnDef::text("active", "Active", |a: &Account| {
+            if a.is_active { "Yes" } else { "No" }.into()
+        })
+        .with_width(ColumnWidth::Px(80))
+        .with_renderer(CellRenderer::Badge {
+            color_map: vec![("Yes", BadgeColor::Green), ("No", BadgeColor::Gray)],
+            default_color: BadgeColor::Gray,
+        }),
     ];
 
-    let on_refresh = { let mut c = counter.clone(); move |_| c += 1 };
+    let on_refresh = {
+        let mut c = counter.clone();
+        move |_| c += 1
+    };
 
     rsx! {
         div { class: "page",

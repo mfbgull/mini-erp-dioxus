@@ -86,9 +86,15 @@ fn service_description(service: &str) -> &'static str {
     match service {
         "email" => "Send transactional emails, invoices, and notifications via SMTP server.",
         "sms" => "Send SMS alerts for low stock, payment reminders, and system notifications.",
-        "payment" => "Process customer payments via credit card, bank transfer, and digital wallets.",
-        "accounting" => "Sync invoices, expenses, and journal entries with external accounting platforms.",
-        "ecommerce" => "Sync product catalog, inventory levels, and orders with online storefronts.",
+        "payment" => {
+            "Process customer payments via credit card, bank transfer, and digital wallets."
+        }
+        "accounting" => {
+            "Sync invoices, expenses, and journal entries with external accounting platforms."
+        }
+        "ecommerce" => {
+            "Sync product catalog, inventory levels, and orders with online storefronts."
+        }
         _ => "",
     }
 }
@@ -106,15 +112,19 @@ pub fn IntegrationsPage() -> Element {
         async move {
             let client = api.with(|c| c.clone());
             let server_ints = client.list_integrations().await.unwrap_or_default();
-            server_ints.into_iter().enumerate().map(|(i, si)| Integration {
-                id: i as i64 + 1,
-                title: service_title(&si.service),
-                description: service_description(&si.service).to_string(),
-                icon: service_icon(&si.service),
-                icon_class: service_icon_class(&si.service),
-                connected: si.is_configured,
-                last_sync: String::new(), // ponytail: not in API
-            }).collect::<Vec<_>>()
+            server_ints
+                .into_iter()
+                .enumerate()
+                .map(|(i, si)| Integration {
+                    id: i as i64 + 1,
+                    title: service_title(&si.service),
+                    description: service_description(&si.service).to_string(),
+                    icon: service_icon(&si.service),
+                    icon_class: service_icon_class(&si.service),
+                    connected: si.is_configured,
+                    last_sync: String::new(), // ponytail: not in API
+                })
+                .collect::<Vec<_>>()
         }
     });
     let integrations = resource.read().as_ref().cloned().unwrap_or_default();

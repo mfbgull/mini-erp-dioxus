@@ -1,7 +1,7 @@
 //! Warehouse Edit Page
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, FormInput, InputType, use_toast};
+use crate::components::common::{use_toast, Button, ButtonVariant, FormInput, InputType};
 use crate::models::WarehouseForm;
 use dioxus::prelude::*;
 
@@ -93,7 +93,11 @@ pub fn WarehouseEditPage(id: String) -> Element {
             let form = WarehouseForm {
                 warehouse_code: wc.read().clone(),
                 warehouse_name: wn.read().clone(),
-                location: if loc_str.is_empty() { None } else { Some(loc_str) },
+                location: if loc_str.is_empty() {
+                    None
+                } else {
+                    Some(loc_str)
+                },
             };
             let api = api.clone();
             let mut toast = toast.clone();
@@ -107,7 +111,10 @@ pub fn WarehouseEditPage(id: String) -> Element {
                         toast.success("Warehouse Updated", &format!("{} updated.", wn_display));
                         nav.push(format!("/inventory/warehouses/{}", parsed_id));
                     }
-                    Err(e) => { toast.error("Error", &e); saving.set(false); }
+                    Err(e) => {
+                        toast.error("Error", &e);
+                        saving.set(false);
+                    }
                 }
             });
         }

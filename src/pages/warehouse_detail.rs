@@ -3,7 +3,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
 use dioxus::prelude::*;
 
@@ -300,7 +300,9 @@ pub fn WarehouseDetailPage(id: String) -> Element {
             let wh = client.get_warehouse(parsed_id).await.ok()?;
 
             // ponytail: stock items come from list_stock_balances filtered by warehouse
-            let stock_items = client.list_stock_balances().await
+            let stock_items = client
+                .list_stock_balances()
+                .await
                 .unwrap_or_default()
                 .into_iter()
                 .filter(|sb| sb.warehouse_id == parsed_id)
@@ -374,7 +376,9 @@ pub fn WarehouseDetailPage(id: String) -> Element {
 
     let on_delete = {
         let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(true); }
+        move |_| {
+            modal.set(true);
+        }
     };
 
     let confirm_delete = {
@@ -384,18 +388,31 @@ pub fn WarehouseDetailPage(id: String) -> Element {
         let wh_name = wh.warehouse_name.clone();
         move |_| {
             modal.set(false);
-            toast.success("Warehouse Deleted", &format!("{} has been deleted.", wh_name));
+            toast.success(
+                "Warehouse Deleted",
+                &format!("{} has been deleted.", wh_name),
+            );
             nav.push("/inventory/warehouses");
         }
     };
 
     let cancel_delete = {
         let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(false); }
+        move |_| {
+            modal.set(false);
+        }
     };
 
-    let status_class = if wh.is_active { "wh-detail-status-active" } else { "wh-detail-status-inactive" };
-    let status_label = if wh.is_active { "✓ Active" } else { "— Inactive" };
+    let status_class = if wh.is_active {
+        "wh-detail-status-active"
+    } else {
+        "wh-detail-status-inactive"
+    };
+    let status_label = if wh.is_active {
+        "✓ Active"
+    } else {
+        "— Inactive"
+    };
 
     // ── Render ──
 

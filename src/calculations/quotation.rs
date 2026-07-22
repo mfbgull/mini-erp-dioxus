@@ -14,7 +14,12 @@ use crate::calculations::{round_money, Discount, DiscountType};
 /// The quotation discount logic closely mirrors invoice logic:
 /// - `"flat"`: fixed amount (capped at line gross).
 /// - `"percentage"`: percentage of `(quantity × unit_price)`.
-pub fn calculate_item_discount(quantity: f64, unit_price: f64, discount_type: &str, discount_value: f64) -> f64 {
+pub fn calculate_item_discount(
+    quantity: f64,
+    unit_price: f64,
+    discount_type: &str,
+    discount_value: f64,
+) -> f64 {
     let gross = quantity * unit_price;
     match discount_type {
         "flat" => round_money(discount_value.min(gross)),
@@ -50,11 +55,7 @@ pub fn calculate_tax(taxable_amount: f64, tax_rate: f64) -> f64 {
 /// Calculate the grand total for a quotation / SO.
 ///
 /// Applies discount before or after tax per `discount.scope`.
-pub fn calculate_total(
-    item_totals: &[f64],
-    discount: &Discount,
-    tax_rate: f64,
-) -> f64 {
+pub fn calculate_total(item_totals: &[f64], discount: &Discount, tax_rate: f64) -> f64 {
     let subtotal = calculate_subtotal(item_totals);
 
     let disc_amt = match discount.r#type {
@@ -67,12 +68,8 @@ pub fn calculate_total(
     let tax = calculate_tax(subtotal, tax_rate);
 
     match discount.scope {
-        crate::calculations::DiscountScope::BeforeTax => {
-            round_money(subtotal - disc_amt + tax)
-        }
-        crate::calculations::DiscountScope::AfterTax => {
-            round_money(subtotal + tax - disc_amt)
-        }
+        crate::calculations::DiscountScope::BeforeTax => round_money(subtotal - disc_amt + tax),
+        crate::calculations::DiscountScope::AfterTax => round_money(subtotal + tax - disc_amt),
     }
 }
 
@@ -85,9 +82,7 @@ pub fn calculate_total(
 /// A "sellable" item is one that is either a finished good (`is_finished_good`)
 /// or a purchased item (`is_purchased`). Raw materials are typically not
 /// sold directly.
-pub fn filter_sellable_items(
-    items: &[ItemFlags],
-) -> Vec<ItemFlags> {
+pub fn filter_sellable_items(items: &[ItemFlags]) -> Vec<ItemFlags> {
     items
         .iter()
         .filter(|i| i.is_finished_good || i.is_purchased)
@@ -213,9 +208,24 @@ mod tests {
     #[test]
     fn test_filter_sellable_items() {
         let items = vec![
-            ItemFlags { is_raw_material: true, is_finished_good: false, is_purchased: false, is_manufactured: false },
-            ItemFlags { is_raw_material: false, is_finished_good: true, is_purchased: false, is_manufactured: false },
-            ItemFlags { is_raw_material: false, is_finished_good: false, is_purchased: true, is_manufactured: false },
+            ItemFlags {
+                is_raw_material: true,
+                is_finished_good: false,
+                is_purchased: false,
+                is_manufactured: false,
+            },
+            ItemFlags {
+                is_raw_material: false,
+                is_finished_good: true,
+                is_purchased: false,
+                is_manufactured: false,
+            },
+            ItemFlags {
+                is_raw_material: false,
+                is_finished_good: false,
+                is_purchased: true,
+                is_manufactured: false,
+            },
         ];
         let sellable = filter_sellable_items(&items);
         assert_eq!(sellable.len(), 2);
@@ -224,8 +234,16 @@ mod tests {
     #[test]
     fn test_filter_filled_items() {
         let items = vec![
-            QuotationFormItem { item_id: Some(1), item_name: "Widget".to_string(), ..Default::default() },
-            QuotationFormItem { item_id: None, item_name: "".to_string(), ..Default::default() },
+            QuotationFormItem {
+                item_id: Some(1),
+                item_name: "Widget".to_string(),
+                ..Default::default()
+            },
+            QuotationFormItem {
+                item_id: None,
+                item_name: "".to_string(),
+                ..Default::default()
+            },
         ];
         let filled = filter_filled_items(&items);
         assert_eq!(filled.len(), 1);

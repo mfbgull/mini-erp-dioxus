@@ -3,7 +3,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, FormInput, InputType, Modal, ModalSize, use_toast,
+    use_toast, Button, ButtonVariant, FormInput, InputType, Modal, ModalSize,
 };
 use crate::models::WarehouseForm;
 use dioxus::prelude::*;
@@ -163,13 +163,19 @@ pub fn WarehouseCreatePage() -> Element {
     let on_name_change = {
         let mut name = warehouse_name.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { name.set(v); dirty.set(true); }
+        move |v: String| {
+            name.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_location_change = {
         let mut loc = location.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { loc.set(v); dirty.set(true); }
+        move |v: String| {
+            loc.set(v);
+            dirty.set(true);
+        }
     };
 
     // Save
@@ -185,7 +191,9 @@ pub fn WarehouseCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
 
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let n = name.read().clone();
             let c = code.read().clone();
@@ -233,7 +241,9 @@ pub fn WarehouseCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
 
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let n = name.read().clone();
             let c = code.read().clone();
@@ -250,7 +260,10 @@ pub fn WarehouseCreatePage() -> Element {
                 };
                 match client.create_warehouse(&form).await {
                     Ok(_) => {
-                        toast.success("Warehouse Created", &format!("{} created. Creating another…", n));
+                        toast.success(
+                            "Warehouse Created",
+                            &format!("{} created. Creating another…", n),
+                        );
                         w_code.set(String::new());
                         w_name.set(String::new());
                         w_location.set(String::new());
@@ -273,15 +286,21 @@ pub fn WarehouseCreatePage() -> Element {
         let dirty = is_dirty.clone();
         let nav = navigator.clone();
         move |_| {
-            if *dirty.read() { modal.set(true); }
-            else { nav.push("/inventory/warehouses"); }
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/inventory/warehouses");
+            }
         }
     };
 
     let confirm_discard = {
         let nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
-        move |_| { modal.set(false); nav.push("/inventory/warehouses"); }
+        move |_| {
+            modal.set(false);
+            nav.push("/inventory/warehouses");
+        }
     };
 
     let cancel_discard = {
@@ -292,8 +311,16 @@ pub fn WarehouseCreatePage() -> Element {
     // ── Derived ──
     let name_err = errors.read().get("name").cloned();
     let active_icon = if *is_active.read() { "✅" } else { "⛔" };
-    let active_label = if *is_active.read() { "Active" } else { "Inactive" };
-    let toggle_class = if *is_active.read() { "warehouse-toggle-btn warehouse-toggle-btn-active" } else { "warehouse-toggle-btn" };
+    let active_label = if *is_active.read() {
+        "Active"
+    } else {
+        "Inactive"
+    };
+    let toggle_class = if *is_active.read() {
+        "warehouse-toggle-btn warehouse-toggle-btn-active"
+    } else {
+        "warehouse-toggle-btn"
+    };
 
     // ── Render ──
 

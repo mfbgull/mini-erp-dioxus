@@ -3,7 +3,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
 use crate::models;
 use dioxus::prelude::*;
@@ -72,10 +72,14 @@ struct PurchaseDetail {
     notes: String,
 }
 
-
-
 fn status_class(s: &str) -> &'static str {
-    match s { "Draft" => "dp-status-draft", "Approved" => "dp-status-approved", "Received" => "dp-status-received", "Cancelled" => "dp-status-cancelled", _ => "dp-status-draft" }
+    match s {
+        "Draft" => "dp-status-draft",
+        "Approved" => "dp-status-approved",
+        "Received" => "dp-status-received",
+        "Cancelled" => "dp-status-cancelled",
+        _ => "dp-status-draft",
+    }
 }
 
 #[component]
@@ -132,13 +136,27 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
         (Some(d.clone()), true)
     } else {
         (None, false)
-  };
+    };
 
-    let on_back = move |_| { navigator.push("/purchases/direct"); };
-    let on_edit = { let mut t = toast.clone(); move |_| t.info("Edit Mode", "Direct purchase editing coming soon.") };
-    let on_receipt = { let mut t = toast.clone(); move |_| t.info("Goods Receipt", "Record receipt coming soon.") };
-    let on_print = { let mut t = toast.clone(); move |_| t.info("Print", "Print view coming soon.") };
-    let on_delete_prompt = { let mut m = show_delete_modal.clone(); move |_| m.set(true) };
+    let on_back = move |_| {
+        navigator.push("/purchases/direct");
+    };
+    let on_edit = {
+        let mut t = toast.clone();
+        move |_| t.info("Edit Mode", "Direct purchase editing coming soon.")
+    };
+    let on_receipt = {
+        let mut t = toast.clone();
+        move |_| t.info("Goods Receipt", "Record receipt coming soon.")
+    };
+    let on_print = {
+        let mut t = toast.clone();
+        move |_| t.info("Print", "Print view coming soon.")
+    };
+    let on_delete_prompt = {
+        let mut m = show_delete_modal.clone();
+        move |_| m.set(true)
+    };
     let confirm_delete = {
         let mut m = show_delete_modal.clone();
         let mut t = toast.clone();
@@ -167,7 +185,6 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
         }
     };
 
-
     if loading {
         return rsx! {
             style { "{PAGE_CSS}" }
@@ -191,8 +208,17 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
     }
     let detail_data = detail_opt.as_ref().cloned().unwrap();
     let sc = status_class(&detail_data.status);
-    render_detail(detail_data, sc, on_back, on_edit, on_receipt, on_print, on_delete_prompt, confirm_delete, show_delete_modal)
-
+    render_detail(
+        detail_data,
+        sc,
+        on_back,
+        on_edit,
+        on_receipt,
+        on_print,
+        on_delete_prompt,
+        confirm_delete,
+        show_delete_modal,
+    )
 }
 
 fn render_detail(

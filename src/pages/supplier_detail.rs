@@ -2,7 +2,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
 use crate::pages::supplier_list::Supplier;
 use dioxus::prelude::*;
@@ -94,8 +94,6 @@ struct LedgerEntry {
     balance: f64,
 }
 
-
-
 fn status_class(status: &str) -> &'static str {
     match status {
         "Active" => "supplier-status-active",
@@ -178,21 +176,27 @@ pub fn SupplierDetailPage(id: String) -> Element {
             }
             let client = api.read().clone();
             match client.get_supplier_ledger(parsed).await {
-                Ok(entries) => entries.into_iter().map(|e| LedgerEntry {
-                    id: e.id,
-                    date: e.transaction_date,
-                    reference: e.reference_no,
-                    transaction_type: e.transaction_type,
-                    debit: e.debit,
-                    credit: e.credit,
-                    balance: e.balance,
-                }).collect(),
+                Ok(entries) => entries
+                    .into_iter()
+                    .map(|e| LedgerEntry {
+                        id: e.id,
+                        date: e.transaction_date,
+                        reference: e.reference_no,
+                        transaction_type: e.transaction_type,
+                        debit: e.debit,
+                        credit: e.credit,
+                        balance: e.balance,
+                    })
+                    .collect(),
                 Err(_) => Vec::new(),
             }
         }
     });
     let ledger_entries = ledger_resource.read();
-    let ledger_data = ledger_entries.as_ref().map(|e| e.clone()).unwrap_or_default();
+    let ledger_data = ledger_entries
+        .as_ref()
+        .map(|e| e.clone())
+        .unwrap_or_default();
 
     let tabs = ["Overview", "Purchase Orders", "Payments", "Ledger"];
 

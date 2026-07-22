@@ -133,11 +133,7 @@ pub struct ButtonProps {
 /// }
 /// ```
 pub fn Button(props: ButtonProps) -> Element {
-    let mut classes = vec![
-        "cb-btn",
-        props.variant.css_class(),
-        props.size.css_class(),
-    ];
+    let mut classes = vec!["cb-btn", props.variant.css_class(), props.size.css_class()];
 
     if props.block {
         classes.push("cb-btn-block");
@@ -149,7 +145,10 @@ pub fn Button(props: ButtonProps) -> Element {
 
     let class_str = classes.join(" ");
 
-    let spinner_class = if matches!(props.variant, ButtonVariant::Ghost | ButtonVariant::Warning | ButtonVariant::Secondary) {
+    let spinner_class = if matches!(
+        props.variant,
+        ButtonVariant::Ghost | ButtonVariant::Warning | ButtonVariant::Secondary
+    ) {
         "cb-btn-spinner cb-btn-spinner-dark"
     } else {
         "cb-btn-spinner"

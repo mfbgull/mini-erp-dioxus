@@ -26,12 +26,15 @@ pub struct DateRangePickerProps {
 }
 
 fn date_to_string(d: Option<NaiveDate>) -> String {
-    d.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default()
+    d.map(|d| d.format("%Y-%m-%d").to_string())
+        .unwrap_or_default()
 }
 
 fn parse_date_input(s: &str) -> Option<NaiveDate> {
     let s = s.trim();
-    if s.is_empty() { return None; }
+    if s.is_empty() {
+        return None;
+    }
     NaiveDate::parse_from_str(s, "%Y-%m-%d").ok()
 }
 

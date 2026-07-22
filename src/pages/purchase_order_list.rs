@@ -27,14 +27,25 @@ struct PoSummary {
     received_count: usize,
 }
 
-
-
 fn compute_summary(orders: &[PurchaseOrder]) -> PoSummary {
     let total_count = orders.len();
     let total_amount: f64 = orders.iter().map(|o| o.total_amount).sum();
-    let open_count = orders.iter().filter(|o| matches!(o.status.as_str(), "Draft" | "Sent" | "Confirmed" | "Partially Received")).count();
+    let open_count = orders
+        .iter()
+        .filter(|o| {
+            matches!(
+                o.status.as_str(),
+                "Draft" | "Sent" | "Confirmed" | "Partially Received"
+            )
+        })
+        .count();
     let received_count = orders.iter().filter(|o| o.status == "Received").count();
-    PoSummary { total_count, total_amount, open_count, received_count }
+    PoSummary {
+        total_count,
+        total_amount,
+        open_count,
+        received_count,
+    }
 }
 
 #[component]
@@ -45,18 +56,23 @@ pub fn PurchaseOrderListPage() -> Element {
         let api = api.clone();
         async move {
             let client = api.with(|c| c.clone());
-            client.list_purchase_orders().await
+            client
+                .list_purchase_orders()
+                .await
                 .map(|server_pos| {
-                    server_pos.into_iter().map(|po| PurchaseOrder {
-                        id: po.id,
-                        po_no: po.po_no,
-                        supplier_name: po.supplier_name.unwrap_or_default(),
-                        order_date: po.po_date,
-                        expected_date: po.expected_date.unwrap_or_default(),
-                        status: po.status,
-                        total_amount: po.total_amount,
-                        item_count: 0, // ponytail: not in list endpoint
-                    }).collect::<Vec<_>>()
+                    server_pos
+                        .into_iter()
+                        .map(|po| PurchaseOrder {
+                            id: po.id,
+                            po_no: po.po_no,
+                            supplier_name: po.supplier_name.unwrap_or_default(),
+                            order_date: po.po_date,
+                            expected_date: po.expected_date.unwrap_or_default(),
+                            status: po.status,
+                            total_amount: po.total_amount,
+                            item_count: 0, // ponytail: not in list endpoint
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .unwrap_or_default()
         }
@@ -71,17 +87,23 @@ pub fn PurchaseOrderListPage() -> Element {
         ColumnDef::text("po_no", "PO #", |o: &PurchaseOrder| o.po_no.clone())
             .with_width(ColumnWidth::Px(130))
             .with_filter(FilterType::Text),
-        ColumnDef::text("supplier", "Supplier", |o: &PurchaseOrder| o.supplier_name.clone())
-            .with_width(ColumnWidth::Fr(1.0))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("order_date", "Order Date", |o: &PurchaseOrder| o.order_date.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
-        ColumnDef::text("expected", "Expected", |o: &PurchaseOrder| o.expected_date.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
+        ColumnDef::text("supplier", "Supplier", |o: &PurchaseOrder| {
+            o.supplier_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.0))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("order_date", "Order Date", |o: &PurchaseOrder| {
+            o.order_date.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
+        ColumnDef::text("expected", "Expected", |o: &PurchaseOrder| {
+            o.expected_date.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
         ColumnDef::text("status", "Status", |o: &PurchaseOrder| o.status.clone())
             .with_width(ColumnWidth::Px(150))
             .with_renderer(CellRenderer::Badge {
@@ -96,16 +118,33 @@ pub fn PurchaseOrderListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Draft".to_string(), "Sent".to_string(), "Confirmed".to_string(), "Partially Received".to_string(), "Received".to_string(), "Cancelled".to_string()],
+                options: vec![
+                    "Draft".to_string(),
+                    "Sent".to_string(),
+                    "Confirmed".to_string(),
+                    "Partially Received".to_string(),
+                    "Received".to_string(),
+                    "Cancelled".to_string(),
+                ],
             }),
-        ColumnDef::text("amount", "Amount", |o: &PurchaseOrder| o.total_amount.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(140))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 }),
-        ColumnDef::text("items", "Items", |o: &PurchaseOrder| o.item_count.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(80))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 }),
+        ColumnDef::text("amount", "Amount", |o: &PurchaseOrder| {
+            o.total_amount.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(140))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 2,
+        }),
+        ColumnDef::text("items", "Items", |o: &PurchaseOrder| {
+            o.item_count.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(80))
+        .with_renderer(CellRenderer::Number {
+            prefix: "",
+            decimals: 0,
+        }),
     ];
 
     let on_row_click = move |(_idx, o): (usize, PurchaseOrder)| {
@@ -114,7 +153,10 @@ pub fn PurchaseOrderListPage() -> Element {
 
     let on_new = {
         let nav = navigator.clone();
-        move |_| { nav.push("/purchases/orders/new"); } };
+        move |_| {
+            nav.push("/purchases/orders/new");
+        }
+    };
 
     rsx! {
         div { class: "page",

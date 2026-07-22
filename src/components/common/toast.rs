@@ -93,7 +93,13 @@ impl ToastManager {
         self.show(ToastType::Info, title, message, 3000);
     }
 
-    fn show(&mut self, r#type: ToastType, title: impl Into<String>, message: impl Into<String>, duration_ms: u64) {
+    fn show(
+        &mut self,
+        r#type: ToastType,
+        title: impl Into<String>,
+        message: impl Into<String>,
+        duration_ms: u64,
+    ) {
         let id = NEXT_TOAST_ID.fetch_add(1, Ordering::Relaxed);
         let effective_duration = if duration_ms > 0 { duration_ms } else { 4000 };
 

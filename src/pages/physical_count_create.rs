@@ -1,10 +1,10 @@
 //! Physical Count Create Page — Form to create a new physical inventory count.
 
-use crate::components::common::{
-    Button, ButtonVariant, DateRangePicker, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, use_toast,
-};
 use crate::auth::use_auth;
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, DateRangePicker, FormInput, InputType, Modal, ModalSize,
+    SearchableSelect, SelectOption,
+};
 use chrono::NaiveDate;
 use dioxus::prelude::*;
 use std::collections::HashMap;
@@ -124,10 +124,14 @@ pub fn PhysicalCountCreatePage() -> Element {
         });
     }
     let warehouse_options = use_memo(move || {
-        warehouse_list.read().iter().map(|w| SelectOption {
-            value: w.id.to_string(),
-            label: w.warehouse_name.clone(),
-        }).collect::<Vec<_>>()
+        warehouse_list
+            .read()
+            .iter()
+            .map(|w| SelectOption {
+                value: w.id.to_string(),
+                label: w.warehouse_name.clone(),
+            })
+            .collect::<Vec<_>>()
     });
 
     // ── Form State ──
@@ -151,7 +155,9 @@ pub fn PhysicalCountCreatePage() -> Element {
                 errs.insert("warehouse", "Warehouse is required.".to_string());
             }
             let is_valid = errs.is_empty();
-            if !is_valid { toast.warning("Validation Error", "Please fix the highlighted fields."); }
+            if !is_valid {
+                toast.warning("Validation Error", "Please fix the highlighted fields.");
+            }
             is_valid
         }
     };
@@ -161,7 +167,10 @@ pub fn PhysicalCountCreatePage() -> Element {
     let on_warehouse_change = {
         let mut wh = warehouse.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { wh.set(v); dirty.set(true); }
+        move |v: String| {
+            wh.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_date_change = {
@@ -176,7 +185,10 @@ pub fn PhysicalCountCreatePage() -> Element {
     let on_notes_change = {
         let mut n = notes.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { n.set(v); dirty.set(true); }
+        move |v: String| {
+            n.set(v);
+            dirty.set(true);
+        }
     };
 
     // Save
@@ -191,7 +203,9 @@ pub fn PhysicalCountCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
 
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let api = api.clone();
             let mut toast = toast.clone();
@@ -207,7 +221,10 @@ pub fn PhysicalCountCreatePage() -> Element {
                 let client = api.read().clone();
                 match client.create_physical_count(&form).await {
                     Ok(count) => {
-                        toast.success("Count Created", &format!("Physical count {} has been created.", count.count_no));
+                        toast.success(
+                            "Count Created",
+                            &format!("Physical count {} has been created.", count.count_no),
+                        );
                         saving.set(false);
                         dirty.set(false);
                         nav.push("/inventory/physical-counts");
@@ -232,7 +249,9 @@ pub fn PhysicalCountCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
 
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let api = api.clone();
             let mut toast = toast.clone();
@@ -242,12 +261,19 @@ pub fn PhysicalCountCreatePage() -> Element {
             spawn(async move {
                 let form = crate::models::PhysicalCountForm {
                     warehouse_id: wh_val,
-                    notes: if nts_val.is_empty() { None } else { Some(nts_val) },
+                    notes: if nts_val.is_empty() {
+                        None
+                    } else {
+                        Some(nts_val)
+                    },
                 };
                 let client = api.read().clone();
                 match client.create_physical_count(&form).await {
                     Ok(count) => {
-                        toast.success("Count Created", &format!("{}. Creating another…", count.count_no));
+                        toast.success(
+                            "Count Created",
+                            &format!("{}. Creating another…", count.count_no),
+                        );
                         // Reset form
                         wh.set(String::new());
                         nts.set(String::new());
@@ -269,15 +295,21 @@ pub fn PhysicalCountCreatePage() -> Element {
         let dirty = is_dirty.clone();
         let nav = navigator.clone();
         move |_| {
-            if *dirty.read() { modal.set(true); }
-            else { nav.push("/inventory/physical-counts"); }
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/inventory/physical-counts");
+            }
         }
     };
 
     let confirm_discard = {
         let nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
-        move |_| { modal.set(false); nav.push("/inventory/physical-counts"); }
+        move |_| {
+            modal.set(false);
+            nav.push("/inventory/physical-counts");
+        }
     };
 
     let cancel_discard = {

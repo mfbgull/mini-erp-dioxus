@@ -7,8 +7,8 @@ use crate::calculations::{
     Discount, DiscountScope, DiscountType, InvoiceMetrics,
 };
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
+    SearchableSelect, SelectOption, StatCard, StatCardVariant,
 };
 use crate::models::{Customer, Item, SalesOrderForm, SalesOrderItemForm};
 use chrono::NaiveDate;
@@ -98,10 +98,17 @@ impl Default for LineItem {
 impl LineItem {
     fn net_amount(&self) -> f64 {
         let disc = if self.discount_type == "Percentage" {
-            calculate_item_discount(self.quantity, self.unit_price, "percentage", self.discount_value)
+            calculate_item_discount(
+                self.quantity,
+                self.unit_price,
+                "percentage",
+                self.discount_value,
+            )
         } else if self.discount_type == "Flat" {
             calculate_item_discount(self.quantity, self.unit_price, "flat", self.discount_value)
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         calculate_item_total(self.quantity, self.unit_price, disc)
     }
 }
@@ -118,7 +125,9 @@ pub fn SalesOrderCreatePage() -> Element {
 
     let items = use_signal(|| {
         let mut v: Vec<LineItem> = Vec::new();
-        for _ in 0..MIN_ITEM_ROWS { v.push(LineItem::default()); }
+        for _ in 0..MIN_ITEM_ROWS {
+            v.push(LineItem::default());
+        }
         v
     });
 
@@ -152,7 +161,10 @@ pub fn SalesOrderCreatePage() -> Element {
                     let mut map = HashMap::new();
                     let mut opts = Vec::new();
                     for c in &customers {
-                        opts.push(SelectOption { value: c.customer_code.clone(), label: format!("{} ({})", c.customer_name, c.customer_code) });
+                        opts.push(SelectOption {
+                            value: c.customer_code.clone(),
+                            label: format!("{} ({})", c.customer_name, c.customer_code),
+                        });
                         map.insert(c.customer_code.clone(), c.clone());
                     }
                     cust_map.set(map);
@@ -162,7 +174,10 @@ pub fn SalesOrderCreatePage() -> Element {
                     let mut map = HashMap::new();
                     let mut opts = Vec::new();
                     for i in items {
-                        opts.push(SelectOption { value: i.item_code.clone(), label: format!("{} ({})", i.item_name, i.item_code) });
+                        opts.push(SelectOption {
+                            value: i.item_code.clone(),
+                            label: format!("{} ({})", i.item_name, i.item_code),
+                        });
                         map.insert(i.item_code.clone(), i);
                     }
                     it_map.set(map);
@@ -176,12 +191,22 @@ pub fn SalesOrderCreatePage() -> Element {
     let discount_val = discount_pct.read().parse::<f64>().unwrap_or(0.0);
     let tax_rate_val = tax_rate_str.read().parse::<f64>().unwrap_or(0.0);
 
-    let discount = Discount { scope: DiscountScope::BeforeTax, r#type: DiscountType::Percentage, value: discount_val };
+    let discount = Discount {
+        scope: DiscountScope::BeforeTax,
+        r#type: DiscountType::Percentage,
+        value: discount_val,
+    };
 
     let metrics = if !item_totals.is_empty() {
         compute_invoice_metrics(item_totals.clone(), &discount, tax_rate_val)
     } else {
-        InvoiceMetrics { subtotal: 0.0, discount_amount: 0.0, taxable_amount: 0.0, tax_amount: 0.0, total: 0.0 }
+        InvoiceMetrics {
+            subtotal: 0.0,
+            discount_amount: 0.0,
+            taxable_amount: 0.0,
+            tax_amount: 0.0,
+            total: 0.0,
+        }
     };
 
     let on_customer_select = {
@@ -190,7 +215,13 @@ pub fn SalesOrderCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
         let cust_map = customer_map.clone();
         move |value: String| {
-            name.set(cust_map.read().get(&value).map(|c| c.customer_name.clone()).unwrap_or_default());
+            name.set(
+                cust_map
+                    .read()
+                    .get(&value)
+                    .map(|c| c.customer_name.clone())
+                    .unwrap_or_default(),
+            );
             code.set(value);
             dirty.set(true);
         }
@@ -199,13 +230,19 @@ pub fn SalesOrderCreatePage() -> Element {
     let add_item = {
         let mut its = items.clone();
         let mut dirty = is_dirty.clone();
-        move |_| { its.write().push(LineItem::default()); dirty.set(true); }
+        move |_| {
+            its.write().push(LineItem::default());
+            dirty.set(true);
+        }
     };
 
     let remove_item = {
         let mut its = items.clone();
         let mut dirty = is_dirty.clone();
-        move |id: u64| { its.write().retain(|li| li.id != id); dirty.set(true); }
+        move |id: u64| {
+            its.write().retain(|li| li.id != id);
+            dirty.set(true);
+        }
     };
 
     let save_order = {
@@ -227,11 +264,21 @@ pub fn SalesOrderCreatePage() -> Element {
                 toast.error("Validation Error", "Please select a customer.");
                 return;
             }
-            if its.read().iter().filter(|li| !li.item_code.is_empty()).count() == 0 {
+            if its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count()
+                == 0
+            {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
-            let customer_id = cust_map.read().get(&*c_code.read()).map(|c| c.id).unwrap_or(0);
+            let customer_id = cust_map
+                .read()
+                .get(&*c_code.read())
+                .map(|c| c.id)
+                .unwrap_or(0);
             if customer_id == 0 {
                 toast.error("Validation Error", "Selected customer is not valid.");
                 return;
@@ -244,7 +291,9 @@ pub fn SalesOrderCreatePage() -> Element {
             let mut dirty = dirty.clone();
             let so_date = (*o_date.read()).map(|d| d.to_string()).unwrap_or_default();
             let notes_val = nts.read().clone();
-            let order_items: Vec<SalesOrderItemForm> = its.read().iter()
+            let order_items: Vec<SalesOrderItemForm> = its
+                .read()
+                .iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| SalesOrderItemForm {
                     item_id: it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0),
@@ -254,11 +303,22 @@ pub fn SalesOrderCreatePage() -> Element {
                 })
                 .collect();
             spawn(async move {
-                let form = SalesOrderForm { customer_id, so_date, warehouse_id: None, notes: if notes_val.is_empty() { None } else { Some(notes_val) }, items: order_items };
+                let form = SalesOrderForm {
+                    customer_id,
+                    so_date,
+                    warehouse_id: None,
+                    notes: if notes_val.is_empty() {
+                        None
+                    } else {
+                        Some(notes_val)
+                    },
+                    items: order_items,
+                };
                 match api.read().create_sales_order(&form).await {
                     Ok(so) => {
                         toast.success("Sales Order Created", &format!("SO {} created.", so.so_no));
-                        saving.set(false); dirty.set(false);
+                        saving.set(false);
+                        dirty.set(false);
                         nav.push("/sales/orders");
                     }
                     Err(e) => {
@@ -290,11 +350,21 @@ pub fn SalesOrderCreatePage() -> Element {
                 toast.error("Validation Error", "Please select a customer.");
                 return;
             }
-            if its.read().iter().filter(|li| !li.item_code.is_empty()).count() == 0 {
+            if its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count()
+                == 0
+            {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
-            let customer_id = cust_map.read().get(&*c_code.read()).map(|c| c.id).unwrap_or(0);
+            let customer_id = cust_map
+                .read()
+                .get(&*c_code.read())
+                .map(|c| c.id)
+                .unwrap_or(0);
             if customer_id == 0 {
                 toast.error("Validation Error", "Selected customer is not valid.");
                 return;
@@ -306,7 +376,9 @@ pub fn SalesOrderCreatePage() -> Element {
             let mut dirty = dirty.clone();
             let so_date = (*o_date.read()).map(|d| d.to_string()).unwrap_or_default();
             let notes_val = nts.read().clone();
-            let order_items: Vec<SalesOrderItemForm> = its.read().iter()
+            let order_items: Vec<SalesOrderItemForm> = its
+                .read()
+                .iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| SalesOrderItemForm {
                     item_id: it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0),
@@ -316,13 +388,28 @@ pub fn SalesOrderCreatePage() -> Element {
                 })
                 .collect();
             spawn(async move {
-                let form = SalesOrderForm { customer_id, so_date, warehouse_id: None, notes: if notes_val.is_empty() { None } else { Some(notes_val) }, items: order_items };
+                let form = SalesOrderForm {
+                    customer_id,
+                    so_date,
+                    warehouse_id: None,
+                    notes: if notes_val.is_empty() {
+                        None
+                    } else {
+                        Some(notes_val)
+                    },
+                    items: order_items,
+                };
                 match api.read().create_sales_order(&form).await {
                     Ok(so) => {
-                        toast.success("Sales Order Created", &format!("SO {} created. Creating another…", so.so_no));
+                        toast.success(
+                            "Sales Order Created",
+                            &format!("SO {} created. Creating another…", so.so_no),
+                        );
                         c_code.set(String::new());
                         its.write().clear();
-                        for _ in 0..MIN_ITEM_ROWS { its.write().push(LineItem::default()); }
+                        for _ in 0..MIN_ITEM_ROWS {
+                            its.write().push(LineItem::default());
+                        }
                         let t = chrono::Local::now().date_naive();
                         o_date.set(Some(t));
                         d_date.set(Some(t + chrono::Duration::days(LEAD_TIME_DAYS)));
@@ -346,15 +433,21 @@ pub fn SalesOrderCreatePage() -> Element {
         let dirty = is_dirty.clone();
         let nav = navigator.clone();
         move |_| {
-            if *dirty.read() { modal.set(true); }
-            else { nav.push("/sales/orders"); }
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/sales/orders");
+            }
         }
     };
 
     let confirm_discard = {
         let nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
-        move |_| { modal.set(false); nav.push("/sales/orders"); }
+        move |_| {
+            modal.set(false);
+            nav.push("/sales/orders");
+        }
     };
 
     let cancel_discard = {

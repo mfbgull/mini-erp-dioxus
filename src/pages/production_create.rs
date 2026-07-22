@@ -4,8 +4,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, use_toast,
+    use_toast, Button, ButtonVariant, FormInput, InputType, Modal, ModalSize, SearchableSelect,
+    SelectOption,
 };
 use crate::models::{Bom, BomItem, Item, ProductionForm, StockBalance};
 use dioxus::prelude::*;
@@ -145,8 +145,12 @@ pub fn ProductionCreatePage() -> Element {
                 let active_bom_item_ids: Vec<i64> = if let Ok(boms) = client.list_boms().await {
                     let active: Vec<Bom> = boms.iter().filter(|b| b.is_active).cloned().collect();
                     let ids: Vec<i64> = active.iter().map(|b| b.finished_item_id).collect();
-                    let opts: Vec<SelectOption> = active.iter()
-                        .map(|b| SelectOption { value: b.id.to_string(), label: format!("{} - {}", b.bom_no, b.bom_name) })
+                    let opts: Vec<SelectOption> = active
+                        .iter()
+                        .map(|b| SelectOption {
+                            value: b.id.to_string(),
+                            label: format!("{} - {}", b.bom_no, b.bom_name),
+                        })
                         .collect();
                     bom_list.set(active.clone());
                     bom_options_signal.set(opts);
@@ -160,7 +164,10 @@ pub fn ProductionCreatePage() -> Element {
                     for item in &items {
                         map.insert(item.id, item.clone());
                         if active_bom_item_ids.contains(&item.id) {
-                            opts.push(SelectOption { value: item.id.to_string(), label: format!("{} ({})", item.item_name, item.item_code) });
+                            opts.push(SelectOption {
+                                value: item.id.to_string(),
+                                label: format!("{} ({})", item.item_name, item.item_code),
+                            });
                         }
                     }
                     item_map.set(map);
@@ -183,22 +190,40 @@ pub fn ProductionCreatePage() -> Element {
             let boms = bom_list.read().clone();
             if !item_id_str.is_empty() {
                 let item_id_num = item_id_str.parse::<i64>().unwrap_or(0);
-                let filtered: Vec<SelectOption> = boms.iter()
+                let filtered: Vec<SelectOption> = boms
+                    .iter()
                     .filter(|b| b.is_active && b.finished_item_id == item_id_num)
-                    .map(|b| SelectOption { value: b.id.to_string(), label: format!("{} - {}", b.bom_no, b.bom_name) })
+                    .map(|b| SelectOption {
+                        value: b.id.to_string(),
+                        label: format!("{} - {}", b.bom_no, b.bom_name),
+                    })
                     .collect();
                 bom_opts.set(filtered);
                 // Auto-select the first matching BOM if current selection is empty or invalid
                 let current_bom = bom_sig.read().clone();
-                if current_bom.is_empty() || !boms.iter().any(|b| b.id.to_string() == current_bom && b.is_active && b.finished_item_id == item_id_num) {
-                    if let Some(first) = boms.iter().find(|b| b.is_active && b.finished_item_id == item_id_num) {
+                if current_bom.is_empty()
+                    || !boms.iter().any(|b| {
+                        b.id.to_string() == current_bom
+                            && b.is_active
+                            && b.finished_item_id == item_id_num
+                    })
+                {
+                    if let Some(first) = boms
+                        .iter()
+                        .find(|b| b.is_active && b.finished_item_id == item_id_num)
+                    {
                         bom_sig.set(first.id.to_string());
                     }
                 }
             } else {
                 bom_sig.set(String::new());
-                let all_active: Vec<SelectOption> = boms.iter().filter(|b| b.is_active)
-                    .map(|b| SelectOption { value: b.id.to_string(), label: format!("{} - {}", b.bom_no, b.bom_name) })
+                let all_active: Vec<SelectOption> = boms
+                    .iter()
+                    .filter(|b| b.is_active)
+                    .map(|b| SelectOption {
+                        value: b.id.to_string(),
+                        label: format!("{} - {}", b.bom_no, b.bom_name),
+                    })
                     .collect();
                 bom_opts.set(all_active);
             }
@@ -269,17 +294,20 @@ pub fn ProductionCreatePage() -> Element {
                     }
                     stock_map_sig.set(s_map.clone());
                     // Compute availability rows
-                    let rows: Vec<MaterialAvailability> = parsed_items.iter().map(|bi| {
-                        let total_req = bi.quantity * qty;
-                        let avail = s_map.get(&bi.item_id).copied().unwrap_or(0.0);
-                        MaterialAvailability {
-                            item_name: bi.item_name.clone().unwrap_or_default(),
-                            item_code: bi.item_code.clone().unwrap_or_default(),
-                            qty_per_unit: bi.quantity,
-                            total_required: total_req,
-                            available_stock: avail,
-                        }
-                    }).collect();
+                    let rows: Vec<MaterialAvailability> = parsed_items
+                        .iter()
+                        .map(|bi| {
+                            let total_req = bi.quantity * qty;
+                            let avail = s_map.get(&bi.item_id).copied().unwrap_or(0.0);
+                            MaterialAvailability {
+                                item_name: bi.item_name.clone().unwrap_or_default(),
+                                item_code: bi.item_code.clone().unwrap_or_default(),
+                                qty_per_unit: bi.quantity,
+                                total_required: total_req,
+                                available_stock: avail,
+                            }
+                        })
+                        .collect();
                     material_rows_sig.set(rows);
                 } else {
                     bom_items_sig.set(Vec::new());
@@ -301,31 +329,46 @@ pub fn ProductionCreatePage() -> Element {
     let on_bom_change = {
         let mut b = bom.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { b.set(v); dirty.set(true); }
+        move |v: String| {
+            b.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_qty_change = {
         let mut q = planned_qty.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { q.set(v); dirty.set(true); }
+        move |v: String| {
+            q.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_start_change = {
         let mut d = start_date.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { d.set(v); dirty.set(true); }
+        move |v: String| {
+            d.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_end_change = {
         let mut d = expected_end_date.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { d.set(v); dirty.set(true); }
+        move |v: String| {
+            d.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_notes_change = {
         let mut n = notes.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { n.set(v); dirty.set(true); }
+        move |v: String| {
+            n.set(v);
+            dirty.set(true);
+        }
     };
 
     let validate = {
@@ -335,16 +378,29 @@ pub fn ProductionCreatePage() -> Element {
         let mat_rows = material_rows.clone();
         let mut toast = toast.clone();
         move || -> bool {
-            if item.read().is_empty() { toast.warning("Validation", "Please select an item to produce."); return false; }
-            if qty.read().parse::<f64>().unwrap_or(0.0) <= 0.0 { toast.warning("Validation", "Quantity must be greater than 0."); return false; }
+            if item.read().is_empty() {
+                toast.warning("Validation", "Please select an item to produce.");
+                return false;
+            }
+            if qty.read().parse::<f64>().unwrap_or(0.0) <= 0.0 {
+                toast.warning("Validation", "Quantity must be greater than 0.");
+                return false;
+            }
             if !bom_sig.read().is_empty() {
                 let rows = mat_rows.read();
-                let short: Vec<String> = rows.iter()
+                let short: Vec<String> = rows
+                    .iter()
                     .filter(|r| r.available_stock < r.total_required)
                     .map(|r| r.item_name.clone())
                     .collect();
                 if !short.is_empty() {
-                    toast.error("Insufficient Materials", &format!("Raw materials short: {}. Please adjust quantity or restock.", short.join(", ")));
+                    toast.error(
+                        "Insufficient Materials",
+                        &format!(
+                            "Raw materials short: {}. Please adjust quantity or restock.",
+                            short.join(", ")
+                        ),
+                    );
                     return false;
                 }
             }
@@ -364,7 +420,9 @@ pub fn ProductionCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
         let api = api.clone();
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let item_id = item.read().parse::<i64>().unwrap_or(0);
             let bom_id = bom_sig.read().parse::<i64>().ok();
@@ -383,13 +441,20 @@ pub fn ProductionCreatePage() -> Element {
                     warehouse_id: 1,
                     bom_id,
                     overhead_cost: None,
-                    notes: if nts_val.is_empty() { None } else { Some(nts_val) },
+                    notes: if nts_val.is_empty() {
+                        None
+                    } else {
+                        Some(nts_val)
+                    },
                     inputs: vec![],
                 };
                 match client.create_production(&form).await {
                     Ok(data) => {
                         let no = data["production_no"].as_str().unwrap_or("PRD-????");
-                        toast.success("Production Order Created", &format!("{} has been created.", no));
+                        toast.success(
+                            "Production Order Created",
+                            &format!("{} has been created.", no),
+                        );
                         dirty.set(false);
                         nav.push("/manufacturing/production");
                     }
@@ -415,7 +480,9 @@ pub fn ProductionCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
         let api = api.clone();
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let item_id = item.read().parse::<i64>().unwrap_or(0);
             let bom_id = bom_sig.read().parse::<i64>().ok();
@@ -433,13 +500,20 @@ pub fn ProductionCreatePage() -> Element {
                     warehouse_id: 1,
                     bom_id,
                     overhead_cost: None,
-                    notes: if nts_val.is_empty() { None } else { Some(nts_val) },
+                    notes: if nts_val.is_empty() {
+                        None
+                    } else {
+                        Some(nts_val)
+                    },
                     inputs: vec![],
                 };
                 match client.create_production(&form).await {
                     Ok(data) => {
                         let no = data["production_no"].as_str().unwrap_or("PRD-????");
-                        toast.success("Production Order Created", &format!("{} created. Creating another...", no));
+                        toast.success(
+                            "Production Order Created",
+                            &format!("{} created. Creating another...", no),
+                        );
                         item.set(String::new());
                         bom_sig.set(String::new());
                         qty.set("100".to_string());
@@ -463,15 +537,21 @@ pub fn ProductionCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
         let mut nav = navigator.clone();
         move |_| {
-            if *dirty.read() { modal.set(true); }
-            else { nav.push("/manufacturing/production"); }
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/manufacturing/production");
+            }
         }
     };
 
     let confirm_discard = {
         let mut nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
-        move |_| { modal.set(false); nav.push("/manufacturing/production"); }
+        move |_| {
+            modal.set(false);
+            nav.push("/manufacturing/production");
+        }
     };
 
     let cancel_discard = {
@@ -485,7 +565,10 @@ pub fn ProductionCreatePage() -> Element {
     let has_bom = !bom.read().is_empty();
     let qty_val: f64 = planned_qty.read().parse().unwrap_or(0.0);
     let show_materials = has_bom && qty_val > 0.0;
-    let short_count = rows.iter().filter(|r| r.available_stock < r.total_required).count();
+    let short_count = rows
+        .iter()
+        .filter(|r| r.available_stock < r.total_required)
+        .count();
     let all_ok = short_count == 0 && !rows.is_empty();
 
     rsx! {

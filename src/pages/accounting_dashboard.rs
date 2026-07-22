@@ -41,24 +41,50 @@ pub fn AccountingDashboardPage() -> Element {
         let api = api.clone();
         async move {
             let client = api.with(|c| c.clone());
-            client.list_account_balances().await.ok().unwrap_or_default()
+            client
+                .list_account_balances()
+                .await
+                .ok()
+                .unwrap_or_default()
         }
     });
 
     let is_loading = ar_resource.read().is_none() || balances_resource.read().is_none();
     let ar_data = ar_resource.read().as_ref().cloned().flatten();
-    let balances: Vec<AccountBalance> = balances_resource.read().as_ref().cloned().unwrap_or_default();
+    let balances: Vec<AccountBalance> = balances_resource
+        .read()
+        .as_ref()
+        .cloned()
+        .unwrap_or_default();
 
-    let total_assets: f64 = balances.iter()
-        .filter(|b| matches!(b.account_type.as_str(), "Asset" | "asset" | "Current Asset" | "Fixed Asset"))
+    let total_assets: f64 = balances
+        .iter()
+        .filter(|b| {
+            matches!(
+                b.account_type.as_str(),
+                "Asset" | "asset" | "Current Asset" | "Fixed Asset"
+            )
+        })
         .map(|b| b.debit - b.credit)
         .sum();
-    let total_liabilities: f64 = balances.iter()
-        .filter(|b| matches!(b.account_type.as_str(), "Liability" | "liability" | "Current Liability" | "Long-term Liability"))
+    let total_liabilities: f64 = balances
+        .iter()
+        .filter(|b| {
+            matches!(
+                b.account_type.as_str(),
+                "Liability" | "liability" | "Current Liability" | "Long-term Liability"
+            )
+        })
         .map(|b| b.credit - b.debit)
         .sum();
-    let total_equity: f64 = balances.iter()
-        .filter(|b| matches!(b.account_type.as_str(), "Equity" | "equity" | "Owner's Equity" | "Retained Earnings"))
+    let total_equity: f64 = balances
+        .iter()
+        .filter(|b| {
+            matches!(
+                b.account_type.as_str(),
+                "Equity" | "equity" | "Owner's Equity" | "Retained Earnings"
+            )
+        })
         .map(|b| b.credit - b.debit)
         .sum();
 
@@ -111,11 +137,27 @@ pub fn AccountingDashboardPage() -> Element {
             v.iter()
                 .take(5)
                 .map(|t| RecentTransaction {
-                    date: t.get("date").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                    ref_no: t.get("reference").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                    description: t.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    date: t
+                        .get("date")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    ref_no: t
+                        .get("reference")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    description: t
+                        .get("description")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
                     amount: t.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                    type_label: t.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    type_label: t
+                        .get("type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
                 })
                 .collect()
         })

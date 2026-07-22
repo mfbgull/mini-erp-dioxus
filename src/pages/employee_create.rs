@@ -2,8 +2,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, use_toast,
+    use_toast, Button, ButtonVariant, FormInput, InputType, Modal, ModalSize, SearchableSelect,
+    SelectOption,
 };
 use crate::models::EmployeeForm;
 use dioxus::prelude::*;
@@ -27,35 +27,97 @@ const PAGE_CSS: &str = r##"
 @media (max-width: 768px) { .emp-form-row { flex-direction: column; } .emp-form-row > * { min-width: 100%; } .emp-action-bar { flex-direction: column; } }
 "##;
 
-
 fn department_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "Sales".to_string(), label: "Sales".to_string() },
-        SelectOption { value: "Purchasing".to_string(), label: "Purchasing".to_string() },
-        SelectOption { value: "Warehouse".to_string(), label: "Warehouse".to_string() },
-        SelectOption { value: "Manufacturing".to_string(), label: "Manufacturing".to_string() },
-        SelectOption { value: "Admin".to_string(), label: "Admin".to_string() },
-        SelectOption { value: "Finance".to_string(), label: "Finance".to_string() },
+        SelectOption {
+            value: "Sales".to_string(),
+            label: "Sales".to_string(),
+        },
+        SelectOption {
+            value: "Purchasing".to_string(),
+            label: "Purchasing".to_string(),
+        },
+        SelectOption {
+            value: "Warehouse".to_string(),
+            label: "Warehouse".to_string(),
+        },
+        SelectOption {
+            value: "Manufacturing".to_string(),
+            label: "Manufacturing".to_string(),
+        },
+        SelectOption {
+            value: "Admin".to_string(),
+            label: "Admin".to_string(),
+        },
+        SelectOption {
+            value: "Finance".to_string(),
+            label: "Finance".to_string(),
+        },
     ]
 }
 
 fn designation_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "Sales Manager".to_string(), label: "Sales Manager".to_string() },
-        SelectOption { value: "Sales Representative".to_string(), label: "Sales Representative".to_string() },
-        SelectOption { value: "Sales Trainee".to_string(), label: "Sales Trainee".to_string() },
-        SelectOption { value: "Chief Accountant".to_string(), label: "Chief Accountant".to_string() },
-        SelectOption { value: "Accounts Clerk".to_string(), label: "Accounts Clerk".to_string() },
-        SelectOption { value: "Tax Specialist".to_string(), label: "Tax Specialist".to_string() },
-        SelectOption { value: "Procurement Officer".to_string(), label: "Procurement Officer".to_string() },
-        SelectOption { value: "Buyer".to_string(), label: "Buyer".to_string() },
-        SelectOption { value: "Production Supervisor".to_string(), label: "Production Supervisor".to_string() },
-        SelectOption { value: "Machine Operator".to_string(), label: "Machine Operator".to_string() },
-        SelectOption { value: "Quality Inspector".to_string(), label: "Quality Inspector".to_string() },
-        SelectOption { value: "Warehouse Manager".to_string(), label: "Warehouse Manager".to_string() },
-        SelectOption { value: "Store Keeper".to_string(), label: "Store Keeper".to_string() },
-        SelectOption { value: "HR Assistant".to_string(), label: "HR Assistant".to_string() },
-        SelectOption { value: "Office Assistant".to_string(), label: "Office Assistant".to_string() },
+        SelectOption {
+            value: "Sales Manager".to_string(),
+            label: "Sales Manager".to_string(),
+        },
+        SelectOption {
+            value: "Sales Representative".to_string(),
+            label: "Sales Representative".to_string(),
+        },
+        SelectOption {
+            value: "Sales Trainee".to_string(),
+            label: "Sales Trainee".to_string(),
+        },
+        SelectOption {
+            value: "Chief Accountant".to_string(),
+            label: "Chief Accountant".to_string(),
+        },
+        SelectOption {
+            value: "Accounts Clerk".to_string(),
+            label: "Accounts Clerk".to_string(),
+        },
+        SelectOption {
+            value: "Tax Specialist".to_string(),
+            label: "Tax Specialist".to_string(),
+        },
+        SelectOption {
+            value: "Procurement Officer".to_string(),
+            label: "Procurement Officer".to_string(),
+        },
+        SelectOption {
+            value: "Buyer".to_string(),
+            label: "Buyer".to_string(),
+        },
+        SelectOption {
+            value: "Production Supervisor".to_string(),
+            label: "Production Supervisor".to_string(),
+        },
+        SelectOption {
+            value: "Machine Operator".to_string(),
+            label: "Machine Operator".to_string(),
+        },
+        SelectOption {
+            value: "Quality Inspector".to_string(),
+            label: "Quality Inspector".to_string(),
+        },
+        SelectOption {
+            value: "Warehouse Manager".to_string(),
+            label: "Warehouse Manager".to_string(),
+        },
+        SelectOption {
+            value: "Store Keeper".to_string(),
+            label: "Store Keeper".to_string(),
+        },
+        SelectOption {
+            value: "HR Assistant".to_string(),
+            label: "HR Assistant".to_string(),
+        },
+        SelectOption {
+            value: "Office Assistant".to_string(),
+            label: "Office Assistant".to_string(),
+        },
     ]
 }
 
@@ -87,23 +149,76 @@ pub fn EmployeeCreatePage() -> Element {
         let mut toast = toast.clone();
         move || -> bool {
             let mut errs = HashMap::<&'static str, String>::new();
-            if name.read().trim().is_empty() { errs.insert("name", "Full name is required.".to_string()); }
-            if dept.read().is_empty() { errs.insert("dept", "Department is required.".to_string()); }
-            if desig.read().is_empty() { errs.insert("desig", "Designation is required.".to_string()); }
+            if name.read().trim().is_empty() {
+                errs.insert("name", "Full name is required.".to_string());
+            }
+            if dept.read().is_empty() {
+                errs.insert("dept", "Department is required.".to_string());
+            }
+            if desig.read().is_empty() {
+                errs.insert("desig", "Designation is required.".to_string());
+            }
             let valid = errs.is_empty();
-            if !valid { toast.warning("Validation Error", "Please fix the highlighted fields."); }
+            if !valid {
+                toast.warning("Validation Error", "Please fix the highlighted fields.");
+            }
             valid
         }
     };
 
-    let make_dirty = { let mut d = is_dirty.clone(); move || d.set(true) };
+    let make_dirty = {
+        let mut d = is_dirty.clone();
+        move || d.set(true)
+    };
 
-    let on_name = { let mut n = full_name.clone(); let mut d = make_dirty.clone(); move |v: String| { n.set(v); d(); } };
-    let on_email = { let mut e = email.clone(); let mut d = make_dirty.clone(); move |v: String| { e.set(v); d(); } };
-    let on_phone = { let mut p = phone.clone(); let mut d = make_dirty.clone(); move |v: String| { p.set(v); d(); } };
-    let on_dept = { let mut d = department.clone(); let mut dirty = make_dirty.clone(); move |v: String| { d.set(v); dirty(); } };
-    let on_desig = { let mut d = designation.clone(); let mut dirty = make_dirty.clone(); move |v: String| { d.set(v); dirty(); } };
-    let on_join = { let mut j = join_date.clone(); let mut d = make_dirty.clone(); move |v: String| { j.set(v); d(); } };
+    let on_name = {
+        let mut n = full_name.clone();
+        let mut d = make_dirty.clone();
+        move |v: String| {
+            n.set(v);
+            d();
+        }
+    };
+    let on_email = {
+        let mut e = email.clone();
+        let mut d = make_dirty.clone();
+        move |v: String| {
+            e.set(v);
+            d();
+        }
+    };
+    let on_phone = {
+        let mut p = phone.clone();
+        let mut d = make_dirty.clone();
+        move |v: String| {
+            p.set(v);
+            d();
+        }
+    };
+    let on_dept = {
+        let mut d = department.clone();
+        let mut dirty = make_dirty.clone();
+        move |v: String| {
+            d.set(v);
+            dirty();
+        }
+    };
+    let on_desig = {
+        let mut d = designation.clone();
+        let mut dirty = make_dirty.clone();
+        move |v: String| {
+            d.set(v);
+            dirty();
+        }
+    };
+    let on_join = {
+        let mut j = join_date.clone();
+        let mut d = make_dirty.clone();
+        move |v: String| {
+            j.set(v);
+            d();
+        }
+    };
 
     let save_emp = {
         let mut saving = is_saving.clone();
@@ -119,7 +234,9 @@ pub fn EmployeeCreatePage() -> Element {
         let api = api.clone();
         let mut validate = validate.clone();
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let n = name.read().clone();
             let eml_v = eml.read().clone();
@@ -153,8 +270,12 @@ pub fn EmployeeCreatePage() -> Element {
                 };
                 match api.read().create_employee(&form).await {
                     Ok(emp) => {
-                        toast.success("Employee Created", &format!("{} ({}) has been created.", n, emp.employee_code));
-                        saving.set(false); dirty.set(false);
+                        toast.success(
+                            "Employee Created",
+                            &format!("{} ({}) has been created.", n, emp.employee_code),
+                        );
+                        saving.set(false);
+                        dirty.set(false);
                         nav.push("/employees");
                     }
                     Err(e) => {
@@ -182,7 +303,9 @@ pub fn EmployeeCreatePage() -> Element {
         let api = api.clone();
         let mut validate = validate.clone();
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let n = name.read().clone();
             let eml_v = eml.read().clone();
@@ -224,12 +347,21 @@ pub fn EmployeeCreatePage() -> Element {
                 };
                 match api.read().create_employee(&form).await {
                     Ok(emp) => {
-                        toast.success("Employee Created", &format!("{} ({}) created. Creating another…", n, emp.employee_code));
+                        toast.success(
+                            "Employee Created",
+                            &format!("{} ({}) created. Creating another…", n, emp.employee_code),
+                        );
                         code.set(String::new());
-                        name.set(String::new()); eml.set(String::new()); ph.set(String::new());
-                        dept.set(String::new()); desig.set(String::new());
-                        etype.set("Permanent".to_string()); join.set(String::new()); active.set(true);
-                        saving.set(false); dirty.set(false);
+                        name.set(String::new());
+                        eml.set(String::new());
+                        ph.set(String::new());
+                        dept.set(String::new());
+                        desig.set(String::new());
+                        etype.set("Permanent".to_string());
+                        join.set(String::new());
+                        active.set(true);
+                        saving.set(false);
+                        dirty.set(false);
                     }
                     Err(e) => {
                         toast.error("Error", &format!("Failed to create employee: {}", e));
@@ -244,7 +376,13 @@ pub fn EmployeeCreatePage() -> Element {
         let mut modal = show_discard_modal.clone();
         let mut dirty = is_dirty.clone();
         let mut nav = navigator.clone();
-        move |_| { if *dirty.read() { modal.set(true); } else { nav.push("/employees"); } }
+        move |_| {
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/employees");
+            }
+        }
     };
 
     let type_options = ["Permanent", "Contract", "Intern"];

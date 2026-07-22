@@ -55,7 +55,8 @@ pub fn SearchableSelect(props: SearchableSelectProps) -> Element {
         if search.is_empty() {
             options.clone()
         } else {
-            options.iter()
+            options
+                .iter()
                 .filter(|o| o.label.to_lowercase().contains(&search))
                 .cloned()
                 .collect::<Vec<_>>()
@@ -71,7 +72,11 @@ pub fn SearchableSelect(props: SearchableSelectProps) -> Element {
         }
     };
 
-    let chevron_class = if *is_open.read() { "cb-select-chevron cb-select-chevron-open" } else { "cb-select-chevron" };
+    let chevron_class = if *is_open.read() {
+        "cb-select-chevron cb-select-chevron-open"
+    } else {
+        "cb-select-chevron"
+    };
 
     rsx! {
         div {

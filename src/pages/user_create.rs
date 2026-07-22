@@ -2,8 +2,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType,
-    SearchableSelect, SelectOption, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, SearchableSelect,
+    SelectOption,
 };
 use dioxus::prelude::*;
 
@@ -48,17 +48,21 @@ pub fn UserCreatePage() -> Element {
             spawn(async move {
                 let client = api.read().clone();
                 if let Ok(list) = client.list_roles().await {
-                    let parsed: Vec<(i64, String)> = list.iter()
-                        .map(|r| (r.id, r.role_name.clone()))
-                        .collect();
+                    let parsed: Vec<(i64, String)> =
+                        list.iter().map(|r| (r.id, r.role_name.clone())).collect();
                     roles.set(parsed);
                 }
             });
         });
     }
 
-    let role_options: Vec<SelectOption> = roles.read().iter()
-        .map(|(id, name)| SelectOption { value: id.to_string(), label: name.clone() })
+    let role_options: Vec<SelectOption> = roles
+        .read()
+        .iter()
+        .map(|(id, name)| SelectOption {
+            value: id.to_string(),
+            label: name.clone(),
+        })
         .collect();
 
     let validate = {
@@ -106,7 +110,9 @@ pub fn UserCreatePage() -> Element {
         let mut validate = validate.clone();
         let mut dirty = is_dirty.clone();
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let form = serde_json::json!({
                 "username": u.read().trim(),
@@ -125,7 +131,10 @@ pub fn UserCreatePage() -> Element {
                 let client = api.read().clone();
                 match client.create_user(&form).await {
                     Ok(_) => {
-                        toast.success("User Created", &format!("User '{}' has been created.", u.read()));
+                        toast.success(
+                            "User Created",
+                            &format!("User '{}' has been created.", u.read()),
+                        );
                         dirty.set(false);
                         nav.push("/users");
                     }
@@ -152,7 +161,9 @@ pub fn UserCreatePage() -> Element {
         let mut validate = validate.clone();
         let mut dirty = is_dirty.clone();
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let form = serde_json::json!({
                 "username": u.read().trim(),
@@ -190,7 +201,10 @@ pub fn UserCreatePage() -> Element {
         }
     };
 
-    let make_dirty = { let mut d = is_dirty.clone(); move || d.set(true) };
+    let make_dirty = {
+        let mut d = is_dirty.clone();
+        move || d.set(true)
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }

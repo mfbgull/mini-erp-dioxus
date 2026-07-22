@@ -64,13 +64,23 @@ struct DemandPeriod {
 }
 
 fn parse_timeline(data: &serde_json::Value) -> Vec<DemandPeriod> {
-    data.as_array().map(|arr| arr.iter().map(|item| DemandPeriod {
-        period: item.get("period").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        historical: item.get("historical").and_then(|v| v.as_f64()),
-        forecasted: item.get("forecasted").and_then(|v| v.as_f64()),
-        lower_bound: item.get("lower_bound").and_then(|v| v.as_f64()),
-        upper_bound: item.get("upper_bound").and_then(|v| v.as_f64()),
-    }).collect()).unwrap_or_default()
+    data.as_array()
+        .map(|arr| {
+            arr.iter()
+                .map(|item| DemandPeriod {
+                    period: item
+                        .get("period")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    historical: item.get("historical").and_then(|v| v.as_f64()),
+                    forecasted: item.get("forecasted").and_then(|v| v.as_f64()),
+                    lower_bound: item.get("lower_bound").and_then(|v| v.as_f64()),
+                    upper_bound: item.get("upper_bound").and_then(|v| v.as_f64()),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 // ============================================================================
@@ -108,8 +118,13 @@ pub fn DemandForecastPage() -> Element {
         };
     }
 
-    let max_val = data.iter()
-        .map(|d| d.historical.unwrap_or(0.0).max(d.upper_bound.unwrap_or(0.0)))
+    let max_val = data
+        .iter()
+        .map(|d| {
+            d.historical
+                .unwrap_or(0.0)
+                .max(d.upper_bound.unwrap_or(0.0))
+        })
         .fold(0.0_f64, f64::max);
 
     let total_hist: f64 = data.iter().filter_map(|d| d.historical).sum();
@@ -118,13 +133,19 @@ pub fn DemandForecastPage() -> Element {
     let fc_count = data.iter().filter(|d| d.forecasted.is_some()).count();
     let bar_count = data.len();
     let chart_width = (bar_count as f64 * 25.0).max(500.0);
-    let bar_width_pct = if bar_count > 0 { chart_width / bar_count as f64 } else { chart_width };
+    let bar_width_pct = if bar_count > 0 {
+        chart_width / bar_count as f64
+    } else {
+        chart_width
+    };
     let bar_gap_pct = bar_width_pct * 0.2;
     let bar_inner_pct = bar_width_pct - bar_gap_pct;
     let chart_height = 200.0;
     let sep_x = if bar_count > 0 && hist_count > 0 {
         (hist_count as f64 * bar_width_pct + bar_width_pct / 2.0).max(bar_width_pct)
-    } else { chart_width / 2.0 };
+    } else {
+        chart_width / 2.0
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }

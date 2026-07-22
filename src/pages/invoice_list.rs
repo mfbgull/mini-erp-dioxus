@@ -37,15 +37,15 @@ pub struct Invoice {
     pub invoice_no: String,
     pub customer_name: String,
     pub customer_code: String,
-    pub invoice_date: String,        // "2026-01-15"
-    pub due_date: String,            // "2026-02-14"
-    pub status: String,              // "Paid" | "Unpaid" | "Partially Paid" | "Overdue" | "Cancelled"
+    pub invoice_date: String, // "2026-01-15"
+    pub due_date: String,     // "2026-02-14"
+    pub status: String,       // "Paid" | "Unpaid" | "Partially Paid" | "Overdue" | "Cancelled"
     pub total_amount: f64,
     pub paid_amount: f64,
     pub balance_amount: f64,
     pub discount_percent: f64,
     pub item_count: i32,
-    pub source_type: String,         // "Direct" | "Sales Order" | "POS"
+    pub source_type: String, // "Direct" | "Sales Order" | "POS"
     pub notes: String,
 }
 
@@ -159,7 +159,8 @@ pub fn InvoiceListPage() -> Element {
 
     // ── Derive loading state and data ──
     let is_loading = invoices_resource.read().is_none();
-    let invoices = invoices_resource.read()
+    let invoices = invoices_resource
+        .read()
         .as_ref()
         .cloned()
         .unwrap_or_default();
@@ -171,31 +172,31 @@ pub fn InvoiceListPage() -> Element {
 
     let columns: Vec<ColumnDef<Invoice>> = vec![
         // Invoice number — text column with text filter, editable
-        ColumnDef::text("inv_no", "Invoice #", |inv: &Invoice| inv.invoice_no.clone())
-            .with_width(ColumnWidth::Px(140))
-            .with_filter(FilterType::Text)
-            .with_editable(true),
-
+        ColumnDef::text("inv_no", "Invoice #", |inv: &Invoice| {
+            inv.invoice_no.clone()
+        })
+        .with_width(ColumnWidth::Px(140))
+        .with_filter(FilterType::Text)
+        .with_editable(true),
         // Customer — text column with text filter, fills remaining space, editable
         ColumnDef::text("customer", "Customer", |inv: &Invoice| {
             format!("{} ({})", inv.customer_name, inv.customer_code)
         })
-            .with_width(ColumnWidth::Fr(1.2))
-            .with_filter(FilterType::Text)
-            .with_editable(true),
-
+        .with_width(ColumnWidth::Fr(1.2))
+        .with_filter(FilterType::Text)
+        .with_editable(true),
         // Invoice date — date renderer with date range filter
-        ColumnDef::text("date", "Invoice Date", |inv: &Invoice| inv.invoice_date.clone())
-            .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
-
+        ColumnDef::text("date", "Invoice Date", |inv: &Invoice| {
+            inv.invoice_date.clone()
+        })
+        .with_width(ColumnWidth::Px(130))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
         // Due date — date renderer with date range filter
         ColumnDef::text("due_date", "Due Date", |inv: &Invoice| inv.due_date.clone())
             .with_width(ColumnWidth::Px(130))
             .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
             .with_filter(FilterType::Date),
-
         // Status — badge renderer with select filter
         ColumnDef::text("status", "Status", |inv: &Invoice| inv.status.clone())
             .with_width(ColumnWidth::Px(130))
@@ -226,49 +227,59 @@ pub fn InvoiceListPage() -> Element {
                     String::new()
                 }
             })),
-
         // Total amount — currency renderer with number range filter
-        ColumnDef::text("total", "Total", |inv: &Invoice| inv.total_amount.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(140))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 })
-            .with_filter(FilterType::Number),
-
+        ColumnDef::text("total", "Total", |inv: &Invoice| {
+            inv.total_amount.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(140))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 2,
+        })
+        .with_filter(FilterType::Number),
         // Paid amount — currency renderer
         ColumnDef::text("paid", "Paid", |inv: &Invoice| inv.paid_amount.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(140))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 }),
-
+            .with_renderer(CellRenderer::Currency {
+                code: "PKR",
+                decimals: 2,
+            }),
         // Balance — currency renderer with cell class for overdue warning
-        ColumnDef::text("balance", "Balance", |inv: &Invoice| inv.balance_amount.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(140))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 })
-            .with_cell_class(CellClassRule::new(|inv: &Invoice| {
-                if inv.status == "Overdue" && inv.balance_amount > 0.0 {
-                    "text-danger fw-bold".to_string()
-                } else if inv.balance_amount > 0.0 {
-                    "text-warning".to_string()
-                } else {
-                    String::new()
-                }
-            })),
-
+        ColumnDef::text("balance", "Balance", |inv: &Invoice| {
+            inv.balance_amount.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(140))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 2,
+        })
+        .with_cell_class(CellClassRule::new(|inv: &Invoice| {
+            if inv.status == "Overdue" && inv.balance_amount > 0.0 {
+                "text-danger fw-bold".to_string()
+            } else if inv.balance_amount > 0.0 {
+                "text-warning".to_string()
+            } else {
+                String::new()
+            }
+        })),
         // Discount — percentage renderer
         ColumnDef::text("discount", "Disc.", |inv: &Invoice| {
             (inv.discount_percent / 100.0).to_string()
         })
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(80))
-            .with_renderer(CellRenderer::Percentage { decimals: 1 }),
-
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(80))
+        .with_renderer(CellRenderer::Percentage { decimals: 1 }),
         // Items count — number renderer
         ColumnDef::text("items", "Items", |inv: &Invoice| inv.item_count.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(70))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 }),
-
+            .with_renderer(CellRenderer::Number {
+                prefix: "",
+                decimals: 0,
+            }),
         // Source — text with select filter
         ColumnDef::text("source", "Source", |inv: &Invoice| inv.source_type.clone())
             .with_width(ColumnWidth::Px(110))
@@ -292,13 +303,16 @@ pub fn InvoiceListPage() -> Element {
     };
 
     // Cell edit: log the change (in production, update the data source)
-    let on_cell_edit = move |(row_idx, col_key, _old_val, new_val): (usize, &'static str, String, String)| {
-        tracing::info!(
-            "Cell edited: row={}, col={}, new_value={}",
-            row_idx, col_key, new_val,
-        );
-        // In production: update the row in the data source and re-render.
-    };
+    let on_cell_edit =
+        move |(row_idx, col_key, _old_val, new_val): (usize, &'static str, String, String)| {
+            tracing::info!(
+                "Cell edited: row={}, col={}, new_value={}",
+                row_idx,
+                col_key,
+                new_val,
+            );
+            // In production: update the row in the data source and re-render.
+        };
 
     // ── Render ──
 

@@ -25,7 +25,12 @@ use crate::calculations::{round_money, Discount, DiscountScope, DiscountType, In
 /// // Flat discount: subtract 20 directly
 /// assert_eq!(calculate_item_discount(5.0, 100.0, "flat", 20.0), 20.0);
 /// ```
-pub fn calculate_item_discount(quantity: f64, unit_price: f64, discount_type: &str, discount_value: f64) -> f64 {
+pub fn calculate_item_discount(
+    quantity: f64,
+    unit_price: f64,
+    discount_type: &str,
+    discount_value: f64,
+) -> f64 {
     let gross = quantity * unit_price;
     match discount_type {
         "flat" => round_money(discount_value.min(gross)),
@@ -88,9 +93,7 @@ pub fn calculate_total(subtotal: f64, discount: &Discount, tax: f64) -> f64 {
             let after_discount = subtotal - disc_amt;
             round_money(after_discount + tax)
         }
-        DiscountScope::AfterTax => {
-            round_money(subtotal - disc_amt + tax)
-        }
+        DiscountScope::AfterTax => round_money(subtotal - disc_amt + tax),
     }
 }
 

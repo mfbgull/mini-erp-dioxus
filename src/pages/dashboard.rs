@@ -505,16 +505,43 @@ pub fn DashboardPage() -> Element {
     let activity_logs = activity_resource.read().clone().unwrap_or_default();
     let items = items_resource.read().clone().unwrap_or_default();
 
-    let total_revenue = summary.get("total_revenue").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let _total_expenses = summary.get("total_expenses").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let total_invoices = summary.get("total_invoices").and_then(|v| v.as_i64()).unwrap_or(0);
-    let total_customers = summary.get("total_customers").and_then(|v| v.as_i64()).unwrap_or(0);
-    let low_stock_count = summary.get("low_stock_count").and_then(|v| v.as_i64()).unwrap_or(0);
-    let outstanding_ar = ar_data.get("current").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let total_revenue = summary
+        .get("total_revenue")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let _total_expenses = summary
+        .get("total_expenses")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let total_invoices = summary
+        .get("total_invoices")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let total_customers = summary
+        .get("total_customers")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let low_stock_count = summary
+        .get("low_stock_count")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let outstanding_ar = ar_data
+        .get("current")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
 
-    let unpaid_invoices = summary.get("total_invoices").and_then(|v| v.as_i64()).unwrap_or(0);
-    let today_sales = sales_data.get("today").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let this_month_sales = sales_data.get("this_month").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let unpaid_invoices = summary
+        .get("total_invoices")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let today_sales = sales_data
+        .get("today")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let this_month_sales = sales_data
+        .get("this_month")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
 
     let kpis = vec![
         KpiData {
@@ -555,53 +582,78 @@ pub fn DashboardPage() -> Element {
     ];
 
     let sales_chart: Vec<MonthlySales> = vec![
-        MonthlySales { month: "Today".to_string(), amount: today_sales },
-        MonthlySales { month: "Week".to_string(), amount: sales_data.get("this_week").and_then(|v| v.as_f64()).unwrap_or(0.0) },
-        MonthlySales { month: "Month".to_string(), amount: this_month_sales },
+        MonthlySales {
+            month: "Today".to_string(),
+            amount: today_sales,
+        },
+        MonthlySales {
+            month: "Week".to_string(),
+            amount: sales_data
+                .get("this_week")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0),
+        },
+        MonthlySales {
+            month: "Month".to_string(),
+            amount: this_month_sales,
+        },
     ];
 
-    let activity: Vec<ActivityItem> = activity_logs.into_iter().take(5).map(|log| {
-        let (icon, bg) = activity_icon_for(&log.action);
-        let username = log.username.unwrap_or_else(|| "System".to_string());
-        let entity = log.entity_type;
-        let meta = log.metadata.unwrap_or_default();
-        let time = relative_time(&log.created_at);
-        let text = if meta.is_empty() {
-            format!("<strong>{}</strong> {} <strong>{}</strong>", username, log.action, entity)
-        } else {
-            format!("<strong>{}</strong> {} <strong>{}</strong> — {}", username, log.action, entity, meta)
-        };
-        ActivityItem {
-            icon: icon.to_string(),
-            icon_bg: bg.to_string(),
-            text,
-            time,
-        }
-    }).collect();
-
-    let alerts: Vec<LowStockItem> = items.into_iter().filter_map(|item| {
-        if item.current_stock <= item.reorder_level && item.is_active {
-            let severity = if item.current_stock == 0.0 {
-                Severity::Critical
-            } else if item.current_stock <= item.reorder_level * 0.25 {
-                Severity::Critical
-            } else if item.current_stock <= item.reorder_level {
-                Severity::Warning
+    let activity: Vec<ActivityItem> = activity_logs
+        .into_iter()
+        .take(5)
+        .map(|log| {
+            let (icon, bg) = activity_icon_for(&log.action);
+            let username = log.username.unwrap_or_else(|| "System".to_string());
+            let entity = log.entity_type;
+            let meta = log.metadata.unwrap_or_default();
+            let time = relative_time(&log.created_at);
+            let text = if meta.is_empty() {
+                format!(
+                    "<strong>{}</strong> {} <strong>{}</strong>",
+                    username, log.action, entity
+                )
             } else {
-                return None;
+                format!(
+                    "<strong>{}</strong> {} <strong>{}</strong> — {}",
+                    username, log.action, entity, meta
+                )
             };
-            Some(LowStockItem {
-                name: item.item_name,
-                code: item.item_code,
-                current_stock: item.current_stock,
-                reorder_level: item.reorder_level,
-                unit: item.unit_of_measure,
-                severity,
-            })
-        } else {
-            None
-        }
-    }).collect();
+            ActivityItem {
+                icon: icon.to_string(),
+                icon_bg: bg.to_string(),
+                text,
+                time,
+            }
+        })
+        .collect();
+
+    let alerts: Vec<LowStockItem> = items
+        .into_iter()
+        .filter_map(|item| {
+            if item.current_stock <= item.reorder_level && item.is_active {
+                let severity = if item.current_stock == 0.0 {
+                    Severity::Critical
+                } else if item.current_stock <= item.reorder_level * 0.25 {
+                    Severity::Critical
+                } else if item.current_stock <= item.reorder_level {
+                    Severity::Warning
+                } else {
+                    return None;
+                };
+                Some(LowStockItem {
+                    name: item.item_name,
+                    code: item.item_code,
+                    current_stock: item.current_stock,
+                    reorder_level: item.reorder_level,
+                    unit: item.unit_of_measure,
+                    severity,
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
 
     if any_loading {
         rsx! {

@@ -13,16 +13,47 @@ use serde_json::json;
 pub fn router() -> Router<AppState> {
     Router::new()
         // Sales Orders
-        .route("/api/sales/sales-orders", get(list_sales_orders).post(create_sales_order))
-        .route("/api/sales/sales-orders/{id}", get(get_sales_order).put(update_sales_order).delete(delete_sales_order))
-        .route("/api/sales/sales-orders/{id}/cancel", post(cancel_sales_order))
-        .route("/api/sales/sales-orders/{id}/convert", post(convert_sales_order))
-        .route("/api/sales/sales-orders/{id}/cycle-chain", get(so_cycle_chain))
+        .route(
+            "/api/sales/sales-orders",
+            get(list_sales_orders).post(create_sales_order),
+        )
+        .route(
+            "/api/sales/sales-orders/{id}",
+            get(get_sales_order)
+                .put(update_sales_order)
+                .delete(delete_sales_order),
+        )
+        .route(
+            "/api/sales/sales-orders/{id}/cancel",
+            post(cancel_sales_order),
+        )
+        .route(
+            "/api/sales/sales-orders/{id}/convert",
+            post(convert_sales_order),
+        )
+        .route(
+            "/api/sales/sales-orders/{id}/cycle-chain",
+            get(so_cycle_chain),
+        )
         // Quotations
-        .route("/api/sales/quotations", get(list_quotations).post(create_quotation))
-        .route("/api/sales/quotations/{id}", get(get_quotation).put(update_quotation).delete(delete_quotation))
-        .route("/api/sales/quotations/{id}/convert", post(convert_quotation))
-        .route("/api/sales/quotations/{id}/cycle-chain", get(quotation_cycle_chain))
+        .route(
+            "/api/sales/quotations",
+            get(list_quotations).post(create_quotation),
+        )
+        .route(
+            "/api/sales/quotations/{id}",
+            get(get_quotation)
+                .put(update_quotation)
+                .delete(delete_quotation),
+        )
+        .route(
+            "/api/sales/quotations/{id}/convert",
+            post(convert_quotation),
+        )
+        .route(
+            "/api/sales/quotations/{id}/cycle-chain",
+            get(quotation_cycle_chain),
+        )
         // Sales Dashboard
         .route("/api/sales/dashboard", get(sales_dashboard))
         // Returns
@@ -43,18 +74,35 @@ async fn list_sales_orders(State(_state): State<AppState>) -> impl IntoResponse 
          FROM sales_orders so LEFT JOIN customers c ON so.customer_id = c.id
          ORDER BY so.created_at DESC"
     ).unwrap();
-    let items: Vec<SalesOrder> = stmt.query_map([], |row| {
-        Ok(SalesOrder {
-            id: row.get(0)?, so_no: row.get(1)?, customer_id: row.get(2)?,
-            customer_name: row.get(3)?, customer_code: row.get(4)?, so_date: row.get(5)?,
-            status: row.get(6)?, delivery_date: row.get(7)?,
-            source_type: row.get(8)?, source_id: row.get(9)?, total_amount: row.get(10)?,
-            warehouse_id: row.get(11)?, notes: row.get(12)?, created_by: row.get(13)?,
-            created_at: row.get(14)?, updated_at: row.get(15)?,
-            item_count: row.get(16)?,
+    let items: Vec<SalesOrder> = stmt
+        .query_map([], |row| {
+            Ok(SalesOrder {
+                id: row.get(0)?,
+                so_no: row.get(1)?,
+                customer_id: row.get(2)?,
+                customer_name: row.get(3)?,
+                customer_code: row.get(4)?,
+                so_date: row.get(5)?,
+                status: row.get(6)?,
+                delivery_date: row.get(7)?,
+                source_type: row.get(8)?,
+                source_id: row.get(9)?,
+                total_amount: row.get(10)?,
+                warehouse_id: row.get(11)?,
+                notes: row.get(12)?,
+                created_by: row.get(13)?,
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
+                item_count: row.get(16)?,
+            })
         })
-    }).unwrap().filter_map(|r| r.ok()).collect();
-    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    (
+        StatusCode::OK,
+        Json(json!({ "success": true, "data": items })),
+    )
 }
 
 async fn get_sales_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
@@ -78,36 +126,67 @@ async fn get_sales_order(State(_state): State<AppState>, Path(id): Path<i64>) ->
     );
     match result {
         Ok(so) => {
-            let mut stmt = db.prepare(
-                "SELECT si.id, si.so_id, si.item_id, i.item_name, i.item_code,
+            let mut stmt = db
+                .prepare(
+                    "SELECT si.id, si.so_id, si.item_id, i.item_name, i.item_code,
                         si.description, si.quantity, si.delivered_quantity, si.unit_price, si.amount
                  FROM sales_order_items si LEFT JOIN items i ON si.item_id = i.id
-                 WHERE si.so_id = ?1"
-            ).unwrap();
-            let items: Vec<SalesOrderItem> = stmt.query_map([id], |row| {
-                Ok(SalesOrderItem {
-                    id: row.get(0)?, so_id: row.get(1)?, item_id: row.get(2)?,
-                    item_name: row.get(3)?, item_code: row.get(4)?, description: row.get(5)?,
-                    quantity: row.get(6)?, delivered_quantity: row.get(7)?,
-                    unit_price: row.get(8)?, amount: row.get(9)?,
+                 WHERE si.so_id = ?1",
+                )
+                .unwrap();
+            let items: Vec<SalesOrderItem> = stmt
+                .query_map([id], |row| {
+                    Ok(SalesOrderItem {
+                        id: row.get(0)?,
+                        so_id: row.get(1)?,
+                        item_id: row.get(2)?,
+                        item_name: row.get(3)?,
+                        item_code: row.get(4)?,
+                        description: row.get(5)?,
+                        quantity: row.get(6)?,
+                        delivered_quantity: row.get(7)?,
+                        unit_price: row.get(8)?,
+                        amount: row.get(9)?,
+                    })
                 })
-            }).unwrap().filter_map(|r| r.ok()).collect();
-            (StatusCode::OK, Json(json!({ "success": true, "data": { "sales_order": so, "items": items } })))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect();
+            (
+                StatusCode::OK,
+                Json(json!({ "success": true, "data": { "sales_order": so, "items": items } })),
+            )
         }
-        Err(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Sales order not found." }))),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "Sales order not found." })),
+        ),
     }
 }
 
-async fn create_sales_order(State(_state): State<AppState>, Json(form): Json<SalesOrderForm>) -> impl IntoResponse {
+async fn create_sales_order(
+    State(_state): State<AppState>,
+    Json(form): Json<SalesOrderForm>,
+) -> impl IntoResponse {
     if form.items.is_empty() {
-        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "At least one item is required." })));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "error": "At least one item is required." })),
+        );
     }
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
         tracing::error!("Failed to begin transaction: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "error": "Failed to start transaction." })),
+        );
     }
-    let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM sales_orders", [], |row| row.get(0)).unwrap_or(1);
+    let seq: i64 = db
+        .query_row("SELECT COUNT(*) + 1 FROM sales_orders", [], |row| {
+            row.get(0)
+        })
+        .unwrap_or(1);
     let so_no = format!("SO-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
     let total: f64 = form.items.iter().map(|i| i.quantity * i.unit_price).sum();
 
@@ -134,15 +213,32 @@ async fn create_sales_order(State(_state): State<AppState>, Json(form): Json<Sal
             if let Err(e) = db.execute_batch("COMMIT") {
                 let _ = db.execute_batch("ROLLBACK");
                 tracing::error!("Failed to commit SO: {}", e);
-                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to commit transaction." })));
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "success": false, "error": "Failed to commit transaction." })),
+                );
             }
-            (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": so_id, "so_no": so_no } })))
+            (
+                StatusCode::CREATED,
+                Json(json!({ "success": true, "data": { "id": so_id, "so_no": so_no } })),
+            )
         }
-        Err(e) => { let _ = db.execute_batch("ROLLBACK"); tracing::error!("Failed to create SO: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create sales order." }))) }
+        Err(e) => {
+            let _ = db.execute_batch("ROLLBACK");
+            tracing::error!("Failed to create SO: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "error": "Failed to create sales order." })),
+            )
+        }
     }
 }
 
-async fn update_sales_order(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<SalesOrderForm>) -> impl IntoResponse {
+async fn update_sales_order(
+    State(_state): State<AppState>,
+    Path(id): Path<i64>,
+    Json(form): Json<SalesOrderForm>,
+) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let total: f64 = form.items.iter().map(|i| i.quantity * i.unit_price).sum();
     let result = db.execute(
@@ -151,7 +247,8 @@ async fn update_sales_order(State(_state): State<AppState>, Path(id): Path<i64>,
     );
     match result {
         Ok(rows) if rows > 0 => {
-            db.execute("DELETE FROM sales_order_items WHERE so_id = ?1", [id]).ok();
+            db.execute("DELETE FROM sales_order_items WHERE so_id = ?1", [id])
+                .ok();
             for item in &form.items {
                 let amount = item.quantity * item.unit_price;
                 db.execute(
@@ -159,40 +256,91 @@ async fn update_sales_order(State(_state): State<AppState>, Path(id): Path<i64>,
                     rusqlite::params![id, item.item_id, item.description.as_deref().unwrap_or(""), item.quantity, item.unit_price, amount],
                 ).ok();
             }
-            (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Sales order updated." } })))
+            (
+                StatusCode::OK,
+                Json(json!({ "success": true, "data": { "message": "Sales order updated." } })),
+            )
         }
-        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Sales order not found." }))),
-        Err(e) => { tracing::error!("Failed to update SO: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update sales order." }))) }
+        Ok(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "Sales order not found." })),
+        ),
+        Err(e) => {
+            tracing::error!("Failed to update SO: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "error": "Failed to update sales order." })),
+            )
+        }
     }
 }
 
-async fn delete_sales_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+async fn delete_sales_order(
+    State(_state): State<AppState>,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    db.execute("DELETE FROM sales_order_items WHERE so_id = ?1", [id]).ok();
+    db.execute("DELETE FROM sales_order_items WHERE so_id = ?1", [id])
+        .ok();
     let result = db.execute("DELETE FROM sales_orders WHERE id = ?1", [id]);
     match result {
-        Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Sales order deleted." } }))),
-        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Sales order not found." }))),
-        Err(e) => { tracing::error!("Failed to delete SO: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to delete sales order." }))) }
+        Ok(rows) if rows > 0 => (
+            StatusCode::OK,
+            Json(json!({ "success": true, "data": { "message": "Sales order deleted." } })),
+        ),
+        Ok(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "Sales order not found." })),
+        ),
+        Err(e) => {
+            tracing::error!("Failed to delete SO: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "error": "Failed to delete sales order." })),
+            )
+        }
     }
 }
 
-async fn cancel_sales_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+async fn cancel_sales_order(
+    State(_state): State<AppState>,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let result = db.execute("UPDATE sales_orders SET status = 'Cancelled', updated_at = datetime('now') WHERE id = ?1 AND status != 'Cancelled'", [id]);
     match result {
-        Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Sales order cancelled." } }))),
-        Ok(_) => (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Sales order not found or already cancelled." }))),
-        Err(e) => { tracing::error!("Failed to cancel SO: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to cancel." }))) }
+        Ok(rows) if rows > 0 => (
+            StatusCode::OK,
+            Json(json!({ "success": true, "data": { "message": "Sales order cancelled." } })),
+        ),
+        Ok(_) => (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "success": false, "error": "Sales order not found or already cancelled." }),
+            ),
+        ),
+        Err(e) => {
+            tracing::error!("Failed to cancel SO: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "error": "Failed to cancel." })),
+            )
+        }
     }
 }
 
-async fn convert_sales_order(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+async fn convert_sales_order(
+    State(_state): State<AppState>,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
         tracing::error!("Failed to begin transaction: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "error": "Failed to start transaction." })),
+        );
     }
 
     let so = db.query_row(
@@ -202,7 +350,9 @@ async fn convert_sales_order(State(_state): State<AppState>, Path(id): Path<i64>
     );
     match so {
         Ok((so_id, customer_id, warehouse_id)) => {
-            let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM invoices", [], |row| row.get(0)).unwrap_or(1);
+            let seq: i64 = db
+                .query_row("SELECT COUNT(*) + 1 FROM invoices", [], |row| row.get(0))
+                .unwrap_or(1);
             let inv_no = format!("INV-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
             let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
             let wh_id = warehouse_id.unwrap_or(1);
@@ -213,8 +363,17 @@ async fn convert_sales_order(State(_state): State<AppState>, Path(id): Path<i64>
                     "SELECT item_id, COALESCE(description, ''), quantity, unit_price, amount FROM sales_order_items WHERE so_id = ?1"
                 ).unwrap();
                 stmt.query_map([id], |row| {
-                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
-                }).unwrap().filter_map(|r| r.ok()).collect()
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                })
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect()
             };
 
             // Compute total from line items
@@ -246,11 +405,18 @@ async fn convert_sales_order(State(_state): State<AppState>, Path(id): Path<i64>
                 }
 
                 // Create stock movement OUT
-                let unit_cost: f64 = db.query_row(
-                    "SELECT COALESCE(standard_cost, 0) FROM items WHERE id = ?1", [*item_id],
-                    |row| row.get(0),
-                ).unwrap_or(0.0);
-                let mseq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| row.get(0)).unwrap_or(1);
+                let unit_cost: f64 = db
+                    .query_row(
+                        "SELECT COALESCE(standard_cost, 0) FROM items WHERE id = ?1",
+                        [*item_id],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(0.0);
+                let mseq: i64 = db
+                    .query_row("SELECT COUNT(*) + 1 FROM stock_movements", [], |row| {
+                        row.get(0)
+                    })
+                    .unwrap_or(1);
                 let mno = format!("SM-{}-{:04}", chrono::Utc::now().format("%Y"), mseq);
                 if let Err(e) = db.execute(
                     "INSERT INTO stock_movements (movement_no, item_id, warehouse_id, movement_type, quantity, unit_cost, reference_doctype, reference_docno, notes)
@@ -302,7 +468,12 @@ async fn convert_sales_order(State(_state): State<AppState>, Path(id): Path<i64>
                 ) {
                     let _ = db.execute_batch("ROLLBACK");
                     tracing::error!("Failed to update customer balance: {}", e);
-                    return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to convert SO (transaction rolled back)." })));
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(
+                            json!({ "success": false, "error": "Failed to convert SO (transaction rolled back)." }),
+                        ),
+                    );
                 }
             }
 
@@ -339,14 +510,29 @@ async fn convert_sales_order(State(_state): State<AppState>, Path(id): Path<i64>
             if let Err(e) = db.execute_batch("COMMIT") {
                 let _ = db.execute_batch("ROLLBACK");
                 tracing::error!("Failed to commit SO conversion: {}", e);
-                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to commit (transaction rolled back)." })));
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        json!({ "success": false, "error": "Failed to commit (transaction rolled back)." }),
+                    ),
+                );
             }
 
-            (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "SO converted to invoice.", "invoice_no": inv_no, "item_count": so_items.len() } })))
+            (
+                StatusCode::OK,
+                Json(
+                    json!({ "success": true, "data": { "message": "SO converted to invoice.", "invoice_no": inv_no, "item_count": so_items.len() } }),
+                ),
+            )
         }
         Err(_) => {
             let _ = db.execute_batch("ROLLBACK");
-            (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Sales order not found or not in Pending status." })))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    json!({ "success": false, "error": "Sales order not found or not in Pending status." }),
+                ),
+            )
         }
     }
 }
@@ -357,8 +543,14 @@ async fn so_cycle_chain(State(_state): State<AppState>, Path(id): Path<i64>) -> 
         Ok(json!({ "so_no": row.get::<_, String>(0)?, "quotation_id": row.get::<_, Option<i64>>(1)? }))
     });
     match so {
-        Ok(so_data) => (StatusCode::OK, Json(json!({ "success": true, "data": so_data }))),
-        Err(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Sales order not found." }))),
+        Ok(so_data) => (
+            StatusCode::OK,
+            Json(json!({ "success": true, "data": so_data })),
+        ),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "Sales order not found." })),
+        ),
     }
 }
 
@@ -374,15 +566,30 @@ async fn list_quotations(State(_state): State<AppState>) -> impl IntoResponse {
          FROM quotations q LEFT JOIN customers c ON q.customer_id = c.id
          ORDER BY q.created_at DESC"
     ).unwrap();
-    let items: Vec<Quotation> = stmt.query_map([], |row| {
-        Ok(Quotation {
-            id: row.get(0)?, quotation_no: row.get(1)?, customer_id: row.get(2)?,
-            customer_name: row.get(3)?, quotation_date: row.get(4)?, expiry_date: row.get(5)?,
-            status: row.get(6)?, total_amount: row.get(7)?, notes: row.get(8)?,
-            created_by: row.get(9)?, created_at: row.get(10)?, updated_at: row.get(11)?,
+    let items: Vec<Quotation> = stmt
+        .query_map([], |row| {
+            Ok(Quotation {
+                id: row.get(0)?,
+                quotation_no: row.get(1)?,
+                customer_id: row.get(2)?,
+                customer_name: row.get(3)?,
+                quotation_date: row.get(4)?,
+                expiry_date: row.get(5)?,
+                status: row.get(6)?,
+                total_amount: row.get(7)?,
+                notes: row.get(8)?,
+                created_by: row.get(9)?,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
+            })
         })
-    }).unwrap().filter_map(|r| r.ok()).collect();
-    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    (
+        StatusCode::OK,
+        Json(json!({ "success": true, "data": items })),
+    )
 }
 
 async fn get_quotation(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
@@ -401,41 +608,75 @@ async fn get_quotation(State(_state): State<AppState>, Path(id): Path<i64>) -> i
     );
     match result {
         Ok(q) => {
-            let mut stmt = db.prepare(
-                "SELECT qi.id, qi.quotation_id, qi.item_id, i.item_name, i.item_code,
+            let mut stmt = db
+                .prepare(
+                    "SELECT qi.id, qi.quotation_id, qi.item_id, i.item_name, i.item_code,
                         qi.description, qi.quantity, qi.unit_price, qi.discount, qi.tax, qi.amount
                  FROM quotation_items qi LEFT JOIN items i ON qi.item_id = i.id
-                 WHERE qi.quotation_id = ?1"
-            ).unwrap();
-            let items: Vec<QuotationItem> = stmt.query_map([id], |row| {
-                Ok(QuotationItem {
-                    id: row.get(0)?, quotation_id: row.get(1)?, item_id: row.get(2)?,
-                    item_name: row.get(3)?, item_code: row.get(4)?, description: row.get(5)?,
-                    quantity: row.get(6)?, unit_price: row.get(7)?, discount: row.get(8)?,
-                    tax: row.get(9)?, amount: row.get(10)?,
+                 WHERE qi.quotation_id = ?1",
+                )
+                .unwrap();
+            let items: Vec<QuotationItem> = stmt
+                .query_map([id], |row| {
+                    Ok(QuotationItem {
+                        id: row.get(0)?,
+                        quotation_id: row.get(1)?,
+                        item_id: row.get(2)?,
+                        item_name: row.get(3)?,
+                        item_code: row.get(4)?,
+                        description: row.get(5)?,
+                        quantity: row.get(6)?,
+                        unit_price: row.get(7)?,
+                        discount: row.get(8)?,
+                        tax: row.get(9)?,
+                        amount: row.get(10)?,
+                    })
                 })
-            }).unwrap().filter_map(|r| r.ok()).collect();
-            (StatusCode::OK, Json(json!({ "success": true, "data": { "quotation": q, "items": items } })))
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect();
+            (
+                StatusCode::OK,
+                Json(json!({ "success": true, "data": { "quotation": q, "items": items } })),
+            )
         }
-        Err(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Quotation not found." }))),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "Quotation not found." })),
+        ),
     }
 }
 
-async fn create_quotation(State(_state): State<AppState>, Json(form): Json<QuotationForm>) -> impl IntoResponse {
+async fn create_quotation(
+    State(_state): State<AppState>,
+    Json(form): Json<QuotationForm>,
+) -> impl IntoResponse {
     if form.items.is_empty() {
-        return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "At least one item is required." })));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "success": false, "error": "At least one item is required." })),
+        );
     }
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
         tracing::error!("Failed to begin transaction: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "error": "Failed to start transaction." })),
+        );
     }
-    let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM quotations", [], |row| row.get(0)).unwrap_or(1);
+    let seq: i64 = db
+        .query_row("SELECT COUNT(*) + 1 FROM quotations", [], |row| row.get(0))
+        .unwrap_or(1);
     let qno = format!("QUO-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
-    let total: f64 = form.items.iter().map(|i| {
-        let sub = i.quantity * i.unit_price;
-        sub - i.discount.unwrap_or(0.0) + sub * (i.tax_rate.unwrap_or(0.0) / 100.0)
-    }).sum();
+    let total: f64 = form
+        .items
+        .iter()
+        .map(|i| {
+            let sub = i.quantity * i.unit_price;
+            sub - i.discount.unwrap_or(0.0) + sub * (i.tax_rate.unwrap_or(0.0) / 100.0)
+        })
+        .sum();
 
     let result = db.execute(
         "INSERT INTO quotations (quotation_no, customer_id, quotation_date, expiry_date, status, total_amount, notes)
@@ -464,27 +705,49 @@ async fn create_quotation(State(_state): State<AppState>, Json(form): Json<Quota
             if let Err(e) = db.execute_batch("COMMIT") {
                 let _ = db.execute_batch("ROLLBACK");
                 tracing::error!("Failed to commit quotation: {}", e);
-                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to commit transaction." })));
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({ "success": false, "error": "Failed to commit transaction." })),
+                );
             }
-            (StatusCode::CREATED, Json(json!({ "success": true, "data": { "id": q_id, "quotation_no": qno } })))
+            (
+                StatusCode::CREATED,
+                Json(json!({ "success": true, "data": { "id": q_id, "quotation_no": qno } })),
+            )
         }
-        Err(e) => { let _ = db.execute_batch("ROLLBACK"); tracing::error!("Failed to create quotation: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to create quotation." }))) }
+        Err(e) => {
+            let _ = db.execute_batch("ROLLBACK");
+            tracing::error!("Failed to create quotation: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "error": "Failed to create quotation." })),
+            )
+        }
     }
 }
 
-async fn update_quotation(State(_state): State<AppState>, Path(id): Path<i64>, Json(form): Json<QuotationForm>) -> impl IntoResponse {
+async fn update_quotation(
+    State(_state): State<AppState>,
+    Path(id): Path<i64>,
+    Json(form): Json<QuotationForm>,
+) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    let total: f64 = form.items.iter().map(|i| {
-        let sub = i.quantity * i.unit_price;
-        sub - i.discount.unwrap_or(0.0) + sub * (i.tax_rate.unwrap_or(0.0) / 100.0)
-    }).sum();
+    let total: f64 = form
+        .items
+        .iter()
+        .map(|i| {
+            let sub = i.quantity * i.unit_price;
+            sub - i.discount.unwrap_or(0.0) + sub * (i.tax_rate.unwrap_or(0.0) / 100.0)
+        })
+        .sum();
     let result = db.execute(
         "UPDATE quotations SET customer_id=?1, quotation_date=?2, expiry_date=?3, total_amount=?4, notes=?5, updated_at=datetime('now') WHERE id=?6",
         rusqlite::params![form.customer_id, form.quotation_date, form.expiry_date, total, form.notes.as_deref().unwrap_or(""), id],
     );
     match result {
         Ok(rows) if rows > 0 => {
-            db.execute("DELETE FROM quotation_items WHERE quotation_id = ?1", [id]).ok();
+            db.execute("DELETE FROM quotation_items WHERE quotation_id = ?1", [id])
+                .ok();
             for item in &form.items {
                 let sub = item.quantity * item.unit_price;
                 let disc = item.discount.unwrap_or(0.0);
@@ -497,30 +760,64 @@ async fn update_quotation(State(_state): State<AppState>, Path(id): Path<i64>, J
                         item.quantity, item.unit_price, disc, tax, amount],
                 ).ok();
             }
-            (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Quotation updated." } })))
+            (
+                StatusCode::OK,
+                Json(json!({ "success": true, "data": { "message": "Quotation updated." } })),
+            )
         }
-        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Quotation not found." }))),
-        Err(e) => { tracing::error!("Failed to update quotation: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update quotation." }))) }
+        Ok(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "Quotation not found." })),
+        ),
+        Err(e) => {
+            tracing::error!("Failed to update quotation: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "error": "Failed to update quotation." })),
+            )
+        }
     }
 }
 
-async fn delete_quotation(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+async fn delete_quotation(
+    State(_state): State<AppState>,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    db.execute("DELETE FROM quotation_items WHERE quotation_id = ?1", [id]).ok();
+    db.execute("DELETE FROM quotation_items WHERE quotation_id = ?1", [id])
+        .ok();
     let result = db.execute("DELETE FROM quotations WHERE id = ?1", [id]);
     match result {
-        Ok(rows) if rows > 0 => (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Quotation deleted." } }))),
-        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Quotation not found." }))),
-        Err(e) => { tracing::error!("Failed to delete quotation: {}", e); (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to delete quotation." }))) }
+        Ok(rows) if rows > 0 => (
+            StatusCode::OK,
+            Json(json!({ "success": true, "data": { "message": "Quotation deleted." } })),
+        ),
+        Ok(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "Quotation not found." })),
+        ),
+        Err(e) => {
+            tracing::error!("Failed to delete quotation: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "success": false, "error": "Failed to delete quotation." })),
+            )
+        }
     }
 }
 
-async fn convert_quotation(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+async fn convert_quotation(
+    State(_state): State<AppState>,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
     if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
         tracing::error!("Failed to begin transaction: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to start transaction." })));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "success": false, "error": "Failed to start transaction." })),
+        );
     }
 
     let q = db.query_row(
@@ -530,7 +827,11 @@ async fn convert_quotation(State(_state): State<AppState>, Path(id): Path<i64>) 
     );
     match q {
         Ok((q_id, customer_id)) => {
-            let seq: i64 = db.query_row("SELECT COUNT(*) + 1 FROM sales_orders", [], |row| row.get(0)).unwrap_or(1);
+            let seq: i64 = db
+                .query_row("SELECT COUNT(*) + 1 FROM sales_orders", [], |row| {
+                    row.get(0)
+                })
+                .unwrap_or(1);
             let so_no = format!("SO-{}-{:04}", chrono::Utc::now().format("%Y"), seq);
             let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
 
@@ -540,8 +841,18 @@ async fn convert_quotation(State(_state): State<AppState>, Path(id): Path<i64>) 
                     "SELECT item_id, COALESCE(description, ''), quantity, unit_price, discount, amount FROM quotation_items WHERE quotation_id = ?1"
                 ).unwrap();
                 stmt.query_map([id], |row| {
-                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?))
-                }).unwrap().filter_map(|r| r.ok()).collect()
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                })
+                .unwrap()
+                .filter_map(|r| r.ok())
+                .collect()
             };
 
             // Compute total from line items
@@ -582,26 +893,50 @@ async fn convert_quotation(State(_state): State<AppState>, Path(id): Path<i64>) 
             if let Err(e) = db.execute_batch("COMMIT") {
                 let _ = db.execute_batch("ROLLBACK");
                 tracing::error!("Failed to commit quotation conversion: {}", e);
-                return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to commit (transaction rolled back)." })));
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        json!({ "success": false, "error": "Failed to commit (transaction rolled back)." }),
+                    ),
+                );
             }
 
-            (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Quotation converted to SO.", "so_no": so_no, "item_count": q_items.len() } })))
+            (
+                StatusCode::OK,
+                Json(
+                    json!({ "success": true, "data": { "message": "Quotation converted to SO.", "so_no": so_no, "item_count": q_items.len() } }),
+                ),
+            )
         }
         Err(_) => {
             let _ = db.execute_batch("ROLLBACK");
-            (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Quotation not found or not in Draft status." })))
+            (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    json!({ "success": false, "error": "Quotation not found or not in Draft status." }),
+                ),
+            )
         }
     }
 }
 
-async fn quotation_cycle_chain(State(_state): State<AppState>, Path(id): Path<i64>) -> impl IntoResponse {
+async fn quotation_cycle_chain(
+    State(_state): State<AppState>,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let q = db.query_row("SELECT quotation_no, status FROM quotations WHERE id = ?1", [id], |row| {
         Ok(json!({ "quotation_no": row.get::<_, String>(0)?, "status": row.get::<_, String>(1)? }))
     });
     match q {
-        Ok(data) => (StatusCode::OK, Json(json!({ "success": true, "data": data }))),
-        Err(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "Quotation not found." }))),
+        Ok(data) => (
+            StatusCode::OK,
+            Json(json!({ "success": true, "data": data })),
+        ),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "Quotation not found." })),
+        ),
     }
 }
 
@@ -612,37 +947,73 @@ async fn list_sales_returns(State(_state): State<AppState>) -> impl IntoResponse
          FROM invoices i LEFT JOIN customers c ON i.customer_id = c.id
          WHERE i.returned_amount > 0 ORDER BY i.created_at DESC"
     ).unwrap();
-    let items: Vec<serde_json::Value> = stmt.query_map([], |row| {
-        Ok(json!({
-            "id": row.get::<_, i64>(0)?,
-            "invoice_no": row.get::<_, String>(1)?,
-            "customer_id": row.get::<_, i64>(2)?,
-            "customer_name": row.get::<_, Option<String>>(3)?,
-            "returned_amount": row.get::<_, f64>(4)?,
-            "invoice_date": row.get::<_, String>(5)?,
-        }))
-    }).unwrap().filter_map(|r| r.ok()).collect();
-    (StatusCode::OK, Json(json!({ "success": true, "data": items })))
+    let items: Vec<serde_json::Value> = stmt
+        .query_map([], |row| {
+            Ok(json!({
+                "id": row.get::<_, i64>(0)?,
+                "invoice_no": row.get::<_, String>(1)?,
+                "customer_id": row.get::<_, i64>(2)?,
+                "customer_name": row.get::<_, Option<String>>(3)?,
+                "returned_amount": row.get::<_, f64>(4)?,
+                "invoice_date": row.get::<_, String>(5)?,
+            }))
+        })
+        .unwrap()
+        .filter_map(|r| r.ok())
+        .collect();
+    (
+        StatusCode::OK,
+        Json(json!({ "success": true, "data": items })),
+    )
 }
 
 async fn sales_dashboard(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-    let total_invoices: i64 = db.query_row("SELECT COUNT(*) FROM invoices", [], |row| row.get(0)).unwrap_or(0);
-    let total_revenue: f64 = db.query_row("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status != 'Cancelled'", [], |row| row.get(0)).unwrap_or(0.0);
+    let total_invoices: i64 = db
+        .query_row("SELECT COUNT(*) FROM invoices", [], |row| row.get(0))
+        .unwrap_or(0);
+    let total_revenue: f64 = db
+        .query_row(
+            "SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE status != 'Cancelled'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0.0);
     let unpaid_amount: f64 = db.query_row("SELECT COALESCE(SUM(balance_amount), 0) FROM invoices WHERE status IN ('Unpaid', 'Partially Paid')", [], |row| row.get(0)).unwrap_or(0.0);
-    let today_sales: f64 = db.query_row("SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE invoice_date = ?1", [&today], |row| row.get(0)).unwrap_or(0.0);
-    let pending_sos: i64 = db.query_row("SELECT COUNT(*) FROM sales_orders WHERE status = 'Pending'", [], |row| row.get(0)).unwrap_or(0);
-    let draft_quotations: i64 = db.query_row("SELECT COUNT(*) FROM quotations WHERE status = 'Draft'", [], |row| row.get(0)).unwrap_or(0);
-    (StatusCode::OK, Json(json!({
-        "success": true,
-        "data": {
-            "total_invoices": total_invoices,
-            "total_revenue": total_revenue,
-            "unpaid_amount": unpaid_amount,
-            "today_sales": today_sales,
-            "pending_sales_orders": pending_sos,
-            "draft_quotations": draft_quotations,
-        }
-    })))
+    let today_sales: f64 = db
+        .query_row(
+            "SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE invoice_date = ?1",
+            [&today],
+            |row| row.get(0),
+        )
+        .unwrap_or(0.0);
+    let pending_sos: i64 = db
+        .query_row(
+            "SELECT COUNT(*) FROM sales_orders WHERE status = 'Pending'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    let draft_quotations: i64 = db
+        .query_row(
+            "SELECT COUNT(*) FROM quotations WHERE status = 'Draft'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    (
+        StatusCode::OK,
+        Json(json!({
+            "success": true,
+            "data": {
+                "total_invoices": total_invoices,
+                "total_revenue": total_revenue,
+                "unpaid_amount": unpaid_amount,
+                "today_sales": today_sales,
+                "pending_sales_orders": pending_sos,
+                "draft_quotations": draft_quotations,
+            }
+        })),
+    )
 }

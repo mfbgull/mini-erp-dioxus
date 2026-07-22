@@ -1,7 +1,7 @@
 //! Supplier Edit Page
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, FormInput, InputType, use_toast};
+use crate::components::common::{use_toast, Button, ButtonVariant, FormInput, InputType};
 use crate::models::SupplierForm;
 use dioxus::prelude::*;
 
@@ -97,9 +97,30 @@ pub fn SupplierEditPage(id: String) -> Element {
             let form = SupplierForm {
                 supplier_code: sc.read().clone(),
                 supplier_name: sn.read().clone(),
-                email: { let v = em.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                phone: { let v = ph.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                address: { let v = addr.read(); if v.is_empty() { None } else { Some(v.clone()) } },
+                email: {
+                    let v = em.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                phone: {
+                    let v = ph.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                address: {
+                    let v = addr.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
             };
             let api = api.clone();
             let mut toast = toast.clone();
@@ -113,7 +134,10 @@ pub fn SupplierEditPage(id: String) -> Element {
                         toast.success("Supplier Updated", &format!("{} updated.", sn_display));
                         nav.push(format!("/suppliers/{}", parsed_id));
                     }
-                    Err(e) => { toast.error("Error", &e); saving.set(false); }
+                    Err(e) => {
+                        toast.error("Error", &e);
+                        saving.set(false);
+                    }
                 }
             });
         }

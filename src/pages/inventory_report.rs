@@ -1,7 +1,7 @@
 //! Inventory Report Page — Stock value, warehouse breakdown, and category analysis.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, StatCard, StatCardVariant, use_toast};
+use crate::components::common::{use_toast, Button, ButtonVariant, StatCard, StatCardVariant};
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -61,21 +61,39 @@ struct CategoryItem {
 // ============================================================================
 
 fn parse_warehouse_values(data: &serde_json::Value) -> Vec<WarehouseValue> {
-    data.get("warehouses").and_then(|v| v.as_array()).cloned().unwrap_or_default()
-        .iter().map(|w| WarehouseValue {
-            name: w.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+    data.get("warehouses")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .map(|w| WarehouseValue {
+            name: w
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
             items: w.get("items").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
             value: w.get("value").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        }).collect()
+        })
+        .collect()
 }
 
 fn parse_category_items(data: &serde_json::Value) -> Vec<CategoryItem> {
-    data.get("categories").and_then(|v| v.as_array()).cloned().unwrap_or_default()
-        .iter().map(|c| CategoryItem {
-            category: c.get("category").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+    data.get("categories")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .map(|c| CategoryItem {
+            category: c
+                .get("category")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
             items: c.get("items").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
             value: c.get("value").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        }).collect()
+        })
+        .collect()
 }
 
 // ============================================================================
@@ -123,12 +141,17 @@ pub fn InventoryReportPage() -> Element {
     let cat_items = parse_category_items(&valuation_data);
     let total_items: i32 = cat_items.iter().map(|c| c.items).sum();
     let total_value: f64 = cat_items.iter().map(|c| c.value).sum();
-    let low_stock = low_stock_data.get("count").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+    let low_stock = low_stock_data
+        .get("count")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0) as i32;
     let categories = cat_items.len();
 
     let on_export = {
         let mut t = toast.clone();
-        move |_| { t.info("Export", "Inventory report will be exported as PDF."); }
+        move |_| {
+            t.info("Export", "Inventory report will be exported as PDF.");
+        }
     };
 
     if loading {

@@ -74,10 +74,8 @@ where
     }
 
     // Build a lookup from column key → get_value closure for fast access
-    let column_map: std::collections::HashMap<&'static str, &ColumnDef<T>> = columns
-        .iter()
-        .map(|c| (c.key, c))
-        .collect();
+    let column_map: std::collections::HashMap<&'static str, &ColumnDef<T>> =
+        columns.iter().map(|c| (c.key, c)).collect();
 
     let mut sorted = rows;
 
@@ -177,8 +175,14 @@ mod tests {
     #[test]
     fn test_apply_sort_empty() {
         let rows = vec![
-            IndexedRow { index: 0, data: "b" },
-            IndexedRow { index: 1, data: "a" },
+            IndexedRow {
+                index: 0,
+                data: "b",
+            },
+            IndexedRow {
+                index: 1,
+                data: "a",
+            },
         ];
         let sorted = apply_sort(rows.clone(), &[], &[]);
         assert_eq!(sorted.len(), 2);
@@ -189,9 +193,18 @@ mod tests {
     fn test_apply_sort_ascending() {
         let col = ColumnDef::<&str>::text("name", "Name", |s| s.to_string());
         let rows = vec![
-            IndexedRow { index: 0, data: "zebra" },
-            IndexedRow { index: 1, data: "apple" },
-            IndexedRow { index: 2, data: "banana" },
+            IndexedRow {
+                index: 0,
+                data: "zebra",
+            },
+            IndexedRow {
+                index: 1,
+                data: "apple",
+            },
+            IndexedRow {
+                index: 2,
+                data: "banana",
+            },
         ];
         let sort = vec![SortColumn::ascending("name")];
         let sorted = apply_sort(rows, &[col], &sort);

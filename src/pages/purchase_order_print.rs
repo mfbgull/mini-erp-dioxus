@@ -1,7 +1,7 @@
+use super::print_shared::{trigger_print, DEFAULT_COMPANY, PRINT_CSS};
 use crate::auth::use_auth;
-use crate::models as models;
+use crate::models;
 use dioxus::prelude::*;
-use super::print_shared::{PRINT_CSS, DEFAULT_COMPANY, trigger_print};
 
 #[derive(Clone, Debug)]
 struct POLineItem {
@@ -33,8 +33,6 @@ struct POData {
     items: Vec<POLineItem>,
 }
 
-
-
 fn status_color(status: &str) -> &'static str {
     match status {
         "Approved" => "#2e7d32",
@@ -56,8 +54,10 @@ pub fn PurchaseOrderPrintPage(id: String) -> Element {
             let parsed = pid.parse::<i64>().ok()?;
             let client = api.with(|c| c.clone());
             let result = client.get_purchase_order(parsed).await.ok()?;
-            let po: models::PurchaseOrder = serde_json::from_value(result.get("po")?.clone()).ok()?;
-            let items: Vec<models::PurchaseOrderItem> = serde_json::from_value(result.get("items")?.clone()).ok()?;
+            let po: models::PurchaseOrder =
+                serde_json::from_value(result.get("po")?.clone()).ok()?;
+            let items: Vec<models::PurchaseOrderItem> =
+                serde_json::from_value(result.get("items")?.clone()).ok()?;
             Some(POData {
                 po_no: po.po_no,
                 po_date: po.po_date,
@@ -75,13 +75,16 @@ pub fn PurchaseOrderPrintPage(id: String) -> Element {
                 payment_terms: String::new(),
                 notes: po.notes.unwrap_or_default(),
                 terms: String::new(),
-                items: items.into_iter().map(|i| POLineItem {
-                    item_code: i.item_code.unwrap_or_default(),
-                    item_name: i.item_name.unwrap_or_default(),
-                    quantity: i.quantity,
-                    unit_price: i.unit_price,
-                    net_amount: i.amount,
-                }).collect(),
+                items: items
+                    .into_iter()
+                    .map(|i| POLineItem {
+                        item_code: i.item_code.unwrap_or_default(),
+                        item_name: i.item_name.unwrap_or_default(),
+                        quantity: i.quantity,
+                        unit_price: i.unit_price,
+                        net_amount: i.amount,
+                    })
+                    .collect(),
             })
         }
     });

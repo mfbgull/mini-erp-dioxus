@@ -174,12 +174,10 @@ async fn login_handler(
                         }
                     }
                 }
-                Ok(false) => {
-                    (
-                        StatusCode::UNAUTHORIZED,
-                        Json(json!({ "success": false, "error": "Invalid username or password." })),
-                    )
-                }
+                Ok(false) => (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({ "success": false, "error": "Invalid username or password." })),
+                ),
                 Err(e) => {
                     tracing::error!("Password verification error: {}", e);
                     (
@@ -189,12 +187,10 @@ async fn login_handler(
                 }
             }
         }
-        Err(rusqlite::Error::QueryReturnedNoRows) => {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(json!({ "success": false, "error": "Invalid username or password." })),
-            )
-        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "success": false, "error": "Invalid username or password." })),
+        ),
         Err(e) => {
             tracing::error!("Database error during login: {}", e);
             (
@@ -293,12 +289,22 @@ async fn change_password_handler(
 
     let token = match auth_header {
         Some(t) => t,
-        None => return (StatusCode::UNAUTHORIZED, Json(json!({ "success": false, "error": "No authorization token provided." }))),
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "success": false, "error": "No authorization token provided." })),
+            )
+        }
     };
 
     let claims = match verify_token(&token, &state) {
         Ok(c) => c,
-        Err(_) => return (StatusCode::UNAUTHORIZED, Json(json!({ "success": false, "error": "Invalid or expired token." }))),
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "success": false, "error": "Invalid or expired token." })),
+            )
+        }
     };
 
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
@@ -309,19 +315,29 @@ async fn change_password_handler(
     );
 
     match result {
-        Ok(hash) => {
-            match bcrypt::verify(&req.current_password, &hash) {
-                Ok(true) => {
-                    let new_hash = bcrypt::hash(&req.new_password, 12).expect("Failed to hash password");
-                    db.execute(
+        Ok(hash) => match bcrypt::verify(&req.current_password, &hash) {
+            Ok(true) => {
+                let new_hash =
+                    bcrypt::hash(&req.new_password, 12).expect("Failed to hash password");
+                db.execute(
                         "UPDATE users SET password_hash = ?1, updated_at = datetime('now') WHERE id = ?2",
                         rusqlite::params![new_hash, claims.sub],
                     ).ok();
-                    (StatusCode::OK, Json(json!({ "success": true, "data": { "message": "Password changed successfully." } })))
-                }
-                _ => (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Current password is incorrect." }))),
+                (
+                    StatusCode::OK,
+                    Json(
+                        json!({ "success": true, "data": { "message": "Password changed successfully." } }),
+                    ),
+                )
             }
-        }
-        Err(_) => (StatusCode::NOT_FOUND, Json(json!({ "success": false, "error": "User not found." }))),
+            _ => (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "success": false, "error": "Current password is incorrect." })),
+            ),
+        },
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "success": false, "error": "User not found." })),
+        ),
     }
 }

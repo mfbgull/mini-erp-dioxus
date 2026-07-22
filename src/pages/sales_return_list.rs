@@ -24,8 +24,6 @@ pub struct SalesReturn {
     pub reason: String,
 }
 
-
-
 // ============================================================================
 // Summary
 // ============================================================================
@@ -43,7 +41,10 @@ fn compute_summary(returns: &[SalesReturn]) -> ReturnSummary {
     let mut s = ReturnSummary {
         total_count: returns.len(),
         total_amount: 0.0,
-        draft_count: 0, approved_count: 0, processed_count: 0, rejected_count: 0,
+        draft_count: 0,
+        approved_count: 0,
+        processed_count: 0,
+        rejected_count: 0,
     };
     for r in returns {
         s.total_amount += r.total_amount;
@@ -73,19 +74,27 @@ pub fn SalesReturnListPage() -> Element {
     let summary = compute_summary(&returns);
 
     let columns: Vec<ColumnDef<SalesReturn>> = vec![
-        ColumnDef::text("return_no", "Return #", |r: &SalesReturn| r.return_no.clone())
-            .with_width(ColumnWidth::Px(140))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("customer", "Customer", |r: &SalesReturn| r.customer_name.clone())
-            .with_width(ColumnWidth::Fr(1.0))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("return_date", "Return Date", |r: &SalesReturn| r.return_date.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
-        ColumnDef::text("invoice_ref", "Invoice Ref", |r: &SalesReturn| r.invoice_ref.clone())
-            .with_width(ColumnWidth::Px(140))
-            .with_filter(FilterType::Text),
+        ColumnDef::text("return_no", "Return #", |r: &SalesReturn| {
+            r.return_no.clone()
+        })
+        .with_width(ColumnWidth::Px(140))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("customer", "Customer", |r: &SalesReturn| {
+            r.customer_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.0))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("return_date", "Return Date", |r: &SalesReturn| {
+            r.return_date.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
+        ColumnDef::text("invoice_ref", "Invoice Ref", |r: &SalesReturn| {
+            r.invoice_ref.clone()
+        })
+        .with_width(ColumnWidth::Px(140))
+        .with_filter(FilterType::Text),
         ColumnDef::text("status", "Status", |r: &SalesReturn| r.status.clone())
             .with_width(ColumnWidth::Px(120))
             .with_renderer(CellRenderer::Badge {
@@ -98,12 +107,22 @@ pub fn SalesReturnListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Draft".to_string(), "Approved".to_string(), "Processed".to_string(), "Rejected".to_string()],
+                options: vec![
+                    "Draft".to_string(),
+                    "Approved".to_string(),
+                    "Processed".to_string(),
+                    "Rejected".to_string(),
+                ],
             }),
-        ColumnDef::text("total", "Amount", |r: &SalesReturn| r.total_amount.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 }),
+        ColumnDef::text("total", "Amount", |r: &SalesReturn| {
+            r.total_amount.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(130))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 2,
+        }),
         ColumnDef::text("reason", "Reason", |r: &SalesReturn| r.reason.clone())
             .with_width(ColumnWidth::Fr(1.5)),
     ];
@@ -114,7 +133,10 @@ pub fn SalesReturnListPage() -> Element {
 
     let on_new = {
         let nav = navigator.clone();
-        move |_| { nav.push("/sales/returns/new"); } };
+        move |_| {
+            nav.push("/sales/returns/new");
+        }
+    };
 
     // ponytail: no-op — no data to refresh yet
     let on_refresh = move |_| {};

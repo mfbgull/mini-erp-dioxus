@@ -15,8 +15,8 @@
 //! assert_eq!(total, money("1999.00"));
 //! ```
 
-use rust_decimal::Decimal;
 use rust_decimal::prelude::*;
+use rust_decimal::Decimal;
 use std::fmt;
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
@@ -428,9 +428,7 @@ impl<'de> serde::Deserialize<'de> for Money {
             }
 
             fn visit_str<E: de::Error>(self, v: &str) -> Result<Money, E> {
-                Decimal::from_str(v)
-                    .map(Money)
-                    .map_err(de::Error::custom)
+                Decimal::from_str(v).map(Money).map_err(de::Error::custom)
             }
         }
 
@@ -448,7 +446,8 @@ impl rusqlite::types::FromSql for Money {
         // Try TEXT first (new format: Decimal string), fall back to REAL (old format: f64)
         match value {
             rusqlite::types::ValueRef::Text(bytes) => {
-                let s = std::str::from_utf8(bytes).map_err(|e| rusqlite::types::FromSqlError::InvalidType)?;
+                let s = std::str::from_utf8(bytes)
+                    .map_err(|e| rusqlite::types::FromSqlError::InvalidType)?;
                 Decimal::from_str(s)
                     .map(Money)
                     .map_err(|e| rusqlite::types::FromSqlError::InvalidType)

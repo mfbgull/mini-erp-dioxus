@@ -1,5 +1,10 @@
 mod dashboard_block;
 mod dashboard_stats;
 
-pub use dashboard_block::{DashboardBlock, DashboardBlockProps, DashboardGrid, DashboardGridProps, BlockSize};
-pub use dashboard_stats::{DashboardStats, DashboardStatsProps, DashboardStatItem, StatColor, MiniBarChart, MiniBarChartProps};
+pub use dashboard_block::{
+    BlockSize, DashboardBlock, DashboardBlockProps, DashboardGrid, DashboardGridProps,
+};
+pub use dashboard_stats::{
+    DashboardStatItem, DashboardStats, DashboardStatsProps, MiniBarChart, MiniBarChartProps,
+    StatColor,
+};

@@ -1,6 +1,6 @@
 //! Seasonal Events Page — Manage seasonal events with impact factors for forecast adjustment.
 
-use crate::components::common::{Button, ButtonVariant, Modal, ModalSize, use_toast};
+use crate::components::common::{use_toast, Button, ButtonVariant, Modal, ModalSize};
 use crate::components::data_grid::{
     BadgeColor, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode, RowHeight,
     SelectionMode,
@@ -76,46 +76,63 @@ pub fn SeasonalEventsPage() -> Element {
     let mut form_event = use_signal(|| empty_event());
 
     let columns: Vec<ColumnDef<SeasonalEvent>> = vec![
-        ColumnDef::text("name", "Event Name", |e: &SeasonalEvent| e.event_name.clone())
-            .with_width(ColumnWidth::Fr(1.0))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("start", "Start Date", |e: &SeasonalEvent| e.start_date.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_filter(FilterType::Text),
+        ColumnDef::text("name", "Event Name", |e: &SeasonalEvent| {
+            e.event_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.0))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("start", "Start Date", |e: &SeasonalEvent| {
+            e.start_date.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_filter(FilterType::Text),
         ColumnDef::text("end", "End Date", |e: &SeasonalEvent| e.end_date.clone())
             .with_width(ColumnWidth::Px(120))
             .with_filter(FilterType::Text),
-        ColumnDef::text("impact", "Impact Factor", |e: &SeasonalEvent| format!("{:.0}%", e.impact_factor))
-            .with_width(ColumnWidth::Px(120))
-            .with_align(crate::components::data_grid::TextAlign::Right)
-            .with_renderer(crate::components::data_grid::CellRenderer::Badge {
-                color_map: vec![
-                    ("45%", BadgeColor::Red),
-                    ("35%", BadgeColor::Yellow),
-                    ("30%", BadgeColor::Yellow),
-                    ("28%", BadgeColor::Yellow),
-                    ("25%", BadgeColor::Yellow),
-                    ("22%", BadgeColor::Yellow),
-                    ("20%", BadgeColor::Blue),
-                    ("18%", BadgeColor::Blue),
-                    ("15%", BadgeColor::Green),
-                ],
-                default_color: BadgeColor::Gray,
-            }),
-        ColumnDef::text("recurring", "Recurring", |e: &SeasonalEvent| if e.recurring { "Yes".to_string() } else { "No".to_string() })
-            .with_width(ColumnWidth::Px(100))
-            .with_renderer(crate::components::data_grid::CellRenderer::Badge {
-                color_map: vec![
-                    ("Yes", BadgeColor::Green),
-                    ("No", BadgeColor::Gray),
-                ],
-                default_color: BadgeColor::Gray,
-            }),
-        ColumnDef::text("category", "Category", |e: &SeasonalEvent| e.category.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_filter(FilterType::Select {
-                options: vec!["Religious".to_string(), "Weather".to_string(), "Educational".to_string(), "National".to_string(), "Commercial".to_string()],
-            }),
+        ColumnDef::text("impact", "Impact Factor", |e: &SeasonalEvent| {
+            format!("{:.0}%", e.impact_factor)
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_align(crate::components::data_grid::TextAlign::Right)
+        .with_renderer(crate::components::data_grid::CellRenderer::Badge {
+            color_map: vec![
+                ("45%", BadgeColor::Red),
+                ("35%", BadgeColor::Yellow),
+                ("30%", BadgeColor::Yellow),
+                ("28%", BadgeColor::Yellow),
+                ("25%", BadgeColor::Yellow),
+                ("22%", BadgeColor::Yellow),
+                ("20%", BadgeColor::Blue),
+                ("18%", BadgeColor::Blue),
+                ("15%", BadgeColor::Green),
+            ],
+            default_color: BadgeColor::Gray,
+        }),
+        ColumnDef::text("recurring", "Recurring", |e: &SeasonalEvent| {
+            if e.recurring {
+                "Yes".to_string()
+            } else {
+                "No".to_string()
+            }
+        })
+        .with_width(ColumnWidth::Px(100))
+        .with_renderer(crate::components::data_grid::CellRenderer::Badge {
+            color_map: vec![("Yes", BadgeColor::Green), ("No", BadgeColor::Gray)],
+            default_color: BadgeColor::Gray,
+        }),
+        ColumnDef::text("category", "Category", |e: &SeasonalEvent| {
+            e.category.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_filter(FilterType::Select {
+            options: vec![
+                "Religious".to_string(),
+                "Weather".to_string(),
+                "Educational".to_string(),
+                "National".to_string(),
+                "Commercial".to_string(),
+            ],
+        }),
         ColumnDef::text("notes", "Notes", |e: &SeasonalEvent| e.notes.clone())
             .with_width(ColumnWidth::Fr(0.8)),
     ];

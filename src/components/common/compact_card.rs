@@ -62,7 +62,11 @@ pub struct CompactCardProps {
 
 #[component]
 pub fn CompactCard(props: CompactCardProps) -> Element {
-    let badge_class = props.badge_color.as_ref().map(|c| c.class()).unwrap_or("badge-gray");
+    let badge_class = props
+        .badge_color
+        .as_ref()
+        .map(|c| c.class())
+        .unwrap_or("badge-gray");
     rsx! {
         div { class: "compact-card", onclick: move |e| props.onclick.call(e),
             div { class: "compact-card-main",
@@ -94,8 +98,12 @@ pub struct CompactCardListProps {
 #[component]
 pub fn CompactCardList(props: CompactCardListProps) -> Element {
     let mut search = use_signal(|| String::new());
-    let placeholder = props.search_placeholder.unwrap_or_else(|| "Search…".to_string());
-    let empty_msg = props.empty_message.unwrap_or_else(|| "No items found.".to_string());
+    let placeholder = props
+        .search_placeholder
+        .unwrap_or_else(|| "Search…".to_string());
+    let empty_msg = props
+        .empty_message
+        .unwrap_or_else(|| "No items found.".to_string());
 
     rsx! {
         style { "{COMPACT_CARD_CSS}" }

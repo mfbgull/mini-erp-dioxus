@@ -2,8 +2,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
-    use_toast,
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
 use crate::models;
 use dioxus::prelude::*;
@@ -149,19 +148,24 @@ struct ProductionDetail {
     materials: Vec<MatConsumed>,
 }
 
-async fn fetch_production_detail_from_api(client: &crate::api::ApiClient, id: i64) -> Option<ProductionDetail> {
+async fn fetch_production_detail_from_api(
+    client: &crate::api::ApiClient,
+    id: i64,
+) -> Option<ProductionDetail> {
     let result = client.get_production(id).await.ok()?;
     let prd: models::Production = serde_json::from_value(result["production"].clone()).ok()?;
-    let inputs: Vec<models::ProductionInput> = serde_json::from_value(result["inputs"].clone()).unwrap_or_default();
-    let materials: Vec<MatConsumed> = inputs.into_iter().map(|i| {
-        MatConsumed {
+    let inputs: Vec<models::ProductionInput> =
+        serde_json::from_value(result["inputs"].clone()).unwrap_or_default();
+    let materials: Vec<MatConsumed> = inputs
+        .into_iter()
+        .map(|i| MatConsumed {
             item_code: i.item_code.unwrap_or_default(),
             item_name: i.item_name.unwrap_or_default(),
             required_qty: i.quantity,
             uom: "pcs".to_string(),
             issued_qty: 0.0,
-        }
-    }).collect();
+        })
+        .collect();
     Some(ProductionDetail {
         id: prd.id,
         prd_no: prd.production_no,
@@ -192,7 +196,9 @@ fn status_badge_class(status: &str) -> &'static str {
 fn efficiency(completed: i32, scrap: i32, planned: i32) -> f64 {
     if planned > 0 {
         ((completed - scrap) as f64 / planned as f64) * 100.0
-    } else { 0.0 }
+    } else {
+        0.0
+    }
 }
 
 #[component]
@@ -246,24 +252,33 @@ pub fn ProductionDetailPage(id: String) -> Element {
     let status_class = status_badge_class(&detail.status);
     let eff = efficiency(detail.completed_qty, detail.scrap_qty, detail.planned_qty);
 
-    let on_back = move |_: Event<MouseData>| { navigator.push("/manufacturing/production"); };
+    let on_back = move |_: Event<MouseData>| {
+        navigator.push("/manufacturing/production");
+    };
 
     let mut t_edit = toast.clone();
     let on_edit = {
         let nav = navigator.clone();
         let id = id.clone();
-        move |_| { nav.push(format!("/manufacturing/production/{}", id)); t_edit.info("Edit Mode", "Editing coming soon."); }
+        move |_| {
+            nav.push(format!("/manufacturing/production/{}", id));
+            t_edit.info("Edit Mode", "Editing coming soon.");
+        }
     };
 
     let on_update_progress = {
         let mut toast = toast.clone();
         let mut d = detail.clone();
-        move |_| { toast.info("Update Progress", "Update progress feature coming soon."); }
+        move |_| {
+            toast.info("Update Progress", "Update progress feature coming soon.");
+        }
     };
 
     let on_complete = {
         let mut modal = show_complete_modal.clone();
-        move |_| { modal.set(true); }
+        move |_| {
+            modal.set(true);
+        }
     };
 
     let confirm_complete = {
@@ -272,18 +287,25 @@ pub fn ProductionDetailPage(id: String) -> Element {
         let pn = detail.prd_no.clone();
         move |_| {
             modal.set(false);
-            toast.success("Order Completed", &format!("{} has been marked as complete.", pn));
+            toast.success(
+                "Order Completed",
+                &format!("{} has been marked as complete.", pn),
+            );
         }
     };
 
     let cancel_complete = {
         let mut modal = show_complete_modal.clone();
-        move |_| { modal.set(false); }
+        move |_| {
+            modal.set(false);
+        }
     };
 
     let on_cancel = {
         let mut modal = show_cancel_modal.clone();
-        move |_| { modal.set(true); }
+        move |_| {
+            modal.set(true);
+        }
     };
 
     let confirm_cancel = {
@@ -298,12 +320,16 @@ pub fn ProductionDetailPage(id: String) -> Element {
 
     let cancel_cancel = {
         let mut modal = show_cancel_modal.clone();
-        move |_| { modal.set(false); }
+        move |_| {
+            modal.set(false);
+        }
     };
 
     let on_delete = {
         let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(true); }
+        move |_| {
+            modal.set(true);
+        }
     };
 
     let confirm_delete = {
@@ -319,7 +345,9 @@ pub fn ProductionDetailPage(id: String) -> Element {
 
     let cancel_delete = {
         let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(false); }
+        move |_| {
+            modal.set(false);
+        }
     };
 
     rsx! {

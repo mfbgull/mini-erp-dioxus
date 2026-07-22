@@ -3,7 +3,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
 use dioxus::prelude::*;
 
@@ -57,16 +57,24 @@ pub fn UserDetailPage(id: String) -> Element {
         async move {
             let client = api.with(|c| c.clone());
             let parsed = id_fetch.parse::<i64>().ok()?;
-            client.get_user(parsed).await.ok().map(|u| crate::pages::user_list::User {
-                id: u.id,
-                username: u.username,
-                full_name: u.full_name,
-                email: u.email,
-                role: u.role,
-                status: if u.is_active { "Active".to_string() } else { "Inactive".to_string() },
-                last_login: u.last_login.unwrap_or_default(),
-                created_at: u.created_at.unwrap_or_default(),
-            })
+            client
+                .get_user(parsed)
+                .await
+                .ok()
+                .map(|u| crate::pages::user_list::User {
+                    id: u.id,
+                    username: u.username,
+                    full_name: u.full_name,
+                    email: u.email,
+                    role: u.role,
+                    status: if u.is_active {
+                        "Active".to_string()
+                    } else {
+                        "Inactive".to_string()
+                    },
+                    last_login: u.last_login.unwrap_or_default(),
+                    created_at: u.created_at.unwrap_or_default(),
+                })
         }
     });
 
@@ -142,7 +150,9 @@ pub fn UserDetailPage(id: String) -> Element {
 
     let on_delete = {
         let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(true); }
+        move |_| {
+            modal.set(true);
+        }
     };
 
     let confirm_delete = {
@@ -174,7 +184,9 @@ pub fn UserDetailPage(id: String) -> Element {
 
     let cancel_delete = {
         let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(false); }
+        move |_| {
+            modal.set(false);
+        }
     };
 
     if is_loading {
@@ -213,10 +225,22 @@ pub fn UserDetailPage(id: String) -> Element {
         _ => "✗",
     };
 
-    let toggle_label = if user.status == "Disabled" { "Enable User" } else { "Disable User" };
-    let toggle_icon = if user.status == "Disabled" { "✅" } else { "⛔" };
+    let toggle_label = if user.status == "Disabled" {
+        "Enable User"
+    } else {
+        "Disable User"
+    };
+    let toggle_icon = if user.status == "Disabled" {
+        "✅"
+    } else {
+        "⛔"
+    };
 
-    let last_login_display = if user.last_login.is_empty() { "Never".to_string() } else { user.last_login.clone() };
+    let last_login_display = if user.last_login.is_empty() {
+        "Never".to_string()
+    } else {
+        user.last_login.clone()
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }

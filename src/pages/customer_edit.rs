@@ -1,7 +1,9 @@
 //! Customer Edit Page
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption, use_toast};
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption,
+};
 use crate::models::CustomerForm;
 use dioxus::prelude::*;
 
@@ -92,11 +94,26 @@ pub fn CustomerEditPage(id: String) -> Element {
     }
 
     let terms_options = vec![
-        SelectOption { value: "Net 30".to_string(), label: "Net 30".to_string() },
-        SelectOption { value: "Net 15".to_string(), label: "Net 15".to_string() },
-        SelectOption { value: "COD".to_string(), label: "COD".to_string() },
-        SelectOption { value: "Due on Receipt".to_string(), label: "Due on Receipt".to_string() },
-        SelectOption { value: "Net 60".to_string(), label: "Net 60".to_string() },
+        SelectOption {
+            value: "Net 30".to_string(),
+            label: "Net 30".to_string(),
+        },
+        SelectOption {
+            value: "Net 15".to_string(),
+            label: "Net 15".to_string(),
+        },
+        SelectOption {
+            value: "COD".to_string(),
+            label: "COD".to_string(),
+        },
+        SelectOption {
+            value: "Due on Receipt".to_string(),
+            label: "Due on Receipt".to_string(),
+        },
+        SelectOption {
+            value: "Net 60".to_string(),
+            label: "Net 60".to_string(),
+        },
     ];
 
     let save = {
@@ -113,15 +130,46 @@ pub fn CustomerEditPage(id: String) -> Element {
         let pt = payment_terms.clone();
         let cl = credit_limit.clone();
         move |_| {
-            if cn.read().trim().is_empty() { toast.error("Validation", "Customer name is required."); return; }
+            if cn.read().trim().is_empty() {
+                toast.error("Validation", "Customer name is required.");
+                return;
+            }
             saving.set(true);
             let form = CustomerForm {
                 customer_code: cc.read().clone(),
                 customer_name: cn.read().clone(),
-                email: { let v = em.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                phone: { let v = ph.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                billing_address: { let v = ba.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                shipping_address: { let v = sa.read(); if v.is_empty() { None } else { Some(v.clone()) } },
+                email: {
+                    let v = em.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                phone: {
+                    let v = ph.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                billing_address: {
+                    let v = ba.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                shipping_address: {
+                    let v = sa.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
                 payment_terms: Some(pt.read().clone()),
                 credit_limit: cl.read().parse::<f64>().ok(),
                 opening_balance: None,
@@ -138,7 +186,10 @@ pub fn CustomerEditPage(id: String) -> Element {
                         toast.success("Customer Updated", &format!("{} updated.", cn));
                         nav.push(format!("/customers/{}", parsed_id));
                     }
-                    Err(e) => { toast.error("Error", &e); saving.set(false); }
+                    Err(e) => {
+                        toast.error("Error", &e);
+                        saving.set(false);
+                    }
                 }
             });
         }

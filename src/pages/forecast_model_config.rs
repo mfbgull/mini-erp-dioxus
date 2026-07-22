@@ -2,7 +2,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption, use_toast,
+    use_toast, Button, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption,
 };
 use dioxus::prelude::*;
 
@@ -48,10 +48,22 @@ const PAGE_CSS: &str = r##"
 
 fn algorithm_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "arima".to_string(), label: "ARIMA".to_string() },
-        SelectOption { value: "ets".to_string(), label: "ETS".to_string() },
-        SelectOption { value: "prophet".to_string(), label: "Prophet".to_string() },
-        SelectOption { value: "neural".to_string(), label: "Neural (LSTM)".to_string() },
+        SelectOption {
+            value: "arima".to_string(),
+            label: "ARIMA".to_string(),
+        },
+        SelectOption {
+            value: "ets".to_string(),
+            label: "ETS".to_string(),
+        },
+        SelectOption {
+            value: "prophet".to_string(),
+            label: "Prophet".to_string(),
+        },
+        SelectOption {
+            value: "neural".to_string(),
+            label: "Neural (LSTM)".to_string(),
+        },
     ]
 }
 
@@ -120,7 +132,12 @@ fn populate_from_config(
         ets_trend.set(params["trend"].as_str().unwrap_or("A").to_string());
         ets_seasonal.set(params["seasonal"].as_str().unwrap_or("A").to_string());
         prophet_growth.set(params["growth"].as_str().unwrap_or("linear").to_string());
-        prophet_seasonality.set(params["seasonality_mode"].as_str().unwrap_or("weekly").to_string());
+        prophet_seasonality.set(
+            params["seasonality_mode"]
+                .as_str()
+                .unwrap_or("weekly")
+                .to_string(),
+        );
         neural_layers.set(params["layers"].as_str().unwrap_or("2").to_string());
         neural_units.set(params["units"].as_str().unwrap_or("64").to_string());
         neural_epochs.set(params["epochs"].as_str().unwrap_or("100").to_string());
@@ -140,7 +157,10 @@ pub fn ForecastModelConfigPage() -> Element {
     let configs = use_resource(move || {
         let api = api.clone();
         async move {
-            api.with(|c| c.clone()).list_forecast_configs().await.unwrap_or_default()
+            api.with(|c| c.clone())
+                .list_forecast_configs()
+                .await
+                .unwrap_or_default()
         }
     });
 
@@ -204,23 +224,42 @@ pub fn ForecastModelConfigPage() -> Element {
             if val == "new" {
                 selected_config_id.set(None);
                 reset_form(
-                    &mut model_name, &mut algorithm, &mut training_start, &mut training_end,
-                    &mut auto_tune, &mut seasonality,
-                    &mut arima_p, &mut arima_d, &mut arima_q,
-                    &mut ets_error, &mut ets_trend, &mut ets_seasonal,
-                    &mut prophet_growth, &mut prophet_seasonality,
-                    &mut neural_layers, &mut neural_units, &mut neural_epochs,
+                    &mut model_name,
+                    &mut algorithm,
+                    &mut training_start,
+                    &mut training_end,
+                    &mut auto_tune,
+                    &mut seasonality,
+                    &mut arima_p,
+                    &mut arima_d,
+                    &mut arima_q,
+                    &mut ets_error,
+                    &mut ets_trend,
+                    &mut ets_seasonal,
+                    &mut prophet_growth,
+                    &mut prophet_seasonality,
+                    &mut neural_layers,
+                    &mut neural_units,
+                    &mut neural_epochs,
                 );
             } else if let Ok(id) = val.parse::<i64>() {
                 selected_config_id.set(Some(id));
                 if let Some(cfg) = snapshot.iter().find(|c| c["id"].as_i64() == Some(id)) {
                     populate_from_config(
                         cfg,
-                        &mut model_name, &mut algorithm,
-                        &mut arima_p, &mut arima_d, &mut arima_q,
-                        &mut ets_error, &mut ets_trend, &mut ets_seasonal,
-                        &mut prophet_growth, &mut prophet_seasonality,
-                        &mut neural_layers, &mut neural_units, &mut neural_epochs,
+                        &mut model_name,
+                        &mut algorithm,
+                        &mut arima_p,
+                        &mut arima_d,
+                        &mut arima_q,
+                        &mut ets_error,
+                        &mut ets_trend,
+                        &mut ets_seasonal,
+                        &mut prophet_growth,
+                        &mut prophet_seasonality,
+                        &mut neural_layers,
+                        &mut neural_units,
+                        &mut neural_epochs,
                     );
                 }
             }
@@ -310,7 +349,10 @@ pub fn ForecastModelConfigPage() -> Element {
                     Ok(_) => {
                         is_testing.set(false);
                         status.set("ready".to_string());
-                        t.success("Test Run Complete", &format!("\"{}\" test run completed.", n));
+                        t.success(
+                            "Test Run Complete",
+                            &format!("\"{}\" test run completed.", n),
+                        );
                     }
                     Err(e) => {
                         is_testing.set(false);

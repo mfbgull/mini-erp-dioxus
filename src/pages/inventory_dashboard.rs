@@ -25,7 +25,10 @@ pub fn InventoryDashboardPage() -> Element {
         async move {
             let client = api.with(|c| c.clone());
             let summary = client.get_stock_summary().await.unwrap_or_default();
-            let movement = client.get_stock_movement_summary().await.unwrap_or_default();
+            let movement = client
+                .get_stock_movement_summary()
+                .await
+                .unwrap_or_default();
             let warehouses = client.list_warehouses().await.unwrap_or_default();
             let low_stock = client.list_low_stock_items().await.unwrap_or_default();
             (summary, movement, warehouses, low_stock)
@@ -39,12 +42,18 @@ pub fn InventoryDashboardPage() -> Element {
         .cloned()
         .unwrap_or_else(|| (vec![], serde_json::Value::Null, vec![], vec![]));
 
-    let total_items: i64 = stock_summary.iter().map(|s| s["total_quantity"].as_f64().unwrap_or(0.0) as i64).sum();
-    let stock_value: f64 = stock_summary.iter().map(|s| {
-        let qty = s["total_quantity"].as_f64().unwrap_or(0.0);
-        let cost = s["standard_cost"].as_f64().unwrap_or(0.0);
-        qty * cost
-    }).sum();
+    let total_items: i64 = stock_summary
+        .iter()
+        .map(|s| s["total_quantity"].as_f64().unwrap_or(0.0) as i64)
+        .sum();
+    let stock_value: f64 = stock_summary
+        .iter()
+        .map(|s| {
+            let qty = s["total_quantity"].as_f64().unwrap_or(0.0);
+            let cost = s["standard_cost"].as_f64().unwrap_or(0.0);
+            qty * cost
+        })
+        .sum();
     let warehouse_count = warehouses.len();
     let low_stock_count = low_stock.len() as i64;
 

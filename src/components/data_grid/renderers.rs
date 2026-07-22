@@ -16,30 +16,20 @@ pub fn render_cell(value: &str, renderer: &CellRenderer) -> Element {
     match renderer {
         CellRenderer::Text => render_text(value),
 
-        CellRenderer::Number { prefix, decimals } => {
-            render_number(value, prefix, *decimals)
-        }
+        CellRenderer::Number { prefix, decimals } => render_number(value, prefix, *decimals),
 
-        CellRenderer::Currency { code, decimals } => {
-            render_currency(value, code, *decimals)
-        }
+        CellRenderer::Currency { code, decimals } => render_currency(value, code, *decimals),
 
-        CellRenderer::Date { format } => {
-            render_date(value, format)
-        }
+        CellRenderer::Date { format } => render_date(value, format),
 
-        CellRenderer::DateTime { format } => {
-            render_datetime(value, format)
-        }
+        CellRenderer::DateTime { format } => render_datetime(value, format),
 
         CellRenderer::Badge {
             color_map,
             default_color,
         } => render_badge(value, color_map, default_color),
 
-        CellRenderer::Percentage { decimals } => {
-            render_percentage(value, *decimals)
-        }
+        CellRenderer::Percentage { decimals } => render_percentage(value, *decimals),
 
         CellRenderer::Custom(f) => f(value),
     }
@@ -223,10 +213,7 @@ mod tests {
 
     #[test]
     fn test_render_badge_color_selection() {
-        let map = vec![
-            ("Paid", BadgeColor::Green),
-            ("Unpaid", BadgeColor::Red),
-        ];
+        let map = vec![("Paid", BadgeColor::Green), ("Unpaid", BadgeColor::Red)];
         // We can't easily test RSX equality, but we can test the color logic:
         let color = map
             .iter()

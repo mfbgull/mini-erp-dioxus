@@ -39,7 +39,13 @@ pub struct BreadcrumbProps {
 #[component]
 pub fn Breadcrumb(props: BreadcrumbProps) -> Element {
     let len = props.items.len();
-    let class = format!("breadcrumb{}", props.class.as_ref().map_or(String::new(), |c| format!(" {c}")));
+    let class = format!(
+        "breadcrumb{}",
+        props
+            .class
+            .as_ref()
+            .map_or(String::new(), |c| format!(" {c}"))
+    );
 
     rsx! {
         nav {

@@ -15,18 +15,16 @@
 //! - Save / Save & New / Cancel actions with toast feedback
 //! - Form dirty-state detection
 
+use crate::auth::use_auth;
 use crate::calculations::{
-    invoice::calculate_item_discount,
-    invoice::calculate_item_total,
-    invoice::compute_invoice_metrics,
-    Discount, DiscountScope, DiscountType, InvoiceMetrics,
+    invoice::calculate_item_discount, invoice::calculate_item_total,
+    invoice::compute_invoice_metrics, Discount, DiscountScope, DiscountType, InvoiceMetrics,
 };
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, DateRangePicker, FormInput, InputType, Modal,
-    ModalSize, SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, DateRangePicker, FormInput, InputType, Modal,
+    ModalSize, SearchableSelect, SelectOption, StatCard, StatCardVariant,
 };
-use crate::auth::use_auth;
-use crate::models::{Customer, Item, InvoiceForm, InvoiceItemForm};
+use crate::models::{Customer, InvoiceForm, InvoiceItemForm, Item};
 use chrono::NaiveDate;
 use dioxus::prelude::*;
 use std::collections::HashMap;
@@ -302,7 +300,7 @@ struct LineItem {
     item_name: String,
     quantity: f64,
     unit_price: f64,
-    discount_type: String,  // "None" | "Percentage" | "Flat"
+    discount_type: String, // "None" | "Percentage" | "Flat"
     discount_value: f64,
     tax_rate: f64,
 }
@@ -325,7 +323,12 @@ impl Default for LineItem {
 impl LineItem {
     fn net_amount(&self) -> f64 {
         let disc = if self.discount_type == "Percentage" {
-            calculate_item_discount(self.quantity, self.unit_price, "percentage", self.discount_value)
+            calculate_item_discount(
+                self.quantity,
+                self.unit_price,
+                "percentage",
+                self.discount_value,
+            )
         } else if self.discount_type == "Flat" {
             calculate_item_discount(self.quantity, self.unit_price, "flat", self.discount_value)
         } else {
@@ -335,12 +338,20 @@ impl LineItem {
     }
 }
 
-
 fn source_type_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "Direct".to_string(), label: "Direct".to_string() },
-        SelectOption { value: "Sales Order".to_string(), label: "Sales Order".to_string() },
-        SelectOption { value: "POS".to_string(), label: "POS".to_string() },
+        SelectOption {
+            value: "Direct".to_string(),
+            label: "Direct".to_string(),
+        },
+        SelectOption {
+            value: "Sales Order".to_string(),
+            label: "Sales Order".to_string(),
+        },
+        SelectOption {
+            value: "POS".to_string(),
+            label: "POS".to_string(),
+        },
     ]
 }
 
@@ -454,7 +465,11 @@ pub fn InvoiceCreatePage() -> Element {
     };
 
     // ── Derive items count ──
-    let filled_count = items.read().iter().filter(|li| !li.item_code.is_empty()).count();
+    let filled_count = items
+        .read()
+        .iter()
+        .filter(|li| !li.item_code.is_empty())
+        .count();
 
     // ── Handlers ──
 
@@ -465,7 +480,8 @@ pub fn InvoiceCreatePage() -> Element {
         let cust_map = customer_map.clone();
         move |value: String| {
             code.set(value.clone());
-            let label = cust_map.read()
+            let label = cust_map
+                .read()
                 .get(&value)
                 .map(|c| c.customer_name.clone())
                 .unwrap_or_default();
@@ -539,14 +555,24 @@ pub fn InvoiceCreatePage() -> Element {
                 toast.error("Validation Error", "Please select a customer.");
                 return;
             }
-            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
+            let filled = its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count();
             if filled == 0 {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
 
-            let cust_id = cust_map.read().get(&c_code.read().clone()).map(|c| c.id).unwrap_or(0);
-            let form_items: Vec<InvoiceItemForm> = its.read().iter()
+            let cust_id = cust_map
+                .read()
+                .get(&c_code.read().clone())
+                .map(|c| c.id)
+                .unwrap_or(0);
+            let form_items: Vec<InvoiceItemForm> = its
+                .read()
+                .iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| {
                     let item_id = it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0);
@@ -556,14 +582,27 @@ pub fn InvoiceCreatePage() -> Element {
                         quantity: li.quantity,
                         unit_price: li.unit_price,
                         tax_rate: Some(li.tax_rate),
-                        discount_type: if li.discount_value > 0.0 { Some("percentage".to_string()) } else { None },
-                        discount_value: if li.discount_value > 0.0 { Some(li.discount_value) } else { None },
+                        discount_type: if li.discount_value > 0.0 {
+                            Some("percentage".to_string())
+                        } else {
+                            None
+                        },
+                        discount_value: if li.discount_value > 0.0 {
+                            Some(li.discount_value)
+                        } else {
+                            None
+                        },
                     }
-                }).collect();
+                })
+                .collect();
 
             let form = InvoiceForm {
                 customer_id: cust_id,
-                invoice_date: inv_date.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
+                invoice_date: inv_date
+                    .read()
+                    .as_ref()
+                    .map(|d| d.to_string())
+                    .unwrap_or_default(),
                 due_date: d_date.read().as_ref().map(|d| d.to_string()),
                 source_type: Some(source_type.read().clone()),
                 warehouse_id: None,
@@ -574,8 +613,16 @@ pub fn InvoiceCreatePage() -> Element {
                 notes: Some(nts.read().clone()),
                 items: form_items,
                 record_payment: Some(*rec_pay.read()),
-                payment_amount: if *rec_pay.read() { pay_amt.read().parse::<f64>().ok() } else { None },
-                payment_method: if *rec_pay.read() { Some(pay_meth.read().clone()) } else { None },
+                payment_amount: if *rec_pay.read() {
+                    pay_amt.read().parse::<f64>().ok()
+                } else {
+                    None
+                },
+                payment_method: if *rec_pay.read() {
+                    Some(pay_meth.read().clone())
+                } else {
+                    None
+                },
                 deleted_payment_ids: None,
             };
 
@@ -628,14 +675,24 @@ pub fn InvoiceCreatePage() -> Element {
                 toast.error("Validation Error", "Please select a customer.");
                 return;
             }
-            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
+            let filled = its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count();
             if filled == 0 {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
 
-            let cust_id = cust_map.read().get(&c_code.read().clone()).map(|c| c.id).unwrap_or(0);
-            let form_items: Vec<InvoiceItemForm> = its.read().iter()
+            let cust_id = cust_map
+                .read()
+                .get(&c_code.read().clone())
+                .map(|c| c.id)
+                .unwrap_or(0);
+            let form_items: Vec<InvoiceItemForm> = its
+                .read()
+                .iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| {
                     let item_id = it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0);
@@ -645,15 +702,28 @@ pub fn InvoiceCreatePage() -> Element {
                         quantity: li.quantity,
                         unit_price: li.unit_price,
                         tax_rate: Some(li.tax_rate),
-                        discount_type: if li.discount_value > 0.0 { Some("percentage".to_string()) } else { None },
-                        discount_value: if li.discount_value > 0.0 { Some(li.discount_value) } else { None },
+                        discount_type: if li.discount_value > 0.0 {
+                            Some("percentage".to_string())
+                        } else {
+                            None
+                        },
+                        discount_value: if li.discount_value > 0.0 {
+                            Some(li.discount_value)
+                        } else {
+                            None
+                        },
                     }
-                }).collect();
+                })
+                .collect();
 
             let do_record = *rec_pay.read();
             let form = InvoiceForm {
                 customer_id: cust_id,
-                invoice_date: inv_date.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
+                invoice_date: inv_date
+                    .read()
+                    .as_ref()
+                    .map(|d| d.to_string())
+                    .unwrap_or_default(),
                 due_date: d_date.read().as_ref().map(|d| d.to_string()),
                 source_type: Some(source_type.read().clone()),
                 warehouse_id: None,
@@ -664,12 +734,24 @@ pub fn InvoiceCreatePage() -> Element {
                 notes: Some(nts.read().clone()),
                 items: form_items,
                 record_payment: Some(do_record),
-                payment_amount: if do_record { pay_amt.read().parse::<f64>().ok() } else { None },
-                payment_method: if do_record { Some(pay_meth.read().clone()) } else { None },
+                payment_amount: if do_record {
+                    pay_amt.read().parse::<f64>().ok()
+                } else {
+                    None
+                },
+                payment_method: if do_record {
+                    Some(pay_meth.read().clone())
+                } else {
+                    None
+                },
                 deleted_payment_ids: None,
             };
 
-            let item_count = its.read().iter().filter(|li| !li.item_code.is_empty()).count() as i32;
+            let item_count = its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count() as i32;
             saving.set(true);
             let mut toast = toast.clone();
             let client = api.with(|c| c.clone());
@@ -738,7 +820,11 @@ pub fn InvoiceCreatePage() -> Element {
     };
 
     let discount_scope_val = *discount_scope.read();
-    let scope_btn_class = if matches!(discount_scope_val, DiscountScope::BeforeTax) { "invoice-scope-btn invoice-scope-btn-active" } else { "invoice-scope-btn" };
+    let scope_btn_class = if matches!(discount_scope_val, DiscountScope::BeforeTax) {
+        "invoice-scope-btn invoice-scope-btn-active"
+    } else {
+        "invoice-scope-btn"
+    };
 
     // ── Render ──
 

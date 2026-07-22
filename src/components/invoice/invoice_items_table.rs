@@ -45,8 +45,12 @@ impl LineItem {
         let tax = sub * (self.tax_rate / 100.0);
         sub + tax
     }
-    pub fn subtotal(&self) -> f64 { self.quantity * self.unit_price }
-    pub fn tax_amount(&self) -> f64 { (self.subtotal() - self.discount) * (self.tax_rate / 100.0) }
+    pub fn subtotal(&self) -> f64 {
+        self.quantity * self.unit_price
+    }
+    pub fn tax_amount(&self) -> f64 {
+        (self.subtotal() - self.discount) * (self.tax_rate / 100.0)
+    }
 }
 
 #[derive(Props, Clone, PartialEq)]

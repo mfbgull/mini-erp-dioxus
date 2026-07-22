@@ -19,8 +19,6 @@ pub struct GoodsReceiptRow {
     pub created_at: String,
 }
 
-
-
 #[component]
 pub fn GoodsReceiptListPage() -> Element {
     let navigator = use_navigator();
@@ -34,18 +32,41 @@ pub fn GoodsReceiptListPage() -> Element {
             let client = api.with(|c| c.clone());
             match client.list_receipts().await {
                 Ok(receipts) => {
-                    let rows: Vec<GoodsReceiptRow> = receipts.iter().map(|r| {
-                        let po_id = r.get("po_id").and_then(|v| v.as_i64()).unwrap_or(0);
-                        GoodsReceiptRow {
-                            id: r.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
-                            receipt_no: r.get("receipt_no").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                            po_ref: format!("PO-{}", po_id),
-                            received_date: r.get("receipt_date").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                            warehouse: r.get("warehouse_name").and_then(|v| v.as_str()).unwrap_or("—").to_string(),
-                            notes: r.get("notes").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                            created_at: r.get("created_at").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        }
-                    }).collect();
+                    let rows: Vec<GoodsReceiptRow> = receipts
+                        .iter()
+                        .map(|r| {
+                            let po_id = r.get("po_id").and_then(|v| v.as_i64()).unwrap_or(0);
+                            GoodsReceiptRow {
+                                id: r.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
+                                receipt_no: r
+                                    .get("receipt_no")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                                po_ref: format!("PO-{}", po_id),
+                                received_date: r
+                                    .get("receipt_date")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                                warehouse: r
+                                    .get("warehouse_name")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("—")
+                                    .to_string(),
+                                notes: r
+                                    .get("notes")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                                created_at: r
+                                    .get("created_at")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                            }
+                        })
+                        .collect();
                     rows
                 }
                 Err(_) => Vec::new(),
@@ -58,17 +79,23 @@ pub fn GoodsReceiptListPage() -> Element {
     let items: Vec<GoodsReceiptRow> = resource.read().cloned().unwrap_or_default();
 
     let columns: Vec<ColumnDef<GoodsReceiptRow>> = vec![
-        ColumnDef::text("grn", "Receipt #", |g: &GoodsReceiptRow| g.receipt_no.clone())
-            .with_width(ColumnWidth::Px(140))
-            .with_filter(FilterType::Text),
+        ColumnDef::text("grn", "Receipt #", |g: &GoodsReceiptRow| {
+            g.receipt_no.clone()
+        })
+        .with_width(ColumnWidth::Px(140))
+        .with_filter(FilterType::Text),
         ColumnDef::text("po_ref", "PO Ref", |g: &GoodsReceiptRow| g.po_ref.clone())
             .with_width(ColumnWidth::Px(120)),
-        ColumnDef::text("date", "Received", |g: &GoodsReceiptRow| g.received_date.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
-        ColumnDef::text("warehouse", "Warehouse", |g: &GoodsReceiptRow| g.warehouse.clone())
-            .with_width(ColumnWidth::Px(150)),
+        ColumnDef::text("date", "Received", |g: &GoodsReceiptRow| {
+            g.received_date.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
+        ColumnDef::text("warehouse", "Warehouse", |g: &GoodsReceiptRow| {
+            g.warehouse.clone()
+        })
+        .with_width(ColumnWidth::Px(150)),
         ColumnDef::text("notes", "Notes", |g: &GoodsReceiptRow| g.notes.clone())
             .with_width(ColumnWidth::Fr(1.0)),
     ];
@@ -78,7 +105,10 @@ pub fn GoodsReceiptListPage() -> Element {
     };
 
     let this_month = chrono::Local::now().format("%Y-%m").to_string();
-    let this_month_count = items.iter().filter(|g| g.received_date.starts_with(&this_month)).count();
+    let this_month_count = items
+        .iter()
+        .filter(|g| g.received_date.starts_with(&this_month))
+        .count();
 
     let on_refresh = {
         let mut counter = refresh_counter.clone();

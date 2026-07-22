@@ -1,6 +1,6 @@
+use super::print_shared::{trigger_print, DEFAULT_COMPANY, PRINT_CSS};
 use crate::auth::use_auth;
 use dioxus::prelude::*;
-use super::print_shared::{PRINT_CSS, DEFAULT_COMPANY, trigger_print};
 
 // ============================================================================
 // Data
@@ -34,9 +34,10 @@ struct QPrintData {
     items: Vec<QPrintLineItem>,
 }
 
-
-
-fn to_print_data(q: crate::models::Quotation, items: Vec<crate::models::QuotationItem>) -> QPrintData {
+fn to_print_data(
+    q: crate::models::Quotation,
+    items: Vec<crate::models::QuotationItem>,
+) -> QPrintData {
     QPrintData {
         quotation_no: q.quotation_no,
         date: q.quotation_date,
@@ -52,13 +53,16 @@ fn to_print_data(q: crate::models::Quotation, items: Vec<crate::models::Quotatio
         total: q.total_amount,
         notes: q.notes.unwrap_or_default(),
         terms: String::new(),
-        items: items.into_iter().map(|li| QPrintLineItem {
-            item_code: li.item_code.unwrap_or_default(),
-            item_name: li.item_name.unwrap_or_default(),
-            quantity: li.quantity,
-            unit_price: li.unit_price,
-            net_amount: li.amount,
-        }).collect(),
+        items: items
+            .into_iter()
+            .map(|li| QPrintLineItem {
+                item_code: li.item_code.unwrap_or_default(),
+                item_name: li.item_name.unwrap_or_default(),
+                quantity: li.quantity,
+                unit_price: li.unit_price,
+                net_amount: li.amount,
+            })
+            .collect(),
     }
 }
 
@@ -79,19 +83,23 @@ pub fn QuotationPrintPage(id: String) -> Element {
             drop(api);
             let resp = client.get_quotation(parsed).await.ok()?;
             let data = resp.get("data")?;
-            let q: crate::models::Quotation = serde_json::from_value(data.get("quotation")?.clone()).ok()?;
-            let items: Vec<crate::models::QuotationItem> = serde_json::from_value(data.get("items")?.clone()).ok()?;
+            let q: crate::models::Quotation =
+                serde_json::from_value(data.get("quotation")?.clone()).ok()?;
+            let items: Vec<crate::models::QuotationItem> =
+                serde_json::from_value(data.get("items")?.clone()).ok()?;
             Some(to_print_data(q, items))
         }
     });
 
     let pd: QPrintData = match resource.read().as_ref().cloned().flatten() {
         Some(d) => d,
-        None => return rsx! {
-            div { class: "page", style: "display: flex; align-items: center; justify-content: center; min-height: 60vh; color: var(--text-secondary);",
-                span { "Loading…" }
+        None => {
+            return rsx! {
+                div { class: "page", style: "display: flex; align-items: center; justify-content: center; min-height: 60vh; color: var(--text-secondary);",
+                    span { "Loading…" }
+                }
             }
-        },
+        }
     };
 
     rsx! {

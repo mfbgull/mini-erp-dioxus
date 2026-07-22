@@ -19,8 +19,6 @@ pub struct PurchaseReturn {
     pub reason: String,
 }
 
-
-
 #[component]
 pub fn PurchaseReturnListPage() -> Element {
     let navigator = use_navigator();
@@ -39,15 +37,21 @@ pub fn PurchaseReturnListPage() -> Element {
         ColumnDef::text("pr_no", "Return #", |r: &PurchaseReturn| r.pr_no.clone())
             .with_width(ColumnWidth::Px(140))
             .with_filter(FilterType::Text),
-        ColumnDef::text("supplier", "Supplier", |r: &PurchaseReturn| r.supplier_name.clone())
-            .with_width(ColumnWidth::Fr(1.0))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("date", "Return Date", |r: &PurchaseReturn| r.return_date.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
-        ColumnDef::text("purchase_ref", "Purchase Ref", |r: &PurchaseReturn| r.purchase_ref.clone())
-            .with_width(ColumnWidth::Px(120)),
+        ColumnDef::text("supplier", "Supplier", |r: &PurchaseReturn| {
+            r.supplier_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.0))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("date", "Return Date", |r: &PurchaseReturn| {
+            r.return_date.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
+        ColumnDef::text("purchase_ref", "Purchase Ref", |r: &PurchaseReturn| {
+            r.purchase_ref.clone()
+        })
+        .with_width(ColumnWidth::Px(120)),
         ColumnDef::text("status", "Status", |r: &PurchaseReturn| r.status.clone())
             .with_width(ColumnWidth::Px(130))
             .with_renderer(CellRenderer::Badge {
@@ -60,19 +64,32 @@ pub fn PurchaseReturnListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Draft".to_string(), "Approved".to_string(), "Processed".to_string(), "Rejected".to_string()],
+                options: vec![
+                    "Draft".to_string(),
+                    "Approved".to_string(),
+                    "Processed".to_string(),
+                    "Rejected".to_string(),
+                ],
             }),
-        ColumnDef::text("amount", "Amount", |r: &PurchaseReturn| r.total_amount.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(140))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 }),
+        ColumnDef::text("amount", "Amount", |r: &PurchaseReturn| {
+            r.total_amount.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(140))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 2,
+        }),
         ColumnDef::text("reason", "Reason", |r: &PurchaseReturn| r.reason.clone())
             .with_width(ColumnWidth::Px(180)),
     ];
 
     let total_amount: f64 = items.iter().map(|r| r.total_amount).sum();
     let processed = items.iter().filter(|r| r.status == "Processed").count();
-    let pending = items.iter().filter(|r| r.status == "Draft" || r.status == "Approved").count();
+    let pending = items
+        .iter()
+        .filter(|r| r.status == "Draft" || r.status == "Approved")
+        .count();
 
     let on_row_click = move |(_idx, r): (usize, PurchaseReturn)| {
         tracing::info!("Clicked return: {}", r.pr_no);

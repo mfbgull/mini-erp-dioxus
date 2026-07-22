@@ -30,7 +30,9 @@ pub fn PhysicalCountListPage() -> Element {
         async move {
             let _ = *refresh_counter.read();
             let client = api.read().clone();
-            client.list_physical_counts().await
+            client
+                .list_physical_counts()
+                .await
                 .unwrap_or_default()
                 .into_iter()
                 .map(|c| PhysicalCountItem {
@@ -49,22 +51,19 @@ pub fn PhysicalCountListPage() -> Element {
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
     let is_loading = counts_resource.read().is_none();
-    let counts: Vec<PhysicalCountItem> = counts_resource
-        .read()
-        .as_ref()
-        .cloned()
-        .unwrap_or_default();
+    let counts: Vec<PhysicalCountItem> =
+        counts_resource.read().as_ref().cloned().unwrap_or_default();
 
     let columns: Vec<ColumnDef<PhysicalCountItem>> = vec![
         ColumnDef::text("no", "Count No", |c: &PhysicalCountItem| c.count_no.clone())
             .with_width(ColumnWidth::Px(140))
             .with_filter(FilterType::Text),
-        ColumnDef::text("date", "Count Date", |c: &PhysicalCountItem| c.count_date.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(crate::components::data_grid::CellRenderer::Date {
-                format: "%d-%b-%Y",
-            })
-            .with_filter(FilterType::Date),
+        ColumnDef::text("date", "Count Date", |c: &PhysicalCountItem| {
+            c.count_date.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(crate::components::data_grid::CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
         ColumnDef::text("warehouse", "Warehouse", |c: &PhysicalCountItem| {
             c.warehouse_name.clone()
         })
@@ -81,15 +80,19 @@ pub fn PhysicalCountListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Draft".to_string(), "Completed".to_string(), "Cancelled".to_string()],
+                options: vec![
+                    "Draft".to_string(),
+                    "Completed".to_string(),
+                    "Cancelled".to_string(),
+                ],
             }),
         ColumnDef::text("notes", "Notes", |c: &PhysicalCountItem| c.notes.clone())
             .with_width(ColumnWidth::Fr(0.6)),
-        ColumnDef::text("created", "Created", |c: &PhysicalCountItem| c.created_at.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(crate::components::data_grid::CellRenderer::Date {
-                format: "%d-%b-%Y",
-            }),
+        ColumnDef::text("created", "Created", |c: &PhysicalCountItem| {
+            c.created_at.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(crate::components::data_grid::CellRenderer::Date { format: "%d-%b-%Y" }),
     ];
 
     let on_row_click = {

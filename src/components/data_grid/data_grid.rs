@@ -116,7 +116,6 @@ pub fn DataGrid<T: 'static + Clone + PartialEq>(
     selected_rows: Option<Signal<HashSet<usize>>>,
 
     // ── Phase 2: Filter props ──
-
     /// Optional external filter state (column key → filter value).
     filter_state: Option<Signal<HashMap<&'static str, FilterValue>>>,
 
@@ -124,7 +123,6 @@ pub fn DataGrid<T: 'static + Clone + PartialEq>(
     on_filter_change: Option<EventHandler<(&'static str, FilterValue)>>,
 
     // ── Phase 3: Virtual scroll + column resize + pinned columns ──
-
     /// Enable virtual scrolling for large datasets.
     /// When true and PaginationMode::None, only visible rows + buffer are
     /// rendered in the DOM.
@@ -140,7 +138,6 @@ pub fn DataGrid<T: 'static + Clone + PartialEq>(
     on_column_resize: Option<EventHandler<(&'static str, f64)>>,
 
     // ── Phase 4: Inline cell editing ──
-
     /// Called when a cell value is edited and committed.
     /// Parameters: (row_index, column_key, old_value, new_value).
     /// The DataGrid does NOT update `rows` — the parent must handle
@@ -148,7 +145,6 @@ pub fn DataGrid<T: 'static + Clone + PartialEq>(
     on_cell_edit: Option<EventHandler<(usize, &'static str, String, String)>>,
 
     // ── Phase 5: Server-side mode ──
-
     /// Total records count from the server (required when using
     /// `PaginationMode::Server`). Ignored in Client/None modes.
     #[props(default = 0)]
@@ -169,7 +165,6 @@ pub fn DataGrid<T: 'static + Clone + PartialEq>(
     on_server_page_size_change: Option<EventHandler<usize>>,
 
     // ── Phase 5: Column visibility toggle ──
-
     /// Show the column visibility toggle menu button in the toolbar.
     /// When enabled, users can show/hide columns by key from a dropdown.
     #[props(default = true)]
@@ -240,9 +235,8 @@ where
 
     // Tracks which columns are currently visible (by column key).
     // Initialised with all column keys.
-    let mut visible_columns: Signal<HashSet<&'static str>> = use_signal(|| {
-        columns.iter().map(|c| c.key).collect()
-    });
+    let mut visible_columns: Signal<HashSet<&'static str>> =
+        use_signal(|| columns.iter().map(|c| c.key).collect());
 
     // Whether the column visibility dropdown menu is open.
     let mut show_column_menu: Signal<bool> = use_signal(|| false);
@@ -251,7 +245,11 @@ where
     // otherwise the full column list. Used for rendering.
     let display_columns: Vec<ColumnDef<T>> = if column_toggle {
         let vis = visible_columns.read();
-        columns.iter().filter(|c| vis.contains(c.key)).cloned().collect()
+        columns
+            .iter()
+            .filter(|c| vis.contains(c.key))
+            .cloned()
+            .collect()
     } else {
         columns.clone()
     };
@@ -290,11 +288,8 @@ where
         let filtered = apply_filters(indexed, &columns, &filters_ref);
 
         // Step 3: Apply multi-column sort (client-side only)
-        let sorted = crate::components::data_grid::sort::apply_sort(
-            filtered,
-            &columns,
-            &sort_state_ref,
-        );
+        let sorted =
+            crate::components::data_grid::sort::apply_sort(filtered, &columns, &sort_state_ref);
 
         // Step 4: Slice the current page
         let offset = page.offset();
@@ -316,7 +311,8 @@ where
         Rc::new(move |key: &'static str| {
             let mut sort = sort;
             let old_sort = sort.read().clone();
-            let new_sort = crate::components::data_grid::sort::handle_sort_click(key, &old_sort, false);
+            let new_sort =
+                crate::components::data_grid::sort::handle_sort_click(key, &old_sort, false);
             sort.set(new_sort.clone());
 
             if is_server {
@@ -398,11 +394,7 @@ where
         move |col_key: &'static str, start_x: f64| {
             let mut resize_active = resize_active;
             let resized_widths = resized_widths;
-            let current_width = resized_widths
-                .read()
-                .get(col_key)
-                .copied()
-                .unwrap_or(120.0);
+            let current_width = resized_widths.read().get(col_key).copied().unwrap_or(120.0);
             resize_active.set(Some((col_key, start_x, current_width)));
         }
     });

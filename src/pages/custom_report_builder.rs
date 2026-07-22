@@ -2,7 +2,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, SearchableSelect,
+    SelectOption,
 };
 use crate::models::CustomReportForm;
 use dioxus::prelude::*;
@@ -51,37 +52,81 @@ const PAGE_CSS: &str = r##"
 
 fn module_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "sales".to_string(), label: "Sales".to_string() },
-        SelectOption { value: "purchasing".to_string(), label: "Purchasing".to_string() },
-        SelectOption { value: "inventory".to_string(), label: "Inventory".to_string() },
-        SelectOption { value: "accounting".to_string(), label: "Accounting".to_string() },
+        SelectOption {
+            value: "sales".to_string(),
+            label: "Sales".to_string(),
+        },
+        SelectOption {
+            value: "purchasing".to_string(),
+            label: "Purchasing".to_string(),
+        },
+        SelectOption {
+            value: "inventory".to_string(),
+            label: "Inventory".to_string(),
+        },
+        SelectOption {
+            value: "accounting".to_string(),
+            label: "Accounting".to_string(),
+        },
     ]
 }
 
 fn group_by_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "none".to_string(), label: "None".to_string() },
-        SelectOption { value: "month".to_string(), label: "Month".to_string() },
-        SelectOption { value: "quarter".to_string(), label: "Quarter".to_string() },
-        SelectOption { value: "category".to_string(), label: "Category".to_string() },
-        SelectOption { value: "customer".to_string(), label: "Customer".to_string() },
-        SelectOption { value: "warehouse".to_string(), label: "Warehouse".to_string() },
+        SelectOption {
+            value: "none".to_string(),
+            label: "None".to_string(),
+        },
+        SelectOption {
+            value: "month".to_string(),
+            label: "Month".to_string(),
+        },
+        SelectOption {
+            value: "quarter".to_string(),
+            label: "Quarter".to_string(),
+        },
+        SelectOption {
+            value: "category".to_string(),
+            label: "Category".to_string(),
+        },
+        SelectOption {
+            value: "customer".to_string(),
+            label: "Customer".to_string(),
+        },
+        SelectOption {
+            value: "warehouse".to_string(),
+            label: "Warehouse".to_string(),
+        },
     ]
 }
 
 fn sort_by_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "date".to_string(), label: "Date".to_string() },
-        SelectOption { value: "amount".to_string(), label: "Amount".to_string() },
-        SelectOption { value: "name".to_string(), label: "Name".to_string() },
+        SelectOption {
+            value: "date".to_string(),
+            label: "Date".to_string(),
+        },
+        SelectOption {
+            value: "amount".to_string(),
+            label: "Amount".to_string(),
+        },
+        SelectOption {
+            value: "name".to_string(),
+            label: "Name".to_string(),
+        },
     ]
 }
 
 fn sales_fields() -> Vec<(&'static str, &'static str)> {
     vec![
-        ("invoice_no", "Invoice #"), ("customer", "Customer"), ("date", "Date"),
-        ("amount", "Amount"), ("tax", "Tax"), ("total", "Total"),
-        ("status", "Status"), ("category", "Category"),
+        ("invoice_no", "Invoice #"),
+        ("customer", "Customer"),
+        ("date", "Date"),
+        ("amount", "Amount"),
+        ("tax", "Tax"),
+        ("total", "Total"),
+        ("status", "Status"),
+        ("category", "Category"),
     ]
 }
 
@@ -216,7 +261,10 @@ pub fn CustomReportBuilderPage() -> Element {
                 match client.create_custom_report(&form).await {
                     Ok(_) => {
                         saving.set(false);
-                        t2.success("Report Saved", &format!("\"{}\" has been saved as a custom report.", name));
+                        t2.success(
+                            "Report Saved",
+                            &format!("\"{}\" has been saved as a custom report.", name),
+                        );
                     }
                     Err(e) => {
                         saving.set(false);
@@ -227,7 +275,10 @@ pub fn CustomReportBuilderPage() -> Element {
         }
     };
 
-    let fields_list: Vec<_> = fields.iter().filter(|(k, _)| selected_fields.read().contains(*k)).collect();
+    let fields_list: Vec<_> = fields
+        .iter()
+        .filter(|(k, _)| selected_fields.read().contains(*k))
+        .collect();
     rsx! {
         style { "{PAGE_CSS}" }
         div { class: "page crb-page",

@@ -74,36 +74,47 @@ pub fn ForecastAccuracyPage() -> Element {
         let api = api.clone();
         async move {
             let client = api.with(|c| c.clone());
-            client.get_forecast_accuracy().await.ok().unwrap_or_default()
+            client
+                .get_forecast_accuracy()
+                .await
+                .ok()
+                .unwrap_or_default()
         }
     });
 
     let accuracy_data = accuracy_resource.read();
     let accuracy_items = accuracy_data.as_ref().map(|v| v.as_slice()).unwrap_or(&[]);
 
-    let products: Vec<ProductAccuracy> = accuracy_items.iter().filter_map(|item| {
-        let mae = item["mae"].as_f64().unwrap_or(0.0);
-        let mape = item["mape"].as_f64().unwrap_or(0.0);
-        Some(ProductAccuracy {
-            product: item["item_name"].as_str().unwrap_or("Unknown").to_string(),
-            forecast: item["mape"].as_f64().unwrap_or(0.0),
-            actual: item["mae"].as_f64().unwrap_or(0.0),
-            error: mae - mape,
-            mape: item["mape"].as_f64().unwrap_or(0.0),
+    let products: Vec<ProductAccuracy> = accuracy_items
+        .iter()
+        .filter_map(|item| {
+            let mae = item["mae"].as_f64().unwrap_or(0.0);
+            let mape = item["mape"].as_f64().unwrap_or(0.0);
+            Some(ProductAccuracy {
+                product: item["item_name"].as_str().unwrap_or("Unknown").to_string(),
+                forecast: item["mape"].as_f64().unwrap_or(0.0),
+                actual: item["mae"].as_f64().unwrap_or(0.0),
+                error: mae - mape,
+                mape: item["mape"].as_f64().unwrap_or(0.0),
+            })
         })
-    }).collect();
+        .collect();
 
     let monthly: Vec<AccuracyMetric> = {
-        let mut buckets: std::collections::HashMap<String, Vec<f64>> = std::collections::HashMap::new();
+        let mut buckets: std::collections::HashMap<String, Vec<f64>> =
+            std::collections::HashMap::new();
         for item in accuracy_items {
             let period = item["period"].as_str().unwrap_or("Unknown").to_string();
             let mape = item["mape"].as_f64().unwrap_or(0.0);
             buckets.entry(period).or_default().push(mape);
         }
-        buckets.into_iter().map(|(period, values)| {
-            let avg = values.iter().sum::<f64>() / values.len() as f64;
-            AccuracyMetric { period, mape: avg }
-        }).collect()
+        buckets
+            .into_iter()
+            .map(|(period, values)| {
+                let avg = values.iter().sum::<f64>() / values.len() as f64;
+                AccuracyMetric { period, mape: avg }
+            })
+            .collect()
     };
 
     let max_mape = monthly.iter().map(|m| m.mape).fold(0.0_f64, f64::max);
@@ -114,12 +125,26 @@ pub fn ForecastAccuracyPage() -> Element {
     let bar_inner_pct = bar_width_pct - bar_gap_pct;
     let chart_height = 160.0;
 
-    let avg_mape: f64 = if monthly.is_empty() { 0.0 } else { monthly.iter().map(|m| m.mape).sum::<f64>() / monthly.len() as f64 };
-    let avg_mae: f64 = if products.is_empty() { 0.0 } else { products.iter().map(|p| p.actual).sum::<f64>() / products.len() as f64 };
+    let avg_mape: f64 = if monthly.is_empty() {
+        0.0
+    } else {
+        monthly.iter().map(|m| m.mape).sum::<f64>() / monthly.len() as f64
+    };
+    let avg_mae: f64 = if products.is_empty() {
+        0.0
+    } else {
+        products.iter().map(|p| p.actual).sum::<f64>() / products.len() as f64
+    };
     let _total_abs_error: f64 = products.iter().map(|p| p.error.abs()).sum();
-    let avg_error: f64 = if products.is_empty() { 0.0 } else { products.iter().map(|p| p.error).sum::<f64>() / products.len() as f64 };
+    let avg_error: f64 = if products.is_empty() {
+        0.0
+    } else {
+        products.iter().map(|p| p.error).sum::<f64>() / products.len() as f64
+    };
     // Compute RMSE from mae values
-    let rmse: f64 = if products.is_empty() { 0.0 } else {
+    let rmse: f64 = if products.is_empty() {
+        0.0
+    } else {
         let sum_sq: f64 = products.iter().map(|p| p.actual * p.actual).sum();
         (sum_sq / products.len() as f64).sqrt()
     };

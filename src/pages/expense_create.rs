@@ -2,8 +2,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, use_toast,
+    use_toast, Button, ButtonVariant, FormInput, InputType, Modal, ModalSize, SearchableSelect,
+    SelectOption,
 };
 use crate::models::ExpenseForm;
 use dioxus::prelude::*;
@@ -24,20 +24,47 @@ const PAGE_CSS: &str = r##"
 
 fn category_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "Travel".to_string(), label: "Travel".to_string() },
-        SelectOption { value: "Office Supplies".to_string(), label: "Office Supplies".to_string() },
-        SelectOption { value: "Utilities".to_string(), label: "Utilities".to_string() },
-        SelectOption { value: "Maintenance".to_string(), label: "Maintenance".to_string() },
-        SelectOption { value: "Salary".to_string(), label: "Salary".to_string() },
-        SelectOption { value: "Other".to_string(), label: "Other".to_string() },
+        SelectOption {
+            value: "Travel".to_string(),
+            label: "Travel".to_string(),
+        },
+        SelectOption {
+            value: "Office Supplies".to_string(),
+            label: "Office Supplies".to_string(),
+        },
+        SelectOption {
+            value: "Utilities".to_string(),
+            label: "Utilities".to_string(),
+        },
+        SelectOption {
+            value: "Maintenance".to_string(),
+            label: "Maintenance".to_string(),
+        },
+        SelectOption {
+            value: "Salary".to_string(),
+            label: "Salary".to_string(),
+        },
+        SelectOption {
+            value: "Other".to_string(),
+            label: "Other".to_string(),
+        },
     ]
 }
 
 fn payment_method_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "Cash".to_string(), label: "Cash".to_string() },
-        SelectOption { value: "Bank".to_string(), label: "Bank Transfer".to_string() },
-        SelectOption { value: "Credit Card".to_string(), label: "Credit Card".to_string() },
+        SelectOption {
+            value: "Cash".to_string(),
+            label: "Cash".to_string(),
+        },
+        SelectOption {
+            value: "Bank".to_string(),
+            label: "Bank Transfer".to_string(),
+        },
+        SelectOption {
+            value: "Credit Card".to_string(),
+            label: "Credit Card".to_string(),
+        },
     ]
 }
 
@@ -66,24 +93,88 @@ pub fn ExpenseCreatePage() -> Element {
         let mut toast = toast.clone();
         move || -> bool {
             let mut errs = HashMap::<&'static str, String>::new();
-            if cat.read().is_empty() { errs.insert("cat", "Category is required.".to_string()); }
-            if desc.read().trim().is_empty() { errs.insert("desc", "Description is required.".to_string()); }
-            if let Ok(a) = amt.read().parse::<f64>() { if a <= 0.0 { errs.insert("amt", "Amount must be positive.".to_string()); } } else { errs.insert("amt", "Invalid amount.".to_string()); }
+            if cat.read().is_empty() {
+                errs.insert("cat", "Category is required.".to_string());
+            }
+            if desc.read().trim().is_empty() {
+                errs.insert("desc", "Description is required.".to_string());
+            }
+            if let Ok(a) = amt.read().parse::<f64>() {
+                if a <= 0.0 {
+                    errs.insert("amt", "Amount must be positive.".to_string());
+                }
+            } else {
+                errs.insert("amt", "Invalid amount.".to_string());
+            }
             let valid = errs.is_empty();
-            if !valid { toast.warning("Validation Error", "Please fix errors."); }
+            if !valid {
+                toast.warning("Validation Error", "Please fix errors.");
+            }
             valid
         }
     };
 
-    let make_dirty = { let mut d = is_dirty.clone(); move || d.set(true) };
+    let make_dirty = {
+        let mut d = is_dirty.clone();
+        move || d.set(true)
+    };
 
-    let on_cat = { let mut c = category.clone(); let mut d = make_dirty.clone(); move |v: String| { c.set(v); d(); } };
-    let on_desc = { let mut d = description.clone(); let mut dirty = make_dirty.clone(); move |v: String| { d.set(v); dirty(); } };
-    let on_amt = { let mut a = amount.clone(); let mut d = make_dirty.clone(); move |v: String| { a.set(v); d(); } };
-    let on_date = { let mut dt = expense_date.clone(); let mut d = make_dirty.clone(); move |v: String| { dt.set(v); d(); } };
-    let on_paid = { let mut p = paid_to.clone(); let mut d = make_dirty.clone(); move |v: String| { p.set(v); d(); } };
-    let on_method = { let mut m = payment_method.clone(); let mut d = make_dirty.clone(); move |v: String| { m.set(v); d(); } };
-    let on_notes = { let mut n = notes.clone(); let mut d = make_dirty.clone(); move |v: String| { n.set(v); d(); } };
+    let on_cat = {
+        let mut c = category.clone();
+        let mut d = make_dirty.clone();
+        move |v: String| {
+            c.set(v);
+            d();
+        }
+    };
+    let on_desc = {
+        let mut d = description.clone();
+        let mut dirty = make_dirty.clone();
+        move |v: String| {
+            d.set(v);
+            dirty();
+        }
+    };
+    let on_amt = {
+        let mut a = amount.clone();
+        let mut d = make_dirty.clone();
+        move |v: String| {
+            a.set(v);
+            d();
+        }
+    };
+    let on_date = {
+        let mut dt = expense_date.clone();
+        let mut d = make_dirty.clone();
+        move |v: String| {
+            dt.set(v);
+            d();
+        }
+    };
+    let on_paid = {
+        let mut p = paid_to.clone();
+        let mut d = make_dirty.clone();
+        move |v: String| {
+            p.set(v);
+            d();
+        }
+    };
+    let on_method = {
+        let mut m = payment_method.clone();
+        let mut d = make_dirty.clone();
+        move |v: String| {
+            m.set(v);
+            d();
+        }
+    };
+    let on_notes = {
+        let mut n = notes.clone();
+        let mut d = make_dirty.clone();
+        move |v: String| {
+            n.set(v);
+            d();
+        }
+    };
 
     let save = {
         let mut saving = is_saving.clone();
@@ -97,13 +188,19 @@ pub fn ExpenseCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
         let api = use_auth().api;
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
-            let c = cat.read().clone(); let d = desc.read().clone(); let a = amt.read().clone();
+            let c = cat.read().clone();
+            let d = desc.read().clone();
+            let a = amt.read().clone();
             let dt_val = dt.read().clone();
-            let mut toast = toast.clone(); let nav = nav.clone();
+            let mut toast = toast.clone();
+            let nav = nav.clone();
             let api = api.clone();
-            let mut saving = saving.clone(); let mut dirty = dirty.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
             spawn(async move {
                 let client = api.read().clone();
                 let form = ExpenseForm {
@@ -144,16 +241,24 @@ pub fn ExpenseCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
         let api = use_auth().api;
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
-            let c = cat.read().clone(); let d = desc.read().clone(); let a = amt.read().clone();
+            let c = cat.read().clone();
+            let d = desc.read().clone();
+            let a = amt.read().clone();
             let dt_val = i_date.read().clone();
             let mut toast = toast.clone();
             let api = api.clone();
-            let mut saving = saving.clone(); let mut dirty = dirty.clone();
-            let mut i_cat = i_cat.clone(); let mut i_desc = i_desc.clone();
-            let mut i_amt = i_amt.clone(); let mut i_date = i_date.clone();
-            let mut i_paid = i_paid.clone(); let mut i_method = i_method.clone();
+            let mut saving = saving.clone();
+            let mut dirty = dirty.clone();
+            let mut i_cat = i_cat.clone();
+            let mut i_desc = i_desc.clone();
+            let mut i_amt = i_amt.clone();
+            let mut i_date = i_date.clone();
+            let mut i_paid = i_paid.clone();
+            let mut i_method = i_method.clone();
             let mut i_notes = i_notes.clone();
             spawn(async move {
                 let client = api.read().clone();
@@ -165,10 +270,19 @@ pub fn ExpenseCreatePage() -> Element {
                 };
                 match client.create_expense(&form).await {
                     Ok(_) => {
-                        toast.success("Expense Created", &format!("{} of PKR {} created. Creating another…", c, a));
-                        i_cat.set(String::new()); i_desc.set(String::new()); i_amt.set(String::new());
-                        i_date.set(String::new()); i_paid.set(String::new()); i_method.set("Cash".to_string()); i_notes.set(String::new());
-                        dirty.set(false); saving.set(false);
+                        toast.success(
+                            "Expense Created",
+                            &format!("{} of PKR {} created. Creating another…", c, a),
+                        );
+                        i_cat.set(String::new());
+                        i_desc.set(String::new());
+                        i_amt.set(String::new());
+                        i_date.set(String::new());
+                        i_paid.set(String::new());
+                        i_method.set("Cash".to_string());
+                        i_notes.set(String::new());
+                        dirty.set(false);
+                        saving.set(false);
                     }
                     Err(e) => {
                         toast.error("Error", &e);
@@ -183,7 +297,13 @@ pub fn ExpenseCreatePage() -> Element {
         let mut modal = show_discard_modal.clone();
         let mut dirty = is_dirty.clone();
         let mut nav = navigator.clone();
-        move |_| { if *dirty.read() { modal.set(true); } else { nav.push("/expenses"); } }
+        move |_| {
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/expenses");
+            }
+        }
     };
 
     let cat_err = errors.read().get("cat").cloned();

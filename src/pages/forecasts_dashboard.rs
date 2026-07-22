@@ -57,13 +57,16 @@ fn nav_items() -> Vec<ForecastNavItem> {
         ForecastNavItem {
             icon: "📈".to_string(),
             title: "Demand Forecast".to_string(),
-            description: "View historical and forecasted demand for products with confidence intervals.".to_string(),
+            description:
+                "View historical and forecasted demand for products with confidence intervals."
+                    .to_string(),
             route: "/forecasts/demand",
         },
         ForecastNavItem {
             icon: "📊".to_string(),
             title: "Trend Analysis".to_string(),
-            description: "Analyze linear, exponential, and seasonal trends in your data.".to_string(),
+            description: "Analyze linear, exponential, and seasonal trends in your data."
+                .to_string(),
             route: "/forecasts/trends",
         },
         ForecastNavItem {
@@ -75,13 +78,15 @@ fn nav_items() -> Vec<ForecastNavItem> {
         ForecastNavItem {
             icon: "⚙".to_string(),
             title: "Model Configuration".to_string(),
-            description: "Configure ARIMA, ETS, Prophet, and Neural forecasting models.".to_string(),
+            description: "Configure ARIMA, ETS, Prophet, and Neural forecasting models."
+                .to_string(),
             route: "/forecasts/model-config",
         },
         ForecastNavItem {
             icon: "🗓".to_string(),
             title: "Seasonal Events".to_string(),
-            description: "Manage seasonal events and their impact factors for forecast adjustment.".to_string(),
+            description: "Manage seasonal events and their impact factors for forecast adjustment."
+                .to_string(),
             route: "/forecasts/seasonal-events",
         },
     ]
@@ -139,9 +144,14 @@ pub fn ForecastsDashboardPage() -> Element {
     let model_breakdown = configs_data
         .as_ref()
         .map(|v| {
-            let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+            let mut counts: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
             for c in v {
-                let model_type = c.get("model_type").and_then(|m| m.as_str()).unwrap_or("Unknown").to_string();
+                let model_type = c
+                    .get("model_type")
+                    .and_then(|m| m.as_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
                 *counts.entry(model_type).or_insert(0) += 1;
             }
             counts
@@ -156,13 +166,19 @@ pub fn ForecastsDashboardPage() -> Element {
         .as_ref()
         .filter(|v| !v.is_empty())
         .map(|v| {
-            let sum: f64 = v.iter()
+            let sum: f64 = v
+                .iter()
                 .filter_map(|a| a.get("accuracy").or(a.get("mape")).and_then(|m| m.as_f64()))
                 .sum();
-            let count = v.iter()
+            let count = v
+                .iter()
                 .filter(|a| a.get("accuracy").or(a.get("mape")).is_some())
                 .count();
-            if count > 0 { sum / count as f64 } else { 0.0 }
+            if count > 0 {
+                sum / count as f64
+            } else {
+                0.0
+            }
         })
         .unwrap_or(0.0);
 
@@ -170,7 +186,11 @@ pub fn ForecastsDashboardPage() -> Element {
         .as_ref()
         .filter(|v| !v.is_empty())
         .and_then(|v| v.first())
-        .and_then(|r| r.get("created_at").or(r.get("run_date")).and_then(|d| d.as_str()))
+        .and_then(|r| {
+            r.get("created_at")
+                .or(r.get("run_date"))
+                .and_then(|d| d.as_str())
+        })
         .unwrap_or("N/A");
 
     let total_forecasts = forecasts_data.as_ref().map(|v| v.len()).unwrap_or(0);
@@ -178,24 +198,46 @@ pub fn ForecastsDashboardPage() -> Element {
     let total_accuracy_records = accuracy_data.as_ref().map(|v| v.len()).unwrap_or(0);
     let accuracy_footer = format!("Across {} accuracy records", total_accuracy_records);
     let runs_footer = format!("{} total runs", total_runs);
-    let kpi_model_footer = if model_breakdown.is_empty() { "No models configured".to_string() } else { model_breakdown };
+    let kpi_model_footer = if model_breakdown.is_empty() {
+        "No models configured".to_string()
+    } else {
+        model_breakdown
+    };
 
     let model_status_items: Vec<String> = configs_data
         .as_ref()
         .map(|v| {
             v.iter()
                 .map(|c| {
-                    let name = c.get("model_type").and_then(|m| m.as_str()).unwrap_or("Unknown");
-                    let last_trained = c.get("last_trained").or(c.get("updated_at")).and_then(|d| d.as_str()).unwrap_or("Never");
-                    let mape = c.get("mape").and_then(|m| m.as_f64()).map(|m| format!("{:.1}%", m)).unwrap_or_else(|| "N/A".to_string());
-                    format!("• {} — Last trained: {} — MAPE: {}", name, last_trained, mape)
+                    let name = c
+                        .get("model_type")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("Unknown");
+                    let last_trained = c
+                        .get("last_trained")
+                        .or(c.get("updated_at"))
+                        .and_then(|d| d.as_str())
+                        .unwrap_or("Never");
+                    let mape = c
+                        .get("mape")
+                        .and_then(|m| m.as_f64())
+                        .map(|m| format!("{:.1}%", m))
+                        .unwrap_or_else(|| "N/A".to_string());
+                    format!(
+                        "• {} — Last trained: {} — MAPE: {}",
+                        name, last_trained, mape
+                    )
                 })
                 .collect()
         })
         .unwrap_or_default();
 
     let all_healthy = !model_status_items.is_empty();
-    let accuracy_value = if avg_accuracy > 0.0 { format!("{:.1}%", avg_accuracy) } else { "N/A".to_string() };
+    let accuracy_value = if avg_accuracy > 0.0 {
+        format!("{:.1}%", avg_accuracy)
+    } else {
+        "N/A".to_string()
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }

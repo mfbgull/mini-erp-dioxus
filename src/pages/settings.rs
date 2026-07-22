@@ -2,9 +2,7 @@
 //! user preferences, and notification preferences.
 
 use crate::auth::use_auth;
-use crate::components::common::{
-    Button, ButtonVariant, FormInput, InputType, use_toast,
-};
+use crate::components::common::{use_toast, Button, ButtonVariant, FormInput, InputType};
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -63,7 +61,8 @@ pub fn SettingsPage() -> Element {
     // ── General Tab State ──
     let mut company_name = use_signal(|| "MiniERP Solutions (Pvt) Ltd".to_string());
     let mut tax_id = use_signal(|| "NTN-1234567-8".to_string());
-    let mut address = use_signal(|| "123 Business Avenue, Block 6, Gulshan-e-Iqbal, Karachi".to_string());
+    let mut address =
+        use_signal(|| "123 Business Avenue, Block 6, Gulshan-e-Iqbal, Karachi".to_string());
     let mut email = use_signal(|| "info@minierp.pk".to_string());
     let mut phone = use_signal(|| "+92 21 111 222 333".to_string());
     let mut currency = use_signal(|| "PKR".to_string());
@@ -87,17 +86,42 @@ pub fn SettingsPage() -> Element {
     if !*settings_loaded.read() {
         if let Some(data) = settings_resource.read().as_ref().and_then(|s| s.as_ref()) {
             let s = data.clone();
-            company_name.set(s["company_name"].as_str().unwrap_or("MiniERP Solutions (Pvt) Ltd").to_string());
+            company_name.set(
+                s["company_name"]
+                    .as_str()
+                    .unwrap_or("MiniERP Solutions (Pvt) Ltd")
+                    .to_string(),
+            );
             tax_id.set(s["tax_id"].as_str().unwrap_or("NTN-1234567-8").to_string());
-            address.set(s["address"].as_str().unwrap_or("123 Business Avenue, Block 6, Gulshan-e-Iqbal, Karachi").to_string());
+            address.set(
+                s["address"]
+                    .as_str()
+                    .unwrap_or("123 Business Avenue, Block 6, Gulshan-e-Iqbal, Karachi")
+                    .to_string(),
+            );
             email.set(s["email"].as_str().unwrap_or("info@minierp.pk").to_string());
-            phone.set(s["phone"].as_str().unwrap_or("+92 21 111 222 333").to_string());
+            phone.set(
+                s["phone"]
+                    .as_str()
+                    .unwrap_or("+92 21 111 222 333")
+                    .to_string(),
+            );
             currency.set(s["currency"].as_str().unwrap_or("PKR").to_string());
             timezone.set(s["timezone"].as_str().unwrap_or("Asia/Karachi").to_string());
             items_per_page.set(s["items_per_page"].as_str().unwrap_or("25").to_string());
             default_tax_rate.set(s["default_tax_rate"].as_str().unwrap_or("16.0").to_string());
-            low_stock_threshold.set(s["low_stock_threshold"].as_str().unwrap_or("10").to_string());
-            date_format.set(s["date_format"].as_str().unwrap_or("dd-MMM-yyyy").to_string());
+            low_stock_threshold.set(
+                s["low_stock_threshold"]
+                    .as_str()
+                    .unwrap_or("10")
+                    .to_string(),
+            );
+            date_format.set(
+                s["date_format"]
+                    .as_str()
+                    .unwrap_or("dd-MMM-yyyy")
+                    .to_string(),
+            );
             email_alerts.set(s["email_alerts"].as_bool().unwrap_or(true));
             sms_alerts.set(s["sms_alerts"].as_bool().unwrap_or(false));
             settings_loaded.set(true);
@@ -107,7 +131,9 @@ pub fn SettingsPage() -> Element {
     // ── Tab Switch Handler ──
     let mut switch_tab = {
         let mut tab = active_tab.clone();
-        move |t: u32| { tab.set(t); }
+        move |t: u32| {
+            tab.set(t);
+        }
     };
 
     // ── Save Handler ──
@@ -139,7 +165,10 @@ pub fn SettingsPage() -> Element {
                 match client.update_settings(&payload).await {
                     Ok(_) => {
                         saving.set(false);
-                        t.success("Settings Saved", "Company settings have been updated successfully.");
+                        t.success(
+                            "Settings Saved",
+                            "Company settings have been updated successfully.",
+                        );
                     }
                     Err(e) => {
                         saving.set(false);

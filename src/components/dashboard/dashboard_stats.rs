@@ -18,7 +18,13 @@ const STAT_BLOCKS_CSS: &str = r#"
 "#;
 
 #[derive(Clone, PartialEq)]
-pub enum StatColor { Blue, Green, Yellow, Red, Purple }
+pub enum StatColor {
+    Blue,
+    Green,
+    Yellow,
+    Red,
+    Purple,
+}
 
 #[derive(Clone, PartialEq)]
 pub struct DashboardStatItem {
@@ -68,7 +74,12 @@ pub struct MiniBarChartProps {
 
 #[component]
 pub fn MiniBarChart(props: MiniBarChartProps) -> Element {
-    let max_val = props.data.iter().map(|(_, v)| *v).fold(0.0_f64, f64::max).max(1.0);
+    let max_val = props
+        .data
+        .iter()
+        .map(|(_, v)| *v)
+        .fold(0.0_f64, f64::max)
+        .max(1.0);
     rsx! {
         div { style: "display: flex; align-items: flex-end; gap: 4px; height: {props.bar_height}px; padding-top: 8px;",
             for (label, value) in props.data.iter() {

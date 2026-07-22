@@ -2,8 +2,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType,
-    SearchableSelect, SelectOption, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, SearchableSelect,
+    SelectOption,
 };
 use dioxus::prelude::*;
 
@@ -71,7 +71,11 @@ pub fn UserEditPage(id: String) -> Element {
                         username.set(user.username.clone());
                         full_name.set(user.full_name.clone());
                         email.set(user.email.clone());
-                        role_id.set(user.role_id.map(|r| r.to_string()).unwrap_or_else(|| "3".to_string()));
+                        role_id.set(
+                            user.role_id
+                                .map(|r| r.to_string())
+                                .unwrap_or_else(|| "3".to_string()),
+                        );
                         is_active.set(user.is_active);
                         data_loaded.set(true);
                     }
@@ -91,17 +95,21 @@ pub fn UserEditPage(id: String) -> Element {
             spawn(async move {
                 let client = api.read().clone();
                 if let Ok(list) = client.list_roles().await {
-                    let parsed: Vec<(i64, String)> = list.iter()
-                        .map(|r| (r.id, r.role_name.clone()))
-                        .collect();
+                    let parsed: Vec<(i64, String)> =
+                        list.iter().map(|r| (r.id, r.role_name.clone())).collect();
                     roles.set(parsed);
                 }
             });
         });
     }
 
-    let role_options: Vec<SelectOption> = roles.read().iter()
-        .map(|(id, name)| SelectOption { value: id.to_string(), label: name.clone() })
+    let role_options: Vec<SelectOption> = roles
+        .read()
+        .iter()
+        .map(|(id, name)| SelectOption {
+            value: id.to_string(),
+            label: name.clone(),
+        })
         .collect();
 
     let is_loading = user_resource.read().is_none();
@@ -178,7 +186,9 @@ pub fn UserEditPage(id: String) -> Element {
         let mut dirty = is_dirty.clone();
         let user_id = parsed_id;
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let mut form = serde_json::json!({
                 "username": u.read().trim(),
@@ -201,7 +211,10 @@ pub fn UserEditPage(id: String) -> Element {
                 let client = api.read().clone();
                 match client.update_user(user_id, &form).await {
                     Ok(_) => {
-                        toast.success("User Updated", &format!("User '{}' has been updated.", u.read()));
+                        toast.success(
+                            "User Updated",
+                            &format!("User '{}' has been updated.", u.read()),
+                        );
                         dirty.set(false);
                         nav.push("/users");
                     }
@@ -214,7 +227,10 @@ pub fn UserEditPage(id: String) -> Element {
         }
     };
 
-    let make_dirty = { let mut d = is_dirty.clone(); move || d.set(true) };
+    let make_dirty = {
+        let mut d = is_dirty.clone();
+        move || d.set(true)
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }

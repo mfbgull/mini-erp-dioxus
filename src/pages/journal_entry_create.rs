@@ -1,7 +1,7 @@
 //! Journal Entry Create Page — Form for creating journal entries with balanced debits/credits.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, use_toast};
+use crate::components::common::{use_toast, Button, ButtonVariant};
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r#"
@@ -59,10 +59,22 @@ pub fn JournalEntryCreatePage() -> Element {
     let mut entry_date = use_signal(|| chrono::Utc::now().format("%Y-%m-%d").to_string());
     let mut reference_type = use_signal(|| String::new());
     let mut reference_id = use_signal(|| String::new());
-    let mut lines = use_signal(|| vec![
-        JournalLine { account_id: 0, debit: String::new(), credit: String::new(), description: String::new() },
-        JournalLine { account_id: 0, debit: String::new(), credit: String::new(), description: String::new() },
-    ]);
+    let mut lines = use_signal(|| {
+        vec![
+            JournalLine {
+                account_id: 0,
+                debit: String::new(),
+                credit: String::new(),
+                description: String::new(),
+            },
+            JournalLine {
+                account_id: 0,
+                debit: String::new(),
+                credit: String::new(),
+                description: String::new(),
+            },
+        ]
+    });
     let mut is_submitting = use_signal(|| false);
 
     // Fetch chart of accounts
@@ -71,19 +83,30 @@ pub fn JournalEntryCreatePage() -> Element {
         async move {
             let client = api.read().clone();
             match client.list_accounts().await {
-                Ok(accounts) => accounts.into_iter().map(|a| AccountOption {
-                    id: a.id,
-                    code: a.code,
-                    name: a.name,
-                }).collect(),
+                Ok(accounts) => accounts
+                    .into_iter()
+                    .map(|a| AccountOption {
+                        id: a.id,
+                        code: a.code,
+                        name: a.name,
+                    })
+                    .collect(),
                 Err(_) => vec![],
             }
         }
     });
     let accounts = accounts_resource.read().cloned().unwrap_or_default();
 
-    let total_debit: f64 = lines.read().iter().filter_map(|l| l.debit.parse::<f64>().ok()).sum();
-    let total_credit: f64 = lines.read().iter().filter_map(|l| l.credit.parse::<f64>().ok()).sum();
+    let total_debit: f64 = lines
+        .read()
+        .iter()
+        .filter_map(|l| l.debit.parse::<f64>().ok())
+        .sum();
+    let total_credit: f64 = lines
+        .read()
+        .iter()
+        .filter_map(|l| l.credit.parse::<f64>().ok())
+        .sum();
     let is_balanced = (total_debit - total_credit).abs() < 0.01 && total_debit > 0.0;
 
     let add_line = move |_| {
@@ -111,15 +134,19 @@ pub fn JournalEntryCreatePage() -> Element {
         let entry_date = entry_date.read().clone();
         let ref_type = reference_type.read().clone();
         let ref_id: Option<i64> = reference_id.read().parse().ok();
-        let lines_data: Vec<(i64, f64, f64, String)> = lines.read().iter().filter_map(|l| {
-            let debit: f64 = l.debit.parse().ok().unwrap_or(0.0);
-            let credit: f64 = l.credit.parse().ok().unwrap_or(0.0);
-            if l.account_id > 0 && (debit > 0.0 || credit > 0.0) {
-                Some((l.account_id, debit, credit, l.description.clone()))
-            } else {
-                None
-            }
-        }).collect();
+        let lines_data: Vec<(i64, f64, f64, String)> = lines
+            .read()
+            .iter()
+            .filter_map(|l| {
+                let debit: f64 = l.debit.parse().ok().unwrap_or(0.0);
+                let credit: f64 = l.credit.parse().ok().unwrap_or(0.0);
+                if l.account_id > 0 && (debit > 0.0 || credit > 0.0) {
+                    Some((l.account_id, debit, credit, l.description.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         if lines_data.is_empty() {
             toast.error("Error", "Add at least one valid line.");
@@ -132,7 +159,10 @@ pub fn JournalEntryCreatePage() -> Element {
         let mut nav = navigator.clone();
         spawn(async move {
             let client = api.read().clone();
-            match client.create_journal_entry(&entry_date, ref_type.as_str(), ref_id, &lines_data).await {
+            match client
+                .create_journal_entry(&entry_date, ref_type.as_str(), ref_id, &lines_data)
+                .await
+            {
                 Ok(_) => {
                     toast.success("Created", "Journal entry created.");
                     nav.push("/accounting/journal-entries");

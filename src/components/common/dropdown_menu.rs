@@ -70,7 +70,12 @@ pub struct DropdownMenuProps {
 
 pub fn DropdownMenu(props: DropdownMenuProps) -> Element {
     let mut is_open = use_signal(|| false);
-    let mut toggle = move || { if !props.disabled { let val = *is_open.read(); is_open.set(!val); } };
+    let mut toggle = move || {
+        if !props.disabled {
+            let val = *is_open.read();
+            is_open.set(!val);
+        }
+    };
 
     rsx! {
         div {

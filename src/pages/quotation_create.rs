@@ -1,15 +1,15 @@
 //! Quotation Create Page — Form to create quotations with customer select,
 //! line items, discount, tax, and totals.
 
+use crate::auth::use_auth;
 use crate::calculations::{
-    quotation::{calculate_item_discount, calculate_item_total},
     formatting,
+    quotation::{calculate_item_discount, calculate_item_total},
     Discount, DiscountScope, DiscountType,
 };
-use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
+    SearchableSelect, SelectOption, StatCard, StatCardVariant,
 };
 use crate::models::{Customer, Item, QuotationForm, QuotationItemForm};
 use chrono::NaiveDate;
@@ -101,7 +101,12 @@ impl Default for LineItem {
 impl LineItem {
     fn net_amount(&self) -> f64 {
         let disc = if self.discount_type == "Percentage" {
-            calculate_item_discount(self.quantity, self.unit_price, "percentage", self.discount_value)
+            calculate_item_discount(
+                self.quantity,
+                self.unit_price,
+                "percentage",
+                self.discount_value,
+            )
         } else if self.discount_type == "Flat" {
             calculate_item_discount(self.quantity, self.unit_price, "flat", self.discount_value)
         } else {
@@ -110,8 +115,6 @@ impl LineItem {
         calculate_item_total(self.quantity, self.unit_price, disc)
     }
 }
-
-
 
 // ============================================================================
 // Component
@@ -124,7 +127,9 @@ pub fn QuotationCreatePage() -> Element {
 
     let items = use_signal(|| {
         let mut v: Vec<LineItem> = Vec::new();
-        for _ in 0..MIN_ITEM_ROWS { v.push(LineItem::default()); }
+        for _ in 0..MIN_ITEM_ROWS {
+            v.push(LineItem::default());
+        }
         v
     });
 
@@ -197,12 +202,26 @@ pub fn QuotationCreatePage() -> Element {
 
     // Use the invoice metrics compute function since quotation math is similar
     let metrics = if !item_totals.is_empty() {
-        crate::calculations::invoice::compute_invoice_metrics(item_totals.clone(), &discount, tax_rate_val)
+        crate::calculations::invoice::compute_invoice_metrics(
+            item_totals.clone(),
+            &discount,
+            tax_rate_val,
+        )
     } else {
-        crate::calculations::InvoiceMetrics { subtotal: 0.0, discount_amount: 0.0, taxable_amount: 0.0, tax_amount: 0.0, total: 0.0 }
+        crate::calculations::InvoiceMetrics {
+            subtotal: 0.0,
+            discount_amount: 0.0,
+            taxable_amount: 0.0,
+            tax_amount: 0.0,
+            total: 0.0,
+        }
     };
 
-    let filled_count = items.read().iter().filter(|li| !li.item_code.is_empty()).count();
+    let filled_count = items
+        .read()
+        .iter()
+        .filter(|li| !li.item_code.is_empty())
+        .count();
 
     let on_customer_select = {
         let mut code = customer_code.clone();
@@ -211,7 +230,8 @@ pub fn QuotationCreatePage() -> Element {
         let cust_map = customer_map.clone();
         move |value: String| {
             code.set(value.clone());
-            let label = cust_map.read()
+            let label = cust_map
+                .read()
                 .get(&value)
                 .map(|c| c.customer_name.clone())
                 .unwrap_or_default();
@@ -223,13 +243,19 @@ pub fn QuotationCreatePage() -> Element {
     let add_item = {
         let mut its = items.clone();
         let mut dirty = is_dirty.clone();
-        move |_| { its.write().push(LineItem::default()); dirty.set(true); }
+        move |_| {
+            its.write().push(LineItem::default());
+            dirty.set(true);
+        }
     };
 
     let remove_item = {
         let mut its = items.clone();
         let mut dirty = is_dirty.clone();
-        move |id: u64| { its.write().retain(|li| li.id != id); dirty.set(true); }
+        move |id: u64| {
+            its.write().retain(|li| li.id != id);
+            dirty.set(true);
+        }
     };
 
     let save_quotation = {
@@ -254,14 +280,24 @@ pub fn QuotationCreatePage() -> Element {
                 toast.error("Validation Error", "Please select a customer.");
                 return;
             }
-            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
+            let filled = its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count();
             if filled == 0 {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
 
-            let cust_id = cust_map.read().get(&c_code.read().clone()).map(|c| c.id).unwrap_or(0);
-            let form_items: Vec<QuotationItemForm> = its.read().iter()
+            let cust_id = cust_map
+                .read()
+                .get(&c_code.read().clone())
+                .map(|c| c.id)
+                .unwrap_or(0);
+            let form_items: Vec<QuotationItemForm> = its
+                .read()
+                .iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| {
                     let item_id = it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0);
@@ -270,15 +306,28 @@ pub fn QuotationCreatePage() -> Element {
                         description: Some(li.item_name.clone()),
                         quantity: li.quantity,
                         unit_price: li.unit_price,
-                        discount: if li.discount_value > 0.0 { Some(li.discount_value) } else { None },
+                        discount: if li.discount_value > 0.0 {
+                            Some(li.discount_value)
+                        } else {
+                            None
+                        },
                         tax_rate: Some(li.tax_rate),
                     }
-                }).collect();
+                })
+                .collect();
 
             let form = QuotationForm {
                 customer_id: cust_id,
-                quotation_date: inv_date.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
-                expiry_date: v_until.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
+                quotation_date: inv_date
+                    .read()
+                    .as_ref()
+                    .map(|d| d.to_string())
+                    .unwrap_or_default(),
+                expiry_date: v_until
+                    .read()
+                    .as_ref()
+                    .map(|d| d.to_string())
+                    .unwrap_or_default(),
                 notes: Some(nts.read().clone()),
                 items: form_items,
             };
@@ -327,14 +376,24 @@ pub fn QuotationCreatePage() -> Element {
                 toast.error("Validation Error", "Please select a customer.");
                 return;
             }
-            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
+            let filled = its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count();
             if filled == 0 {
                 toast.error("Validation Error", "Please add at least one item.");
                 return;
             }
 
-            let cust_id = cust_map.read().get(&c_code.read().clone()).map(|c| c.id).unwrap_or(0);
-            let form_items: Vec<QuotationItemForm> = its.read().iter()
+            let cust_id = cust_map
+                .read()
+                .get(&c_code.read().clone())
+                .map(|c| c.id)
+                .unwrap_or(0);
+            let form_items: Vec<QuotationItemForm> = its
+                .read()
+                .iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| {
                     let item_id = it_map.read().get(&li.item_code).map(|i| i.id).unwrap_or(0);
@@ -343,15 +402,28 @@ pub fn QuotationCreatePage() -> Element {
                         description: Some(li.item_name.clone()),
                         quantity: li.quantity,
                         unit_price: li.unit_price,
-                        discount: if li.discount_value > 0.0 { Some(li.discount_value) } else { None },
+                        discount: if li.discount_value > 0.0 {
+                            Some(li.discount_value)
+                        } else {
+                            None
+                        },
                         tax_rate: Some(li.tax_rate),
                     }
-                }).collect();
+                })
+                .collect();
 
             let form = QuotationForm {
                 customer_id: cust_id,
-                quotation_date: inv_date.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
-                expiry_date: v_until.read().as_ref().map(|d| d.to_string()).unwrap_or_default(),
+                quotation_date: inv_date
+                    .read()
+                    .as_ref()
+                    .map(|d| d.to_string())
+                    .unwrap_or_default(),
+                expiry_date: v_until
+                    .read()
+                    .as_ref()
+                    .map(|d| d.to_string())
+                    .unwrap_or_default(),
                 notes: Some(nts.read().clone()),
                 items: form_items,
             };
@@ -397,15 +469,21 @@ pub fn QuotationCreatePage() -> Element {
         let dirty = is_dirty.clone();
         let nav = navigator.clone();
         move |_| {
-            if *dirty.read() { modal.set(true); }
-            else { nav.push("/sales/quotations"); }
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/sales/quotations");
+            }
         }
     };
 
     let confirm_discard = {
         let nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
-        move |_| { modal.set(false); nav.push("/sales/quotations"); }
+        move |_| {
+            modal.set(false);
+            nav.push("/sales/quotations");
+        }
     };
 
     let cancel_discard = {

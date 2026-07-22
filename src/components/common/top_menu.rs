@@ -26,7 +26,15 @@ pub struct TopMenuProps {
 
 #[component]
 pub fn TopMenu(props: TopMenuProps) -> Element {
-    let initial = props.user_name.as_deref().unwrap_or("?").chars().next().unwrap_or('?').to_uppercase().to_string();
+    let initial = props
+        .user_name
+        .as_deref()
+        .unwrap_or("?")
+        .chars()
+        .next()
+        .unwrap_or('?')
+        .to_uppercase()
+        .to_string();
 
     rsx! {
         style { "{TOPMENU_CSS}" }

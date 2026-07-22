@@ -1,7 +1,7 @@
-use dioxus::prelude::*;
-use super::print_shared::{PRINT_CSS, DEFAULT_COMPANY, trigger_print};
+use super::print_shared::{trigger_print, DEFAULT_COMPANY, PRINT_CSS};
 use crate::auth::use_auth;
 use crate::models;
+use dioxus::prelude::*;
 
 // ============================================================================
 // Data
@@ -40,8 +40,6 @@ struct PrintData {
     items: Vec<PrintLineItem>,
 }
 
-
-
 fn status_color(status: &str) -> &'static str {
     match status {
         "Paid" => "#2e7d32",
@@ -69,8 +67,10 @@ pub fn InvoicePrintPage(id: String) -> Element {
             let client = api.with(|c| c.clone());
             let result = client.get_invoice(parsed).await.ok()?;
             let response_data = result.get("data")?;
-            let inv: models::Invoice = serde_json::from_value(response_data.get("invoice")?.clone()).ok()?;
-            let items: Vec<models::InvoiceItem> = serde_json::from_value(response_data.get("items")?.clone()).ok()?;
+            let inv: models::Invoice =
+                serde_json::from_value(response_data.get("invoice")?.clone()).ok()?;
+            let items: Vec<models::InvoiceItem> =
+                serde_json::from_value(response_data.get("items")?.clone()).ok()?;
 
             Some(PrintData {
                 invoice_no: inv.invoice_no,
@@ -92,13 +92,16 @@ pub fn InvoicePrintPage(id: String) -> Element {
                 payment_date: String::new(),
                 notes: inv.notes.clone().unwrap_or_default(),
                 terms: String::new(),
-                items: items.into_iter().map(|ii| PrintLineItem {
-                    item_code: ii.item_code.clone().unwrap_or_default(),
-                    item_name: ii.item_name.clone().unwrap_or_default(),
-                    quantity: ii.quantity,
-                    unit_price: ii.unit_price,
-                    net_amount: ii.amount,
-                }).collect(),
+                items: items
+                    .into_iter()
+                    .map(|ii| PrintLineItem {
+                        item_code: ii.item_code.clone().unwrap_or_default(),
+                        item_name: ii.item_name.clone().unwrap_or_default(),
+                        quantity: ii.quantity,
+                        unit_price: ii.unit_price,
+                        net_amount: ii.amount,
+                    })
+                    .collect(),
             })
         }
     });

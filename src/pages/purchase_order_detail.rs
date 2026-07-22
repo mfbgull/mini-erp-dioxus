@@ -2,8 +2,10 @@
 //! header info, line items table, KPI cards, and action bar.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast};
-use crate::models as models;
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
+};
+use crate::models;
 use dioxus::prelude::*;
 use serde_json::json;
 
@@ -48,25 +50,44 @@ const PAGE_CSS: &str = r##"
 
 #[derive(Clone, Debug)]
 struct PoLineItem {
-    po_item_id: i64, item_id: i64,
-    item_code: String, item_name: String, quantity: f64, received: f64,
-    rate: f64, discount: f64, tax: f64, amount: f64,
+    po_item_id: i64,
+    item_id: i64,
+    item_code: String,
+    item_name: String,
+    quantity: f64,
+    received: f64,
+    rate: f64,
+    discount: f64,
+    tax: f64,
+    amount: f64,
 }
 
 #[derive(Clone, Debug)]
 struct PoDetail {
-    id: i64, po_no: String, supplier_name: String, supplier_code: String,
-    order_date: String, expected_date: String, status: String,
-    items: Vec<PoLineItem>, subtotal: f64, discount_total: f64, tax_total: f64, grand_total: f64, notes: String,
+    id: i64,
+    po_no: String,
+    supplier_name: String,
+    supplier_code: String,
+    order_date: String,
+    expected_date: String,
+    status: String,
+    items: Vec<PoLineItem>,
+    subtotal: f64,
+    discount_total: f64,
+    tax_total: f64,
+    grand_total: f64,
+    notes: String,
 }
-
-
 
 fn status_class(s: &str) -> &'static str {
     match s {
-        "Draft" => "po-status-draft", "Sent" => "po-status-sent",
-        "Confirmed" => "po-status-confirmed", "Partially Received" => "po-status-partial",
-        "Received" => "po-status-received", "Cancelled" => "po-status-cancelled", _ => "po-status-draft",
+        "Draft" => "po-status-draft",
+        "Sent" => "po-status-sent",
+        "Confirmed" => "po-status-confirmed",
+        "Partially Received" => "po-status-partial",
+        "Received" => "po-status-received",
+        "Cancelled" => "po-status-cancelled",
+        _ => "po-status-draft",
     }
 }
 
@@ -84,17 +105,25 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
             let parsed = pid.parse::<i64>().ok()?;
             let client = api.with(|c| c.clone());
             let result = client.get_purchase_order(parsed).await.ok()?;
-            let po: models::PurchaseOrder = serde_json::from_value(result.get("purchase_order")?.clone()).ok()?;
-            let items: Vec<models::PurchaseOrderItem> = serde_json::from_value(result.get("items")?.clone()).ok()?;
-            let line_items: Vec<PoLineItem> = items.into_iter().map(|i| PoLineItem {
-                po_item_id: i.id, item_id: i.item_id,
-                item_code: i.item_code.unwrap_or_default(),
-                item_name: i.item_name.unwrap_or_default(),
-                quantity: i.quantity, received: i.received_quantity,
-                rate: i.unit_price,
-                discount: 0.0, tax: 0.0,
-                amount: i.amount,
-            }).collect();
+            let po: models::PurchaseOrder =
+                serde_json::from_value(result.get("purchase_order")?.clone()).ok()?;
+            let items: Vec<models::PurchaseOrderItem> =
+                serde_json::from_value(result.get("items")?.clone()).ok()?;
+            let line_items: Vec<PoLineItem> = items
+                .into_iter()
+                .map(|i| PoLineItem {
+                    po_item_id: i.id,
+                    item_id: i.item_id,
+                    item_code: i.item_code.unwrap_or_default(),
+                    item_name: i.item_name.unwrap_or_default(),
+                    quantity: i.quantity,
+                    received: i.received_quantity,
+                    rate: i.unit_price,
+                    discount: 0.0,
+                    tax: 0.0,
+                    amount: i.amount,
+                })
+                .collect();
             let subtotal: f64 = line_items.iter().map(|i| i.quantity * i.rate).sum();
             Some(PoDetail {
                 id: po.id,
@@ -123,26 +152,43 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
     let mut receive_qtys = use_signal(Vec::<f64>::new);
     let detail_ready = detail_opt.is_some();
 
-    let on_back = move |_| { navigator.push("/purchases/orders"); };
-    let on_delete = move |_| { show_delete_modal.set(true); };
-    let cancel_delete = move |_| { show_delete_modal.set(false); };
+    let on_back = move |_| {
+        navigator.push("/purchases/orders");
+    };
+    let on_delete = move |_| {
+        show_delete_modal.set(true);
+    };
+    let cancel_delete = move |_| {
+        show_delete_modal.set(false);
+    };
     let on_edit = {
         let nav = navigator.clone();
         let pid = id_display.clone();
-        move |_| { nav.push(format!("/purchases/orders/{}/edit", pid)); }
+        move |_| {
+            nav.push(format!("/purchases/orders/{}/edit", pid));
+        }
     };
     let on_receive = {
         let mut show = show_receive_modal.clone();
         let mut qtys = receive_qtys.clone();
-        let items_snapshot = detail_opt.as_ref().map(|d| d.items.clone()).unwrap_or_default();
+        let items_snapshot = detail_opt
+            .as_ref()
+            .map(|d| d.items.clone())
+            .unwrap_or_default();
         move |_| {
             // Initialize quantities to remaining for each item
-            let init: Vec<f64> = items_snapshot.iter().map(|i| (i.quantity - i.received).max(0.0)).collect();
+            let init: Vec<f64> = items_snapshot
+                .iter()
+                .map(|i| (i.quantity - i.received).max(0.0))
+                .collect();
             qtys.set(init);
             show.set(true);
         }
     };
-    let on_print = { let mut t = toast.clone(); move |_| t.info("Print", "Print coming soon.") };
+    let on_print = {
+        let mut t = toast.clone();
+        move |_| t.info("Print", "Print coming soon.")
+    };
     let toast_for_receive = toast.clone();
     let confirm_delete = {
         let nav = navigator.clone();
@@ -154,7 +200,10 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
         }
     };
 
-    let cancel_receive = { let mut show = show_receive_modal.clone(); move |_| show.set(false) };
+    let cancel_receive = {
+        let mut show = show_receive_modal.clone();
+        move |_| show.set(false)
+    };
 
     let confirm_receive = {
         let mut show = show_receive_modal.clone();
@@ -163,12 +212,17 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
         let qtys_sig = receive_qtys.clone();
         let api = api.clone();
         let po_id = id_display.clone();
-        let items_data = detail_opt.as_ref().map(|d| d.items.clone()).unwrap_or_default();
+        let items_data = detail_opt
+            .as_ref()
+            .map(|d| d.items.clone())
+            .unwrap_or_default();
         let toast2 = toast_for_receive.clone();
         move |_| {
             let qtys = qtys_sig.read().clone();
             // Build receipt items using editable quantities
-            let receipt_items: Vec<serde_json::Value> = items_data.iter().enumerate()
+            let receipt_items: Vec<serde_json::Value> = items_data
+                .iter()
+                .enumerate()
                 .filter_map(|(idx, i)| {
                     let qty = qtys.get(idx).copied().unwrap_or(0.0);
                     if qty > 0.0 && i.received < i.quantity {
@@ -177,11 +231,17 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
                             "item_id": i.item_id,
                             "received_quantity": qty,
                         }))
-                    } else { None }
-                }).collect();
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             if receipt_items.is_empty() {
                 let mut t = toast2.clone();
-                t.info("Nothing to Receive", "Enter a quantity greater than 0 for at least one item.");
+                t.info(
+                    "Nothing to Receive",
+                    "Enter a quantity greater than 0 for at least one item.",
+                );
                 return;
             }
             saving.set(true);
@@ -214,7 +274,6 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
             });
         }
     };
-
 
     if loading {
         return rsx! {

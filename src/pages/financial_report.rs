@@ -1,7 +1,9 @@
 //! Financial Report Page — Profit & Loss and Balance Sheet with period comparison.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, StatCard, StatCardVariant, StatTrend, TrendDirection, use_toast};
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, StatCard, StatCardVariant, StatTrend, TrendDirection,
+};
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -66,16 +68,47 @@ fn parse_pnl_lines(data: &serde_json::Value) -> Vec<PnlLine> {
     // Backend returns flat structure: { revenue, cogs, gross_profit, expenses, net_profit }
     let revenue = data.get("revenue").and_then(|v| v.as_f64()).unwrap_or(0.0);
     let cogs = data.get("cogs").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let gross_profit = data.get("gross_profit").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let gross_profit = data
+        .get("gross_profit")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
     let expenses = data.get("expenses").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let net_profit = data.get("net_profit").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let net_profit = data
+        .get("net_profit")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
 
     vec![
-        PnlLine { label: "Revenue".to_string(), amount: revenue, is_header: true, is_total: false },
-        PnlLine { label: "Cost of Goods Sold".to_string(), amount: cogs, is_header: false, is_total: false },
-        PnlLine { label: "Gross Profit".to_string(), amount: gross_profit, is_header: false, is_total: true },
-        PnlLine { label: "Operating Expenses".to_string(), amount: expenses, is_header: true, is_total: false },
-        PnlLine { label: "Net Profit".to_string(), amount: net_profit, is_header: false, is_total: true },
+        PnlLine {
+            label: "Revenue".to_string(),
+            amount: revenue,
+            is_header: true,
+            is_total: false,
+        },
+        PnlLine {
+            label: "Cost of Goods Sold".to_string(),
+            amount: cogs,
+            is_header: false,
+            is_total: false,
+        },
+        PnlLine {
+            label: "Gross Profit".to_string(),
+            amount: gross_profit,
+            is_header: false,
+            is_total: true,
+        },
+        PnlLine {
+            label: "Operating Expenses".to_string(),
+            amount: expenses,
+            is_header: true,
+            is_total: false,
+        },
+        PnlLine {
+            label: "Net Profit".to_string(),
+            amount: net_profit,
+            is_header: false,
+            is_total: true,
+        },
     ]
 }
 
@@ -86,9 +119,21 @@ fn parse_balance_lines(data: &serde_json::Value) -> Vec<PnlLine> {
     let mut current_type = String::new();
 
     for item in &items {
-        let acc_type = item.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let code = item.get("code").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let acc_type = item
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let code = item
+            .get("code")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let name = item
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let balance = item.get("balance").and_then(|v| v.as_f64()).unwrap_or(0.0);
 
         if acc_type != current_type {
@@ -152,7 +197,10 @@ pub fn FinancialReportPage() -> Element {
         let to = to_date.to_string();
         async move {
             let client = api.with(|c| c.clone());
-            client.get_balance_sheet(&from, &to).await.unwrap_or_default()
+            client
+                .get_balance_sheet(&from, &to)
+                .await
+                .unwrap_or_default()
         }
     });
 
@@ -164,29 +212,59 @@ pub fn FinancialReportPage() -> Element {
     let income = parse_pnl_lines(&pnl_data);
     let balance = parse_balance_lines(&bs_data);
 
-    let net_profit = pnl_data.get("net_profit").and_then(|v| v.as_f64()).unwrap_or(
-        income.last().map(|l| l.amount).unwrap_or(0.0)
-    );
-    let total_revenue = pnl_data.get("revenue").and_then(|v| v.as_f64()).unwrap_or(0.0);
-    let total_assets = bs_data.as_array().map(|arr| {
-        arr.iter().filter(|i| i["type"].as_str() == Some("Asset")).map(|i| i["balance"].as_f64().unwrap_or(0.0)).sum()
-    }).unwrap_or(0.0);
-    let total_liabilities = bs_data.as_array().map(|arr| {
-        arr.iter().filter(|i| i["type"].as_str() == Some("Liability")).map(|i| i["balance"].as_f64().unwrap_or(0.0)).sum()
-    }).unwrap_or(0.0);
-    let total_equity = bs_data.as_array().map(|arr| {
-        arr.iter().filter(|i| i["type"].as_str() == Some("Equity")).map(|i| i["balance"].as_f64().unwrap_or(0.0)).sum()
-    }).unwrap_or(0.0);
-    let profit_margin = if total_revenue > 0.0 { (net_profit / total_revenue) * 100.0 } else { 0.0 };
+    let net_profit = pnl_data
+        .get("net_profit")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(income.last().map(|l| l.amount).unwrap_or(0.0));
+    let total_revenue = pnl_data
+        .get("revenue")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
+    let total_assets = bs_data
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter(|i| i["type"].as_str() == Some("Asset"))
+                .map(|i| i["balance"].as_f64().unwrap_or(0.0))
+                .sum()
+        })
+        .unwrap_or(0.0);
+    let total_liabilities = bs_data
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter(|i| i["type"].as_str() == Some("Liability"))
+                .map(|i| i["balance"].as_f64().unwrap_or(0.0))
+                .sum()
+        })
+        .unwrap_or(0.0);
+    let total_equity = bs_data
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter(|i| i["type"].as_str() == Some("Equity"))
+                .map(|i| i["balance"].as_f64().unwrap_or(0.0))
+                .sum()
+        })
+        .unwrap_or(0.0);
+    let profit_margin = if total_revenue > 0.0 {
+        (net_profit / total_revenue) * 100.0
+    } else {
+        0.0
+    };
 
     let on_export = {
         let mut t = toast.clone();
-        move |_| { t.info("Export", "Financial report will be exported as PDF."); }
+        move |_| {
+            t.info("Export", "Financial report will be exported as PDF.");
+        }
     };
 
     let on_print = {
         let mut t = toast.clone();
-        move |_| { t.info("Print", "Print dialog will open."); }
+        move |_| {
+            t.info("Print", "Print dialog will open.");
+        }
     };
 
     if loading {

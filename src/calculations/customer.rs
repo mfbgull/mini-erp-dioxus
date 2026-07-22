@@ -90,7 +90,10 @@ pub fn calculate_credit_utilization_percent(balance: f64, credit_limit: f64) -> 
 ///
 /// An invoice is considered overdue if its `due_date` is before `as_of_date`
 /// and its `balance_amount > 0`.
-pub fn calculate_overdue_invoices(invoices: &[InvoiceSummary], as_of_date: NaiveDate) -> Vec<InvoiceSummary> {
+pub fn calculate_overdue_invoices(
+    invoices: &[InvoiceSummary],
+    as_of_date: NaiveDate,
+) -> Vec<InvoiceSummary> {
     invoices
         .iter()
         .filter(|inv| inv.due_date < as_of_date && inv.balance_amount > 0.01)
@@ -107,7 +110,10 @@ pub fn calculate_overdue_invoices(invoices: &[InvoiceSummary], as_of_date: Naive
 /// For production, pass actual payment-against-invoice date pairs and compute
 /// `(payment_date - invoice_date)` per invoice, then take the weighted average.
 pub fn calculate_average_days_to_pay(invoices: &[InvoiceSummary]) -> f64 {
-    let paid_count = invoices.iter().filter(|inv| inv.balance_amount < 0.01).count();
+    let paid_count = invoices
+        .iter()
+        .filter(|inv| inv.balance_amount < 0.01)
+        .count();
     if paid_count == 0 {
         return 0.0;
     }
@@ -209,7 +215,8 @@ pub fn compute_customer_metrics(
     let (total_invoiced, total_paid, _balance) = calculate_ledger_totals(entries);
     let total_outstanding = calculate_total_outstanding(invoices);
     let overdue = calculate_overdue_invoices(invoices, as_of_date);
-    let credit_utilization = calculate_credit_utilization(customer.current_balance, customer.credit_limit);
+    let credit_utilization =
+        calculate_credit_utilization(customer.current_balance, customer.credit_limit);
     let avg_days = calculate_average_days_to_pay(invoices);
 
     CustomerMetrics {
@@ -236,9 +243,18 @@ mod tests {
     #[test]
     fn test_ledger_totals() {
         let entries = vec![
-            LedgerEntry { debit: 1000.0, credit: 0.0 },
-            LedgerEntry { debit: 0.0, credit: 500.0 },
-            LedgerEntry { debit: 200.0, credit: 0.0 },
+            LedgerEntry {
+                debit: 1000.0,
+                credit: 0.0,
+            },
+            LedgerEntry {
+                debit: 0.0,
+                credit: 500.0,
+            },
+            LedgerEntry {
+                debit: 200.0,
+                credit: 0.0,
+            },
         ];
         let (d, c, b) = calculate_ledger_totals(&entries);
         assert!((d - 1200.0).abs() < 0.01);
@@ -249,8 +265,14 @@ mod tests {
     #[test]
     fn test_current_balance() {
         let entries = vec![
-            LedgerEntry { debit: 500.0, credit: 0.0 },
-            LedgerEntry { debit: 0.0, credit: 300.0 },
+            LedgerEntry {
+                debit: 500.0,
+                credit: 0.0,
+            },
+            LedgerEntry {
+                debit: 0.0,
+                credit: 300.0,
+            },
         ];
         assert!((calculate_current_balance(&entries) - 200.0).abs() < 0.01);
     }
@@ -258,9 +280,24 @@ mod tests {
     #[test]
     fn test_outstanding() {
         let invoices = vec![
-            InvoiceSummary { id: 1, due_date: NaiveDate::from_ymd_opt(2026, 7, 1).unwrap(), balance_amount: 100.0, total_amount: 500.0 },
-            InvoiceSummary { id: 2, due_date: NaiveDate::from_ymd_opt(2026, 7, 1).unwrap(), balance_amount: 0.0, total_amount: 300.0 },
-            InvoiceSummary { id: 3, due_date: NaiveDate::from_ymd_opt(2026, 7, 1).unwrap(), balance_amount: 50.0, total_amount: 200.0 },
+            InvoiceSummary {
+                id: 1,
+                due_date: NaiveDate::from_ymd_opt(2026, 7, 1).unwrap(),
+                balance_amount: 100.0,
+                total_amount: 500.0,
+            },
+            InvoiceSummary {
+                id: 2,
+                due_date: NaiveDate::from_ymd_opt(2026, 7, 1).unwrap(),
+                balance_amount: 0.0,
+                total_amount: 300.0,
+            },
+            InvoiceSummary {
+                id: 3,
+                due_date: NaiveDate::from_ymd_opt(2026, 7, 1).unwrap(),
+                balance_amount: 50.0,
+                total_amount: 200.0,
+            },
         ];
         assert!((calculate_total_outstanding(&invoices) - 150.0).abs() < 0.01);
     }
@@ -275,9 +312,24 @@ mod tests {
     fn test_overdue_invoices() {
         let as_of = NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
         let invoices = vec![
-            InvoiceSummary { id: 1, due_date: NaiveDate::from_ymd_opt(2026, 6, 15).unwrap(), balance_amount: 100.0, total_amount: 500.0 },
-            InvoiceSummary { id: 2, due_date: NaiveDate::from_ymd_opt(2026, 7, 10).unwrap(), balance_amount: 50.0, total_amount: 200.0 }, // not overdue
-            InvoiceSummary { id: 3, due_date: NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(), balance_amount: 0.0, total_amount: 300.0 }, // paid
+            InvoiceSummary {
+                id: 1,
+                due_date: NaiveDate::from_ymd_opt(2026, 6, 15).unwrap(),
+                balance_amount: 100.0,
+                total_amount: 500.0,
+            },
+            InvoiceSummary {
+                id: 2,
+                due_date: NaiveDate::from_ymd_opt(2026, 7, 10).unwrap(),
+                balance_amount: 50.0,
+                total_amount: 200.0,
+            }, // not overdue
+            InvoiceSummary {
+                id: 3,
+                due_date: NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(),
+                balance_amount: 0.0,
+                total_amount: 300.0,
+            }, // paid
         ];
         let overdue = calculate_overdue_invoices(&invoices, as_of);
         assert_eq!(overdue.len(), 1);
@@ -287,9 +339,18 @@ mod tests {
     #[test]
     fn test_ledger_invoiced() {
         let entries = vec![
-            LedgerEntry { debit: 1000.0, credit: 0.0 },
-            LedgerEntry { debit: 500.0, credit: 0.0 },
-            LedgerEntry { debit: 0.0, credit: 300.0 },
+            LedgerEntry {
+                debit: 1000.0,
+                credit: 0.0,
+            },
+            LedgerEntry {
+                debit: 500.0,
+                credit: 0.0,
+            },
+            LedgerEntry {
+                debit: 0.0,
+                credit: 300.0,
+            },
         ];
         assert!((calculate_total_invoiced(&entries) - 1500.0).abs() < 0.01);
     }
@@ -297,8 +358,14 @@ mod tests {
     #[test]
     fn test_ledger_paid() {
         let entries = vec![
-            LedgerEntry { debit: 0.0, credit: 500.0 },
-            LedgerEntry { debit: 0.0, credit: 200.0 },
+            LedgerEntry {
+                debit: 0.0,
+                credit: 500.0,
+            },
+            LedgerEntry {
+                debit: 0.0,
+                credit: 200.0,
+            },
         ];
         assert!((calculate_total_paid(&entries) - 700.0).abs() < 0.01);
     }
@@ -316,8 +383,14 @@ mod tests {
             current_balance: 125_000.0,
         };
         let entries = vec![
-            LedgerEntry { debit: 200_000.0, credit: 0.0 },
-            LedgerEntry { debit: 0.0, credit: 75_000.0 },
+            LedgerEntry {
+                debit: 200_000.0,
+                credit: 0.0,
+            },
+            LedgerEntry {
+                debit: 0.0,
+                credit: 75_000.0,
+            },
         ];
         let invoices = vec![];
         let as_of = NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
@@ -330,10 +403,30 @@ mod tests {
     fn test_aging_buckets() {
         let as_of = NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
         let invoices = vec![
-            InvoiceSummary { id: 1, due_date: NaiveDate::from_ymd_opt(2026, 7, 15).unwrap(), balance_amount: 100.0, total_amount: 100.0 },  // current
-            InvoiceSummary { id: 2, due_date: NaiveDate::from_ymd_opt(2026, 6, 15).unwrap(), balance_amount: 200.0, total_amount: 200.0 },  // 1-30 days
-            InvoiceSummary { id: 3, due_date: NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(), balance_amount: 300.0, total_amount: 300.0 },   // 61-90 days
-            InvoiceSummary { id: 4, due_date: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(), balance_amount: 400.0, total_amount: 400.0 },   // 90+ days
+            InvoiceSummary {
+                id: 1,
+                due_date: NaiveDate::from_ymd_opt(2026, 7, 15).unwrap(),
+                balance_amount: 100.0,
+                total_amount: 100.0,
+            }, // current
+            InvoiceSummary {
+                id: 2,
+                due_date: NaiveDate::from_ymd_opt(2026, 6, 15).unwrap(),
+                balance_amount: 200.0,
+                total_amount: 200.0,
+            }, // 1-30 days
+            InvoiceSummary {
+                id: 3,
+                due_date: NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(),
+                balance_amount: 300.0,
+                total_amount: 300.0,
+            }, // 61-90 days
+            InvoiceSummary {
+                id: 4,
+                due_date: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                balance_amount: 400.0,
+                total_amount: 400.0,
+            }, // 90+ days
         ];
         let buckets = calculate_aging_buckets(&invoices, as_of);
         assert!((buckets.current - 100.0).abs() < 0.01);

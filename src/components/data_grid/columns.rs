@@ -102,10 +102,7 @@ pub fn render_sort_indicator(direction: Option<SortDirection>) -> Element {
 
 /// Render the filter button that appears next to the header text.
 /// Shows a funnel icon with active filter indicator dot.
-fn render_filter_button(
-    is_active: bool,
-    is_open: bool,
-) -> Element {
+fn render_filter_button(is_active: bool, is_open: bool) -> Element {
     let btn_class = format!(
         "dg-filter-btn {} {}",
         if is_active { "dg-filter-active" } else { "" },
@@ -213,7 +210,7 @@ fn render_filter_dropdown(
                     }
                 }
             }
-        },
+        }
 
         FilterType::Number => {
             let (current_min, current_max) = match filter_value {
@@ -287,7 +284,7 @@ fn render_filter_dropdown(
                     }
                 }
             }
-        },
+        }
 
         FilterType::Date => {
             let (current_from, current_to) = match filter_value {
@@ -360,7 +357,7 @@ fn render_filter_dropdown(
                     }
                 }
             }
-        },
+        }
 
         FilterType::Select { options } => {
             let selected = match filter_value {
@@ -440,7 +437,7 @@ fn render_filter_dropdown(
                     }
                 }
             }
-        },
+        }
     }
 }
 

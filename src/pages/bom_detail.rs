@@ -2,7 +2,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
 use crate::models;
 use dioxus::prelude::*;
@@ -153,19 +153,22 @@ async fn fetch_bom_detail_from_api(client: &crate::api::ApiClient, id: i64) -> O
     let result = client.get_bom(id).await.ok()?;
     let bom: models::Bom = serde_json::from_value(result["bom"].clone()).ok()?;
     let items: Vec<models::BomItem> = serde_json::from_value(result["items"].clone()).ok()?;
-    let components: Vec<BomComponentLine> = items.into_iter().map(|i| {
-        let qty = i.quantity;
-        let cost = i.unit_cost;
-        BomComponentLine {
-            item_code: i.item_code.unwrap_or_default(),
-            item_name: i.item_name.unwrap_or_default(),
-            quantity: qty,
-            uom: "pcs".to_string(),
-            unit_cost: cost,
-            scrap_pct: 0.0,
-            sub_total: qty * cost,
-        }
-    }).collect();
+    let components: Vec<BomComponentLine> = items
+        .into_iter()
+        .map(|i| {
+            let qty = i.quantity;
+            let cost = i.unit_cost;
+            BomComponentLine {
+                item_code: i.item_code.unwrap_or_default(),
+                item_name: i.item_name.unwrap_or_default(),
+                quantity: qty,
+                uom: "pcs".to_string(),
+                unit_cost: cost,
+                scrap_pct: 0.0,
+                sub_total: qty * cost,
+            }
+        })
+        .collect();
     let total_cost = components.iter().map(|c| c.sub_total).sum();
     Some(BomDetail {
         id: bom.id,
@@ -174,7 +177,11 @@ async fn fetch_bom_detail_from_api(client: &crate::api::ApiClient, id: i64) -> O
         item_code: bom.finished_item_code.unwrap_or_default(),
         quantity_produced: bom.quantity,
         total_cost,
-        status: if bom.is_active { "Active".to_string() } else { "Inactive".to_string() },
+        status: if bom.is_active {
+            "Active".to_string()
+        } else {
+            "Inactive".to_string()
+        },
         version: String::new(),
         last_updated: bom.updated_at,
         components,
@@ -238,20 +245,28 @@ pub fn BomDetailPage(id: String) -> Element {
     let detail = detail_opt.unwrap();
     let status_class = status_badge_class(&detail.status);
 
-    let on_back = move |_: Event<MouseData>| { navigator.push("/manufacturing/boms"); };
+    let on_back = move |_: Event<MouseData>| {
+        navigator.push("/manufacturing/boms");
+    };
     let on_edit = {
         let nav = navigator.clone();
         let id = id.clone();
-        move |_| { nav.push(format!("/manufacturing/boms/{}/edit", id)); }
+        move |_| {
+            nav.push(format!("/manufacturing/boms/{}/edit", id));
+        }
     };
     let on_copy = {
         let mut toast = toast.clone();
         let mut d = detail.clone();
-        move |_| { toast.info("Copy BOM", "BOM duplicated. Redirecting to edit..."); }
+        move |_| {
+            toast.info("Copy BOM", "BOM duplicated. Redirecting to edit...");
+        }
     };
     let on_delete = {
         let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(true); }
+        move |_| {
+            modal.set(true);
+        }
     };
     let confirm_delete = {
         let mut toast = toast.clone();
@@ -265,7 +280,9 @@ pub fn BomDetailPage(id: String) -> Element {
     };
     let cancel_delete = {
         let mut modal = show_delete_modal.clone();
-        move |_| { modal.set(false); }
+        move |_| {
+            modal.set(false);
+        }
     };
 
     rsx! {

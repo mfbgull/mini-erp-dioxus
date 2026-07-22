@@ -1,7 +1,9 @@
 //! Sales Report Page — Monthly sales performance with KPIs, chart, and category breakdown.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, StatCard, StatCardVariant, StatTrend, TrendDirection, use_toast};
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, StatCard, StatCardVariant, StatTrend, TrendDirection,
+};
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -74,37 +76,75 @@ fn parse_monthly_sales(data: &serde_json::Value) -> Vec<MonthlySale> {
         // Aggregate daily totals into monthly buckets
         let mut buckets: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
         for item in arr {
-            let date_str = item.get("invoice_date").and_then(|v| v.as_str()).unwrap_or("");
-            let month = if date_str.len() >= 7 { date_str[..7].to_string() } else { date_str.to_string() };
+            let date_str = item
+                .get("invoice_date")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let month = if date_str.len() >= 7 {
+                date_str[..7].to_string()
+            } else {
+                date_str.to_string()
+            };
             let total = item.get("total").and_then(|v| v.as_f64()).unwrap_or(0.0);
             *buckets.entry(month).or_insert(0.0) += total;
         }
-        let month_names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-        let mut result: Vec<MonthlySale> = buckets.into_iter().map(|(m, amount)| {
-            let month_num = m[5..7].parse::<usize>().unwrap_or(1);
-            MonthlySale { month: month_names.get(month_num - 1).unwrap_or(&"?").to_string(), amount }
-        }).collect();
-        result.sort_by(|a, b| month_names.iter().position(|m| m == &a.month).cmp(&month_names.iter().position(|m| m == &b.month)));
+        let month_names = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ];
+        let mut result: Vec<MonthlySale> = buckets
+            .into_iter()
+            .map(|(m, amount)| {
+                let month_num = m[5..7].parse::<usize>().unwrap_or(1);
+                MonthlySale {
+                    month: month_names.get(month_num - 1).unwrap_or(&"?").to_string(),
+                    amount,
+                }
+            })
+            .collect();
+        result.sort_by(|a, b| {
+            month_names
+                .iter()
+                .position(|m| m == &a.month)
+                .cmp(&month_names.iter().position(|m| m == &b.month))
+        });
         result
     } else if let Some(obj) = data.as_object() {
         // Fallback: try legacy format { monthly: [{ month, amount }, ...] }
-        obj.get("monthly").and_then(|v| v.as_array()).cloned().unwrap_or_default()
-            .iter().map(|m| MonthlySale {
-                month: m.get("month").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        obj.get("monthly")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .map(|m| MonthlySale {
+                month: m
+                    .get("month")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
                 amount: m.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
-            }).collect()
+            })
+            .collect()
     } else {
         vec![]
     }
 }
 
 fn parse_category_sales(data: &serde_json::Value) -> Vec<CategorySale> {
-    data.get("categories").and_then(|v| v.as_array()).cloned().unwrap_or_default()
-        .iter().map(|c| CategorySale {
-            category: c.get("category").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+    data.get("categories")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .map(|c| CategorySale {
+            category: c
+                .get("category")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
             amount: c.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
             percentage: c.get("percentage").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        }).collect()
+        })
+        .collect()
 }
 
 // ============================================================================
@@ -150,26 +190,50 @@ pub fn SalesReportPage() -> Element {
 
     let monthly = parse_monthly_sales(&summary_data);
     let categories = parse_category_sales(&by_item_data);
-    let total_sales: f64 = summary_data.get("total_sales").and_then(|v| v.as_f64()).unwrap_or(
-        monthly.iter().map(|m| m.amount).sum()
-    );
-    let total_invoices = summary_data.get("total_invoices").and_then(|v| v.as_i64()).unwrap_or(0) as f64;
-    let avg_invoice = if total_invoices > 0.0 { total_sales / total_invoices } else { 0.0 };
-    let unpaid_count = summary_data.get("unpaid_count").and_then(|v| v.as_i64()).unwrap_or(0);
-    let top_customer = by_customer_data.get("top_customer").and_then(|v| v.as_str()).unwrap_or("N/A").to_string();
-    let top_customer_amount = by_customer_data.get("top_customer_amount").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let total_sales: f64 = summary_data
+        .get("total_sales")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(monthly.iter().map(|m| m.amount).sum());
+    let total_invoices = summary_data
+        .get("total_invoices")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0) as f64;
+    let avg_invoice = if total_invoices > 0.0 {
+        total_sales / total_invoices
+    } else {
+        0.0
+    };
+    let unpaid_count = summary_data
+        .get("unpaid_count")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let top_customer = by_customer_data
+        .get("top_customer")
+        .and_then(|v| v.as_str())
+        .unwrap_or("N/A")
+        .to_string();
+    let top_customer_amount = by_customer_data
+        .get("top_customer_amount")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
 
     let max_amount = monthly.iter().map(|m| m.amount).fold(0.0_f64, f64::max);
     let bar_count = monthly.len();
     let chart_width = (bar_count as f64 * 25.0).max(500.0);
-    let bar_width_pct = if bar_count > 0 { chart_width / bar_count as f64 } else { chart_width };
+    let bar_width_pct = if bar_count > 0 {
+        chart_width / bar_count as f64
+    } else {
+        chart_width
+    };
     let bar_gap_pct = bar_width_pct * 0.25;
     let bar_inner_pct = bar_width_pct - bar_gap_pct;
     let chart_height = 180.0;
 
     let on_export = {
         let mut t = toast.clone();
-        move |_| { t.info("Export", "Sales report will be exported as PDF."); }
+        move |_| {
+            t.info("Export", "Sales report will be exported as PDF.");
+        }
     };
 
     if loading {

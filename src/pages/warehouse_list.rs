@@ -29,14 +29,17 @@ pub fn WarehouseListPage() -> Element {
             let _ = *refresh_counter.read();
             let client = api.with(|c| c.clone());
             match client.list_warehouses().await {
-                Ok(server_whs) => server_whs.into_iter().map(|w| WarehouseItem {
-                    id: w.id,
-                    warehouse_code: w.warehouse_code,
-                    warehouse_name: w.warehouse_name,
-                    location: w.location,
-                    is_active: w.is_active,
-                    created_at: w.created_at,
-                }).collect(),
+                Ok(server_whs) => server_whs
+                    .into_iter()
+                    .map(|w| WarehouseItem {
+                        id: w.id,
+                        warehouse_code: w.warehouse_code,
+                        warehouse_name: w.warehouse_name,
+                        location: w.location,
+                        is_active: w.is_active,
+                        created_at: w.created_at,
+                    })
+                    .collect(),
                 Err(_) => Vec::new(),
             }
         }
@@ -54,25 +57,36 @@ pub fn WarehouseListPage() -> Element {
         ColumnDef::text("code", "Code", |w: &WarehouseItem| w.warehouse_code.clone())
             .with_width(ColumnWidth::Px(120))
             .with_filter(FilterType::Text),
-        ColumnDef::text("name", "Warehouse Name", |w: &WarehouseItem| w.warehouse_name.clone())
-            .with_width(ColumnWidth::Fr(1.0))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("location", "Location", |w: &WarehouseItem| w.location.clone())
-            .with_width(ColumnWidth::Fr(0.8))
-            .with_filter(FilterType::Text),
+        ColumnDef::text("name", "Warehouse Name", |w: &WarehouseItem| {
+            w.warehouse_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.0))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("location", "Location", |w: &WarehouseItem| {
+            w.location.clone()
+        })
+        .with_width(ColumnWidth::Fr(0.8))
+        .with_filter(FilterType::Text),
         ColumnDef::text("status", "Status", |w: &WarehouseItem| {
-            if w.is_active { "Active".to_string() } else { "Inactive".to_string() }
+            if w.is_active {
+                "Active".to_string()
+            } else {
+                "Inactive".to_string()
+            }
         })
         .with_width(ColumnWidth::Px(100))
         .with_renderer(crate::components::data_grid::CellRenderer::Badge {
-            color_map: vec![("Active", BadgeColor::Green), ("Inactive", BadgeColor::Gray)],
+            color_map: vec![
+                ("Active", BadgeColor::Green),
+                ("Inactive", BadgeColor::Gray),
+            ],
             default_color: BadgeColor::Gray,
         }),
-        ColumnDef::text("created", "Created", |w: &WarehouseItem| w.created_at.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(crate::components::data_grid::CellRenderer::Date {
-                format: "%d-%b-%Y",
-            }),
+        ColumnDef::text("created", "Created", |w: &WarehouseItem| {
+            w.created_at.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(crate::components::data_grid::CellRenderer::Date { format: "%d-%b-%Y" }),
     ];
 
     let on_row_click = {

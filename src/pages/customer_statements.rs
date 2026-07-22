@@ -1,7 +1,9 @@
 //! Customer Statements Page — Detailed account statements with running balance.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast};
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, SearchableSelect, SelectOption, StatCard, StatCardVariant,
+};
 use crate::models;
 use dioxus::prelude::*;
 
@@ -34,10 +36,23 @@ const PAGE_CSS: &str = r##"
 "##;
 
 #[derive(Clone, Default)]
-struct CustomerInfo { name: String, code: String, address: String, phone: String, email: String }
+struct CustomerInfo {
+    name: String,
+    code: String,
+    address: String,
+    phone: String,
+    email: String,
+}
 
 #[derive(Clone, Default)]
-struct StatementLine { date: String, reference: String, description: String, debit: f64, credit: f64, balance: f64 }
+struct StatementLine {
+    date: String,
+    reference: String,
+    description: String,
+    debit: f64,
+    credit: f64,
+    balance: f64,
+}
 
 #[component]
 pub fn CustomerStatementsPage() -> Element {
@@ -60,10 +75,13 @@ pub fn CustomerStatementsPage() -> Element {
             spawn(async move {
                 let client = api.read().clone();
                 if let Ok(list) = client.list_customers().await {
-                    let opts: Vec<SelectOption> = list.iter().map(|c| SelectOption {
-                        value: c.id.to_string(),
-                        label: format!("{} ({})", c.customer_name, c.customer_code),
-                    }).collect();
+                    let opts: Vec<SelectOption> = list
+                        .iter()
+                        .map(|c| SelectOption {
+                            value: c.id.to_string(),
+                            label: format!("{} ({})", c.customer_name, c.customer_code),
+                        })
+                        .collect();
                     cust_opts.set(opts);
                 }
             });
@@ -90,19 +108,30 @@ pub fn CustomerStatementsPage() -> Element {
                 }
                 let client = api.read().clone();
                 let customer = client.get_customer(id).await.ok();
-                let ledger = client.get_customer_ledger(id).await.ok().unwrap_or_default();
+                let ledger = client
+                    .get_customer_ledger(id)
+                    .await
+                    .ok()
+                    .unwrap_or_default();
                 if let Some(c) = customer {
                     cust_info.set(CustomerInfo {
-                        name: c.customer_name, code: c.customer_code,
-                        address: c.billing_address, phone: c.phone, email: c.email,
+                        name: c.customer_name,
+                        code: c.customer_code,
+                        address: c.billing_address,
+                        phone: c.phone,
+                        email: c.email,
                     });
                 }
-                let lines: Vec<StatementLine> = ledger.iter()
+                let lines: Vec<StatementLine> = ledger
+                    .iter()
                     .filter(|l| l.transaction_date >= from && l.transaction_date <= to)
                     .map(|l| StatementLine {
-                        date: l.transaction_date.clone(), reference: l.reference_no.clone(),
+                        date: l.transaction_date.clone(),
+                        reference: l.reference_no.clone(),
                         description: l.transaction_type.clone(),
-                        debit: l.debit, credit: l.credit, balance: l.balance,
+                        debit: l.debit,
+                        credit: l.credit,
+                        balance: l.balance,
                     })
                     .collect();
                 statement.set(lines);
@@ -113,13 +142,35 @@ pub fn CustomerStatementsPage() -> Element {
     let on_customer_select = {
         let mut selected_id = selected_id;
         move |value: String| {
-            if let Ok(id) = value.parse::<i64>() { selected_id.set(id); }
+            if let Ok(id) = value.parse::<i64>() {
+                selected_id.set(id);
+            }
         }
     };
-    let on_from_change = { let mut from_date = from_date; move |e: Event<FormData>| { from_date.set(e.value()); } };
-    let on_to_change = { let mut to_date = to_date; move |e: Event<FormData>| { to_date.set(e.value()); } };
-    let on_print = { let mut t = toast.clone(); move |_| { t.info("Print", "Statement print dialog will open."); } };
-    let on_export = { let mut t = toast.clone(); move |_| { t.info("Export", "Statement will be exported as PDF."); } };
+    let on_from_change = {
+        let mut from_date = from_date;
+        move |e: Event<FormData>| {
+            from_date.set(e.value());
+        }
+    };
+    let on_to_change = {
+        let mut to_date = to_date;
+        move |e: Event<FormData>| {
+            to_date.set(e.value());
+        }
+    };
+    let on_print = {
+        let mut t = toast.clone();
+        move |_| {
+            t.info("Print", "Statement print dialog will open.");
+        }
+    };
+    let on_export = {
+        let mut t = toast.clone();
+        move |_| {
+            t.info("Export", "Statement will be exported as PDF.");
+        }
+    };
 
     let c = cust_info.read();
     let s = statement.read();
@@ -127,7 +178,11 @@ pub fn CustomerStatementsPage() -> Element {
     let closing = s.last().map(|x| x.balance).unwrap_or(0.0);
     let total_dr: f64 = s.iter().map(|x| x.debit).sum();
     let total_cr: f64 = s.iter().map(|x| x.credit).sum();
-    let cv = if closing > 300_000.0 { StatCardVariant::Warning } else { StatCardVariant::Primary };
+    let cv = if closing > 300_000.0 {
+        StatCardVariant::Warning
+    } else {
+        StatCardVariant::Primary
+    };
 
     rsx! {
         style { "{PAGE_CSS}" }

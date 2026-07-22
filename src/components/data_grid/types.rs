@@ -234,9 +234,7 @@ pub enum CellRenderer {
     },
 
     /// DateTime formatted with `chrono` format string.
-    DateTime {
-        format: &'static str,
-    },
+    DateTime { format: &'static str },
 
     /// Colored badge (status indicator).
     Badge {
@@ -247,9 +245,7 @@ pub enum CellRenderer {
     },
 
     /// Percentage (multiply by 100, append "%").
-    Percentage {
-        decimals: u8,
-    },
+    Percentage { decimals: u8 },
 
     /// A custom renderer that receives the raw string value and returns an
     /// `Element`. Useful for action buttons, links, or rich markup.

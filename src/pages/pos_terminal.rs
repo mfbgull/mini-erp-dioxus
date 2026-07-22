@@ -156,8 +156,12 @@ pub fn PosTerminalPage() -> Element {
             spawn(async move {
                 let client = api.read().clone();
                 match client.search_items(&query).await {
-                    Ok(results) => { search_results.set(results); }
-                    Err(_) => { search_results.set(vec![]); }
+                    Ok(results) => {
+                        search_results.set(results);
+                    }
+                    Err(_) => {
+                        search_results.set(vec![]);
+                    }
                 }
                 is_searching.set(false);
             });
@@ -227,13 +231,16 @@ pub fn PosTerminalPage() -> Element {
             let mut cart = cart.clone();
             let mut recent_transactions = recent_transactions.clone();
             spawn(async move {
-                let items_json: Vec<serde_json::Value> = cart_items.iter().map(|ci| {
-                    serde_json::json!({
-                        "item_id": ci.item_id,
-                        "quantity": ci.quantity,
-                        "unit_price": ci.unit_price,
+                let items_json: Vec<serde_json::Value> = cart_items
+                    .iter()
+                    .map(|ci| {
+                        serde_json::json!({
+                            "item_id": ci.item_id,
+                            "quantity": ci.quantity,
+                            "unit_price": ci.unit_price,
+                        })
                     })
-                }).collect();
+                    .collect();
                 let form = serde_json::json!({
                     "customer_name": if cust.is_empty() { "Walk-in Customer".to_string() } else { cust },
                     "items": items_json,
@@ -244,7 +251,10 @@ pub fn PosTerminalPage() -> Element {
                 match client.create_pos_sale(&form).await {
                     Ok(_result) => {
                         let count = cart.read().len();
-                        toast.success("Checkout Complete", &format!("Sale completed — {} item(s).", count));
+                        toast.success(
+                            "Checkout Complete",
+                            &format!("Sale completed — {} item(s).", count),
+                        );
                         cart.write().clear();
                         if let Ok(txns) = client.list_pos_transactions().await {
                             recent_transactions.set(txns);
@@ -258,7 +268,9 @@ pub fn PosTerminalPage() -> Element {
         }
     };
 
-    let quick_items_list: Vec<Item> = catalog_items.read().iter()
+    let quick_items_list: Vec<Item> = catalog_items
+        .read()
+        .iter()
         .filter(|i| i.is_active)
         .take(8)
         .cloned()

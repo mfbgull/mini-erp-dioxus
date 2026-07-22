@@ -2,8 +2,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
+    SearchableSelect, SelectOption, StatCard, StatCardVariant,
 };
 use crate::models::{PurchaseOrderForm, PurchaseOrderItemForm};
 use dioxus::prelude::*;
@@ -52,8 +52,12 @@ impl Default for PoLineItem {
     fn default() -> Self {
         Self {
             id: NEXT_LINE_ID.fetch_add(1, Ordering::Relaxed),
-            item_code: String::new(), item_name: String::new(),
-            quantity: 1.0, rate: 0.0, discount_pct: 0.0, tax_rate: 16.0,
+            item_code: String::new(),
+            item_name: String::new(),
+            quantity: 1.0,
+            rate: 0.0,
+            discount_pct: 0.0,
+            tax_rate: 16.0,
         }
     }
 }
@@ -68,19 +72,39 @@ impl PoLineItem {
 }
 
 fn build_supplier_options(suppliers: &[crate::models::Supplier]) -> Vec<SelectOption> {
-    suppliers.iter().map(|s| SelectOption { value: s.id.to_string(), label: format!("{} - {}", s.supplier_code, s.supplier_name) }).collect()
+    suppliers
+        .iter()
+        .map(|s| SelectOption {
+            value: s.id.to_string(),
+            label: format!("{} - {}", s.supplier_code, s.supplier_name),
+        })
+        .collect()
 }
 
 fn build_item_options(items: &[crate::models::Item]) -> Vec<SelectOption> {
-    items.iter().map(|i| SelectOption { value: i.id.to_string(), label: format!("{} - {}", i.item_code, i.item_name) }).collect()
+    items
+        .iter()
+        .map(|i| SelectOption {
+            value: i.id.to_string(),
+            label: format!("{} - {}", i.item_code, i.item_name),
+        })
+        .collect()
 }
 
 fn item_price_from_catalog(items: &[crate::models::Item], code: &str) -> f64 {
-    items.iter().find(|i| i.id.to_string() == code).map(|i| i.standard_cost).unwrap_or(0.0)
+    items
+        .iter()
+        .find(|i| i.id.to_string() == code)
+        .map(|i| i.standard_cost)
+        .unwrap_or(0.0)
 }
 
 fn item_name_from_catalog(items: &[crate::models::Item], code: &str) -> String {
-    items.iter().find(|i| i.id.to_string() == code).map(|i| i.item_name.clone()).unwrap_or_default()
+    items
+        .iter()
+        .find(|i| i.id.to_string() == code)
+        .map(|i| i.item_name.clone())
+        .unwrap_or_default()
 }
 
 #[component]
@@ -99,11 +123,18 @@ pub fn PurchaseOrderCreatePage() -> Element {
         }
     });
 
-    let line_items = use_signal(|| { let mut v = Vec::new(); for _ in 0..3 { v.push(PoLineItem::default()); } v });
+    let line_items = use_signal(|| {
+        let mut v = Vec::new();
+        for _ in 0..3 {
+            v.push(PoLineItem::default());
+        }
+        v
+    });
     let supplier_code = use_signal(String::new);
     let supplier_name = use_signal(String::new);
     let order_date = use_signal(|| chrono::Local::now().date_naive().to_string());
-    let expected_date = use_signal(|| (chrono::Local::now().date_naive() + chrono::Duration::days(14)).to_string());
+    let expected_date =
+        use_signal(|| (chrono::Local::now().date_naive() + chrono::Duration::days(14)).to_string());
     let discount_pct = use_signal(|| String::from("0"));
     let tax_rate_str = use_signal(|| String::from("16"));
     let notes = use_signal(String::new);
@@ -115,8 +146,16 @@ pub fn PurchaseOrderCreatePage() -> Element {
     let supplier_opts = build_supplier_options(&resource_data.0);
     let item_opts = build_item_options(&resource_data.1);
 
-    let subtotal: f64 = line_items.read().iter().map(|li| li.quantity * li.rate).sum();
-    let discount_amt: f64 = line_items.read().iter().map(|li| (li.quantity * li.rate) * (li.discount_pct / 100.0)).sum();
+    let subtotal: f64 = line_items
+        .read()
+        .iter()
+        .map(|li| li.quantity * li.rate)
+        .sum();
+    let discount_amt: f64 = line_items
+        .read()
+        .iter()
+        .map(|li| (li.quantity * li.rate) * (li.discount_pct / 100.0))
+        .sum();
     let taxable = subtotal - discount_amt;
     let disc_pct: f64 = discount_pct.read().parse().unwrap_or(0.0);
     let tax_rate: f64 = tax_rate_str.read().parse().unwrap_or(0.0);
@@ -130,19 +169,34 @@ pub fn PurchaseOrderCreatePage() -> Element {
         let mut name = supplier_name.clone();
         let mut dirty = is_dirty.clone();
         let opts = supplier_opts.clone();
-        move |v: String| { code.set(v.clone()); name.set(opts.iter().find(|o| o.value == v).map(|o| o.label.clone()).unwrap_or_default()); dirty.set(true); }
+        move |v: String| {
+            code.set(v.clone());
+            name.set(
+                opts.iter()
+                    .find(|o| o.value == v)
+                    .map(|o| o.label.clone())
+                    .unwrap_or_default(),
+            );
+            dirty.set(true);
+        }
     };
 
     let add_item = {
         let mut its = line_items.clone();
         let mut dirty = is_dirty.clone();
-        move |_| { its.write().push(PoLineItem::default()); dirty.set(true); }
+        move |_| {
+            its.write().push(PoLineItem::default());
+            dirty.set(true);
+        }
     };
 
     let mut remove_item = {
         let mut its = line_items.clone();
         let mut dirty = is_dirty.clone();
-        move |id: u64| { its.write().retain(|li| li.id != id); dirty.set(true); }
+        move |id: u64| {
+            its.write().retain(|li| li.id != id);
+            dirty.set(true);
+        }
     };
 
     let save = {
@@ -157,9 +211,19 @@ pub fn PurchaseOrderCreatePage() -> Element {
         let nav = navigator.clone();
         let api = api.clone();
         move |_| {
-            if c_code.read().is_empty() { toast.error("Validation Error", "Please select a supplier."); return; }
-            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
-            if filled == 0 { toast.error("Validation Error", "Please add at least one item."); return; }
+            if c_code.read().is_empty() {
+                toast.error("Validation Error", "Please select a supplier.");
+                return;
+            }
+            let filled = its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count();
+            if filled == 0 {
+                toast.error("Validation Error", "Please add at least one item.");
+                return;
+            }
             saving.set(true);
             let mut toast = toast.clone();
             let nav = nav.clone();
@@ -169,7 +233,9 @@ pub fn PurchaseOrderCreatePage() -> Element {
             let supplier_id = c_code.read().parse::<i64>().unwrap_or(0);
             let po_date = o_date.read().clone();
             let notes_val = nts.read().clone();
-            let order_items: Vec<PurchaseOrderItemForm> = its.read().iter()
+            let order_items: Vec<PurchaseOrderItemForm> = its
+                .read()
+                .iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| PurchaseOrderItemForm {
                     item_id: li.item_code.parse::<i64>().unwrap_or(0),
@@ -179,12 +245,23 @@ pub fn PurchaseOrderCreatePage() -> Element {
                 })
                 .collect();
             spawn(async move {
-                let form = PurchaseOrderForm { supplier_id, po_date, warehouse_id: None, notes: if notes_val.is_empty() { None } else { Some(notes_val) }, items: order_items };
+                let form = PurchaseOrderForm {
+                    supplier_id,
+                    po_date,
+                    warehouse_id: None,
+                    notes: if notes_val.is_empty() {
+                        None
+                    } else {
+                        Some(notes_val)
+                    },
+                    items: order_items,
+                };
                 match api.read().create_purchase_order(&form).await {
                     Ok(body) => {
                         let po_no = body["data"]["po_no"].as_str().unwrap_or("N/A");
                         toast.success("PO Created", &format!("PO {} created.", po_no));
-                        saving.set(false); dirty.set(false);
+                        saving.set(false);
+                        dirty.set(false);
                         nav.push("/purchases/orders");
                     }
                     Err(e) => {
@@ -209,9 +286,19 @@ pub fn PurchaseOrderCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
         let api = api.clone();
         move |_| {
-            if c_code.read().is_empty() { toast.error("Validation Error", "Please select a supplier."); return; }
-            let filled = its.read().iter().filter(|li| !li.item_code.is_empty()).count();
-            if filled == 0 { toast.error("Validation Error", "Please add at least one item."); return; }
+            if c_code.read().is_empty() {
+                toast.error("Validation Error", "Please select a supplier.");
+                return;
+            }
+            let filled = its
+                .read()
+                .iter()
+                .filter(|li| !li.item_code.is_empty())
+                .count();
+            if filled == 0 {
+                toast.error("Validation Error", "Please add at least one item.");
+                return;
+            }
             saving.set(true);
             let mut toast = toast.clone();
             let api = api.clone();
@@ -220,7 +307,9 @@ pub fn PurchaseOrderCreatePage() -> Element {
             let supplier_id = c_code.read().parse::<i64>().unwrap_or(0);
             let po_date = o_date.read().clone();
             let notes_val = nts.read().clone();
-            let order_items: Vec<PurchaseOrderItemForm> = its.read().iter()
+            let order_items: Vec<PurchaseOrderItemForm> = its
+                .read()
+                .iter()
                 .filter(|li| !li.item_code.is_empty())
                 .map(|li| PurchaseOrderItemForm {
                     item_id: li.item_code.parse::<i64>().unwrap_or(0),
@@ -230,16 +319,33 @@ pub fn PurchaseOrderCreatePage() -> Element {
                 })
                 .collect();
             spawn(async move {
-                let form = PurchaseOrderForm { supplier_id, po_date, warehouse_id: None, notes: if notes_val.is_empty() { None } else { Some(notes_val) }, items: order_items };
+                let form = PurchaseOrderForm {
+                    supplier_id,
+                    po_date,
+                    warehouse_id: None,
+                    notes: if notes_val.is_empty() {
+                        None
+                    } else {
+                        Some(notes_val)
+                    },
+                    items: order_items,
+                };
                 match api.read().create_purchase_order(&form).await {
                     Ok(body) => {
                         let po_no = body["data"]["po_no"].as_str().unwrap_or("N/A");
-                        toast.success("PO Created", &format!("PO {} created. Creating another…", po_no));
+                        toast.success(
+                            "PO Created",
+                            &format!("PO {} created. Creating another…", po_no),
+                        );
                         c_code.set(String::new());
                         its.write().clear();
-                        for _ in 0..3 { its.write().push(PoLineItem::default()); }
-                        dp.set(String::from("0")); tr.set(String::from("16"));
-                        saving.set(false); dirty.set(false);
+                        for _ in 0..3 {
+                            its.write().push(PoLineItem::default());
+                        }
+                        dp.set(String::from("0"));
+                        tr.set(String::from("16"));
+                        saving.set(false);
+                        dirty.set(false);
                     }
                     Err(e) => {
                         toast.error("Error", &format!("Failed to create PO: {}", e));
@@ -254,13 +360,22 @@ pub fn PurchaseOrderCreatePage() -> Element {
         let mut modal = show_discard_modal.clone();
         let dirty = is_dirty.clone();
         let nav = navigator.clone();
-        move |_| { if *dirty.read() { modal.set(true); } else { nav.push("/purchases/orders"); } }
+        move |_| {
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/purchases/orders");
+            }
+        }
     };
 
     let confirm_discard = {
         let nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
-        move |_| { modal.set(false); nav.push("/purchases/orders"); }
+        move |_| {
+            modal.set(false);
+            nav.push("/purchases/orders");
+        }
     };
 
     rsx! {

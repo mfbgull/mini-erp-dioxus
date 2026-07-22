@@ -2,8 +2,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType,
-    StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, StatCard, StatCardVariant,
 };
 use crate::models::ActivityLog;
 use dioxus::prelude::*;
@@ -53,7 +52,11 @@ pub fn UserProfilePage() -> Element {
     let user = auth.user.read().clone();
 
     // Editable form signals
-    let full_name = use_signal(|| user.as_ref().map(|u| u.full_name.clone()).unwrap_or_default());
+    let full_name = use_signal(|| {
+        user.as_ref()
+            .map(|u| u.full_name.clone())
+            .unwrap_or_default()
+    });
     let email = use_signal(|| user.as_ref().map(|u| u.email.clone()).unwrap_or_default());
     let current_password = use_signal(String::new);
     let new_password = use_signal(String::new);
@@ -152,7 +155,10 @@ pub fn UserProfilePage() -> Element {
         }
     };
 
-    let make_dirty = { let mut d = is_dirty.clone(); move || d.set(true) };
+    let make_dirty = {
+        let mut d = is_dirty.clone();
+        move || d.set(true)
+    };
 
     // Activity log filters
     let from_date = use_signal(|| {
@@ -185,13 +191,18 @@ pub fn UserProfilePage() -> Element {
             .into_iter()
             .filter(|log| log.user_id == Some(user_id))
             .filter(|log| {
-                if log.created_at.is_empty() { return true; }
+                if log.created_at.is_empty() {
+                    return true;
+                }
                 let date_part = log.created_at.split(' ').next().unwrap_or(&log.created_at);
                 date_part >= from.as_str() && date_part <= to.as_str()
             })
             .filter(|log| {
-                if query.is_empty() { return true; }
-                let haystack = format!("{} {} {} {}",
+                if query.is_empty() {
+                    return true;
+                }
+                let haystack = format!(
+                    "{} {} {} {}",
                     log.action.to_lowercase(),
                     log.entity_type.to_lowercase(),
                     log.metadata.clone().unwrap_or_default().to_lowercase(),
@@ -206,7 +217,13 @@ pub fn UserProfilePage() -> Element {
     let activity_icon_class = |action: &str| -> &'static str {
         match action {
             a if a.contains("create") || a.contains("Create") => "create",
-            a if a.contains("update") || a.contains("Update") || a.contains("edit") || a.contains("Edit") => "update",
+            a if a.contains("update")
+                || a.contains("Update")
+                || a.contains("edit")
+                || a.contains("Edit") =>
+            {
+                "update"
+            }
             a if a.contains("delete") || a.contains("Delete") => "delete",
             a if a.contains("login") || a.contains("Login") => "login",
             _ => "default",
@@ -216,25 +233,49 @@ pub fn UserProfilePage() -> Element {
     let activity_icon = |action: &str| -> &'static str {
         match action {
             a if a.contains("create") || a.contains("Create") => "➕",
-            a if a.contains("update") || a.contains("Update") || a.contains("edit") || a.contains("Edit") => "✏️",
+            a if a.contains("update")
+                || a.contains("Update")
+                || a.contains("edit")
+                || a.contains("Edit") =>
+            {
+                "✏️"
+            }
             a if a.contains("delete") || a.contains("Delete") => "🗑",
             a if a.contains("login") || a.contains("Login") => "🔑",
             _ => "📋",
         }
     };
 
-    let initials = user.as_ref().map(|u| {
-        let parts: Vec<&str> = u.full_name.split_whitespace().collect();
-        match parts.len() {
-            0 => "?".to_string(),
-            1 => parts[0][..1].to_uppercase(),
-            _ => format!("{}{}", &parts[0][..1], &parts[parts.len()-1][..1]),
-        }
-    }).unwrap_or_else(|| "?".to_string());
+    let initials = user
+        .as_ref()
+        .map(|u| {
+            let parts: Vec<&str> = u.full_name.split_whitespace().collect();
+            match parts.len() {
+                0 => "?".to_string(),
+                1 => parts[0][..1].to_uppercase(),
+                _ => format!("{}{}", &parts[0][..1], &parts[parts.len() - 1][..1]),
+            }
+        })
+        .unwrap_or_else(|| "?".to_string());
 
-    let role_display = user.as_ref().map(|u| u.role.clone()).unwrap_or_else(|| "Unknown".to_string());
-    let username_display = user.as_ref().map(|u| u.username.clone()).unwrap_or_else(|| "Unknown".to_string());
-    let status_display = user.as_ref().map(|u| if u.is_active { "Active".to_string() } else { "Disabled".to_string() }).unwrap_or_else(|| "Unknown".to_string());
+    let role_display = user
+        .as_ref()
+        .map(|u| u.role.clone())
+        .unwrap_or_else(|| "Unknown".to_string());
+    let username_display = user
+        .as_ref()
+        .map(|u| u.username.clone())
+        .unwrap_or_else(|| "Unknown".to_string());
+    let status_display = user
+        .as_ref()
+        .map(|u| {
+            if u.is_active {
+                "Active".to_string()
+            } else {
+                "Disabled".to_string()
+            }
+        })
+        .unwrap_or_else(|| "Unknown".to_string());
 
     rsx! {
         style { "{PAGE_CSS}" }

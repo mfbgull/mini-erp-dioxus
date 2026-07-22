@@ -2,7 +2,9 @@
 //! ponytail: reuses create form structure with pre-filled signals
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonSize, ButtonVariant, FormInput, InputType, use_toast};
+use crate::components::common::{
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType,
+};
 use crate::models::ItemForm;
 use dioxus::prelude::*;
 
@@ -155,13 +157,29 @@ pub fn ItemEditPage(id: String) -> Element {
         let pur = is_purchased.clone();
         let man = is_manufactured.clone();
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let form = ItemForm {
                 item_code: code.read().clone(),
                 item_name: name.read().clone(),
-                description: { let d = notes.read(); if d.is_empty() { None } else { Some(d.clone()) } },
-                category: { let c = cat.read(); if c.is_empty() { None } else { Some(c.clone()) } },
+                description: {
+                    let d = notes.read();
+                    if d.is_empty() {
+                        None
+                    } else {
+                        Some(d.clone())
+                    }
+                },
+                category: {
+                    let c = cat.read();
+                    if c.is_empty() {
+                        None
+                    } else {
+                        Some(c.clone())
+                    }
+                },
                 unit_of_measure: Some(u.read().clone()),
                 reorder_level: rl.read().parse::<f64>().ok(),
                 standard_cost: sc.read().parse::<f64>().ok(),
@@ -181,24 +199,66 @@ pub fn ItemEditPage(id: String) -> Element {
                 let client = api.with(|c| c.clone());
                 match client.update_item(parsed_id, &form).await {
                     Ok(_) => {
-                        toast.success("Item Updated", &format!("{} ({}) updated.", item_name, item_code));
+                        toast.success(
+                            "Item Updated",
+                            &format!("{} ({}) updated.", item_name, item_code),
+                        );
                         nav.push(format!("/inventory/items/{}", parsed_id));
                     }
-                    Err(e) => { toast.error("Error", &e); saving.set(false); }
+                    Err(e) => {
+                        toast.error("Error", &e);
+                        saving.set(false);
+                    }
                 }
             });
         }
     };
 
-    let raw_class = move || if *is_raw_material.read() { "item-type-chip item-type-chip-active" } else { "item-type-chip" };
-    let fin_class = move || if *is_finished_good.read() { "item-type-chip item-type-chip-active" } else { "item-type-chip" };
-    let pur_class = move || if *is_purchased.read() { "item-type-chip item-type-chip-active" } else { "item-type-chip" };
-    let man_class = move || if *is_manufactured.read() { "item-type-chip item-type-chip-active" } else { "item-type-chip" };
+    let raw_class = move || {
+        if *is_raw_material.read() {
+            "item-type-chip item-type-chip-active"
+        } else {
+            "item-type-chip"
+        }
+    };
+    let fin_class = move || {
+        if *is_finished_good.read() {
+            "item-type-chip item-type-chip-active"
+        } else {
+            "item-type-chip"
+        }
+    };
+    let pur_class = move || {
+        if *is_purchased.read() {
+            "item-type-chip item-type-chip-active"
+        } else {
+            "item-type-chip"
+        }
+    };
+    let man_class = move || {
+        if *is_manufactured.read() {
+            "item-type-chip item-type-chip-active"
+        } else {
+            "item-type-chip"
+        }
+    };
 
-    let toggle_raw = move |_| { let val = *is_raw_material.read(); is_raw_material.set(!val); };
-    let toggle_finished = move |_| { let val = *is_finished_good.read(); is_finished_good.set(!val); };
-    let toggle_purchased = move |_| { let val = *is_purchased.read(); is_purchased.set(!val); };
-    let toggle_manufactured = move |_| { let val = *is_manufactured.read(); is_manufactured.set(!val); };
+    let toggle_raw = move |_| {
+        let val = *is_raw_material.read();
+        is_raw_material.set(!val);
+    };
+    let toggle_finished = move |_| {
+        let val = *is_finished_good.read();
+        is_finished_good.set(!val);
+    };
+    let toggle_purchased = move |_| {
+        let val = *is_purchased.read();
+        is_purchased.set(!val);
+    };
+    let toggle_manufactured = move |_| {
+        let val = *is_manufactured.read();
+        is_manufactured.set(!val);
+    };
 
     rsx! {
         style { "{EDIT_CSS}" }

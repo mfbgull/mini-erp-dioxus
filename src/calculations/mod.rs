@@ -14,17 +14,17 @@
 //! | [`stock`] | FIFO COGS, stock valuation, reorder Qty | (inline) |
 //! | [`formatting`] | Currency, date, percent, phone formatters | `formatters.ts` |
 
+pub mod customer;
+pub mod formatting;
 pub mod invoice;
 pub mod quotation;
-pub mod customer;
 pub mod stock;
-pub mod formatting;
 
+pub use customer::calculate_credit_utilization;
 /// Re-export the most commonly used functions at the `calculations` level
 /// for ergonomic imports.
 pub use formatting::{format_currency, format_date, format_percent};
 pub use invoice::{calculate_total, compute_invoice_metrics};
-pub use customer::calculate_credit_utilization;
 pub use stock::compute_fifo_cogs;
 
 use chrono::NaiveDate;

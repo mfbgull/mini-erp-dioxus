@@ -76,12 +76,15 @@ pub fn JournalEntryListPage() -> Element {
         async move {
             let client = api.read().clone();
             match client.list_journal_entries(&from, &to).await {
-                Ok(entries) => entries.into_iter().map(|e| JournalEntry {
-                    id: e.id,
-                    reference_type: e.reference_type,
-                    reference_id: e.reference_id,
-                    entry_date: e.entry_date,
-                }).collect(),
+                Ok(entries) => entries
+                    .into_iter()
+                    .map(|e| JournalEntry {
+                        id: e.id,
+                        reference_type: e.reference_type,
+                        reference_id: e.reference_id,
+                        entry_date: e.entry_date,
+                    })
+                    .collect(),
                 Err(_) => vec![],
             }
         }
@@ -234,21 +237,26 @@ pub fn JournalEntryDetailPage(id: String) -> Element {
         let id = id.clone();
         async move {
             let parsed = id.parse::<i64>().unwrap_or(0);
-            if parsed == 0 { return None; }
+            if parsed == 0 {
+                return None;
+            }
             let client = api.read().clone();
             match client.get_journal_entry(parsed).await {
                 Ok(data) => {
                     let entry = &data["entry"];
                     let lines = &data["lines"];
-                    let journal_lines: Vec<JournalLineDetail> = lines.as_array().unwrap_or(&vec![]).iter().map(|l| {
-                        JournalLineDetail {
+                    let journal_lines: Vec<JournalLineDetail> = lines
+                        .as_array()
+                        .unwrap_or(&vec![])
+                        .iter()
+                        .map(|l| JournalLineDetail {
                             account_code: l["account_code"].as_str().map(|s| s.to_string()),
                             account_name: l["account_name"].as_str().map(|s| s.to_string()),
                             debit: l["debit"].as_f64().unwrap_or(0.0),
                             credit: l["credit"].as_f64().unwrap_or(0.0),
                             description: l["description"].as_str().unwrap_or("").to_string(),
-                        }
-                    }).collect();
+                        })
+                        .collect();
                     Some((
                         JournalEntryDetail {
                             id: entry["id"].as_i64().unwrap_or(0),

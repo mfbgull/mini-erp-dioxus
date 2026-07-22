@@ -6,8 +6,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
-    use_toast,
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
 use crate::pages::item_list::{derive_status, InventoryItem};
 use dioxus::prelude::*;
@@ -370,15 +369,14 @@ const PAGE_CSS: &str = r##"
 #[derive(Clone, Debug)]
 struct LedgerEntry {
     date: String,
-    entry_type: String,    // "IN" | "OUT" | "ADJ"
-    reference: String,     // e.g. "GRN-001", "SINV-045", "ADJ-003"
+    entry_type: String, // "IN" | "OUT" | "ADJ"
+    reference: String,  // e.g. "GRN-001", "SINV-045", "ADJ-003"
     quantity: i32,
     unit_cost: f64,
     total_value: f64,
     running_balance: i32,
     notes: String,
 }
-
 
 // ============================================================================
 // Helpers
@@ -430,7 +428,10 @@ pub fn ItemDetailPage(id: String) -> Element {
             let item = client.get_item(parsed_id).await.ok()?;
             let status = derive_status(&item);
             // Fetch stock ledger for this item
-            let movements = client.list_stock_movements_by_item(parsed_id).await.unwrap_or_default();
+            let movements = client
+                .list_stock_movements_by_item(parsed_id)
+                .await
+                .unwrap_or_default();
             Some((item, status, movements))
         }
     });
@@ -546,30 +547,53 @@ pub fn ItemDetailPage(id: String) -> Element {
 
     let margin_pct = compute_margin(&item);
     let stock_val = stock_value(&item);
-    let ledger: Vec<LedgerEntry> = movements.iter().map(|m| {
-        let qty = m.quantity as i32;
-        let total_val = m.quantity * m.unit_cost;
-        LedgerEntry {
-            date: m.created_at.clone(),
-            entry_type: match m.movement_type.as_str() {
-                "IN" => "IN".to_string(),
-                "OUT" => "OUT".to_string(),
-                _ => "ADJ".to_string(),
-            },
-            reference: m.movement_no.clone(),
-            quantity: qty,
-            unit_cost: m.unit_cost,
-            total_value: total_val,
-            running_balance: 0,
-            notes: m.notes.clone(),
-        }
-    }).collect();
+    let ledger: Vec<LedgerEntry> = movements
+        .iter()
+        .map(|m| {
+            let qty = m.quantity as i32;
+            let total_val = m.quantity * m.unit_cost;
+            LedgerEntry {
+                date: m.created_at.clone(),
+                entry_type: match m.movement_type.as_str() {
+                    "IN" => "IN".to_string(),
+                    "OUT" => "OUT".to_string(),
+                    _ => "ADJ".to_string(),
+                },
+                reference: m.movement_no.clone(),
+                quantity: qty,
+                unit_cost: m.unit_cost,
+                total_value: total_val,
+                running_balance: 0,
+                notes: m.notes.clone(),
+            }
+        })
+        .collect();
 
-    let raw_mat_chip = if item.is_raw_material { "classification-chip active" } else { "classification-chip" };
-    let fg_chip = if item.is_finished_good { "classification-chip active" } else { "classification-chip" };
-    let purchased_chip = if item.is_purchased { "classification-chip active" } else { "classification-chip" };
-    let manufactured_chip = if item.is_manufactured { "classification-chip active" } else { "classification-chip" };
-    let source_desc = if item.is_purchased { "purchased from suppliers." } else { "manufactured in-house." };
+    let raw_mat_chip = if item.is_raw_material {
+        "classification-chip active"
+    } else {
+        "classification-chip"
+    };
+    let fg_chip = if item.is_finished_good {
+        "classification-chip active"
+    } else {
+        "classification-chip"
+    };
+    let purchased_chip = if item.is_purchased {
+        "classification-chip active"
+    } else {
+        "classification-chip"
+    };
+    let manufactured_chip = if item.is_manufactured {
+        "classification-chip active"
+    } else {
+        "classification-chip"
+    };
+    let source_desc = if item.is_purchased {
+        "purchased from suppliers."
+    } else {
+        "manufactured in-house."
+    };
 
     // ── Render ──
 

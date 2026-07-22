@@ -1,7 +1,9 @@
 //! Role List Page — DataGrid-backed list view for system roles/permissions.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, FormInput, InputType, Modal, ModalSize, use_toast};
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, FormInput, InputType, Modal, ModalSize,
+};
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
@@ -39,7 +41,12 @@ fn compute_summary(roles: &[Role]) -> RoleSummary {
     let system = roles.iter().filter(|r| r.is_system).count();
     let custom = total - system;
     let total_users = roles.iter().map(|r| r.user_count).sum();
-    RoleSummary { total, system, custom, total_users }
+    RoleSummary {
+        total,
+        system,
+        custom,
+        total_users,
+    }
 }
 
 // ============================================================================
@@ -57,16 +64,21 @@ pub fn RoleListPage() -> Element {
         async move {
             let _ = *refresh_counter.read();
             let client = api.with(|c| c.clone());
-            client.list_roles().await
+            client
+                .list_roles()
+                .await
                 .map(|server_roles| {
-                    server_roles.into_iter().map(|r| Role {
-                        id: r.id,
-                        role_name: r.role_name,
-                        description: r.description,
-                        user_count: r.user_count as i32,
-                        is_system: r.is_system_role,
-                        created_at: String::new(),
-                    }).collect::<Vec<_>>()
+                    server_roles
+                        .into_iter()
+                        .map(|r| Role {
+                            id: r.id,
+                            role_name: r.role_name,
+                            description: r.description,
+                            user_count: r.user_count as i32,
+                            is_system: r.is_system_role,
+                            created_at: String::new(),
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .unwrap_or_default()
         }
@@ -82,26 +94,35 @@ pub fn RoleListPage() -> Element {
             .with_width(ColumnWidth::Fr(1.0))
             .with_filter(FilterType::Text)
             .with_resizable(true),
-        ColumnDef::text("description", "Description", |r: &Role| r.description.clone())
-            .with_width(ColumnWidth::Fr(1.5)),
+        ColumnDef::text("description", "Description", |r: &Role| {
+            r.description.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.5)),
         ColumnDef::text("users", "Users", |r: &Role| r.user_count.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(80))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 }),
-        ColumnDef::text("system", "System", |r: &Role| {
-            if r.is_system { "System" } else { "Custom" }
-        }.to_string())
-            .with_width(ColumnWidth::Px(100))
-            .with_renderer(CellRenderer::Badge {
-                color_map: vec![
-                    ("System", BadgeColor::Blue),
-                    ("Custom", BadgeColor::Green),
-                ],
-                default_color: BadgeColor::Gray,
-            })
-            .with_filter(FilterType::Select {
-                options: vec!["System".to_string(), "Custom".to_string()],
+            .with_renderer(CellRenderer::Number {
+                prefix: "",
+                decimals: 0,
             }),
+        ColumnDef::text("system", "System", |r: &Role| {
+            {
+                if r.is_system {
+                    "System"
+                } else {
+                    "Custom"
+                }
+            }
+            .to_string()
+        })
+        .with_width(ColumnWidth::Px(100))
+        .with_renderer(CellRenderer::Badge {
+            color_map: vec![("System", BadgeColor::Blue), ("Custom", BadgeColor::Green)],
+            default_color: BadgeColor::Gray,
+        })
+        .with_filter(FilterType::Select {
+            options: vec!["System".to_string(), "Custom".to_string()],
+        }),
         ColumnDef::text("created", "Created At", |r: &Role| r.created_at.clone())
             .with_width(ColumnWidth::Px(120))
             .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" }),
@@ -124,11 +145,15 @@ pub fn RoleListPage() -> Element {
 
     let on_new = {
         let mut modal = show_create_modal.clone();
-        move |_| { modal.set(true); }
+        move |_| {
+            modal.set(true);
+        }
     };
     let on_refresh = {
         let mut counter = refresh_counter.clone();
-        move |_| { counter += 1; }
+        move |_| {
+            counter += 1;
+        }
     };
 
     rsx! {

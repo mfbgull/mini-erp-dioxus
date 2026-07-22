@@ -91,7 +91,11 @@ pub fn ManufacturingDashboardPage() -> Element {
         let api = api.clone();
         async move {
             let client = api.with(|c| c.clone());
-            client.list_production_orders().await.ok().unwrap_or_default()
+            client
+                .list_production_orders()
+                .await
+                .ok()
+                .unwrap_or_default()
         }
     });
 
@@ -105,7 +109,11 @@ pub fn ManufacturingDashboardPage() -> Element {
     let active_orders = orders.iter().filter(|o| o.status == "In Progress").count();
     let planned_orders = orders.iter().filter(|o| o.status == "Planned").count();
     let completed_orders = orders.iter().filter(|o| o.status == "Completed").count();
-    let total_completed_qty: f64 = orders.iter().filter(|o| o.status == "Completed").map(|o| o.output_quantity).sum();
+    let total_completed_qty: f64 = orders
+        .iter()
+        .filter(|o| o.status == "Completed")
+        .map(|o| o.output_quantity)
+        .sum();
 
     let yield_rate = prod_data
         .as_ref()
@@ -129,7 +137,10 @@ pub fn ManufacturingDashboardPage() -> Element {
             icon: "⚙".to_string(),
             variant: StatCardVariant::Success,
             trend: None,
-            footer: Some(format!("{} active, {} planned", active_orders, planned_orders)),
+            footer: Some(format!(
+                "{} active, {} planned",
+                active_orders, planned_orders
+            )),
         },
         ManufacturingKpi {
             title: "Completed This Month".to_string(),
@@ -149,13 +160,17 @@ pub fn ManufacturingDashboardPage() -> Element {
         },
     ];
 
-    let runs: Vec<ProdRunSummary> = orders.iter().take(10).map(|o| ProdRunSummary {
-        prd_no: o.production_no.clone(),
-        item_name: o.output_item_name.clone().unwrap_or_default(),
-        planned_qty: o.output_quantity as i32,
-        completed_qty: 0,
-        status: o.status.clone(),
-    }).collect();
+    let runs: Vec<ProdRunSummary> = orders
+        .iter()
+        .take(10)
+        .map(|o| ProdRunSummary {
+            prd_no: o.production_no.clone(),
+            item_name: o.output_item_name.clone().unwrap_or_default(),
+            planned_qty: o.output_quantity as i32,
+            completed_qty: 0,
+            status: o.status.clone(),
+        })
+        .collect();
 
     rsx! {
         style { "{PAGE_CSS}" }

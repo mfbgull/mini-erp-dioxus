@@ -4,8 +4,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonVariant, FormInput, InputType, Modal, ModalSize, SearchableSelect,
+    SelectOption, StatCard, StatCardVariant,
 };
 use dioxus::prelude::*;
 use std::collections::HashMap;
@@ -138,27 +138,75 @@ const PAGE_CSS: &str = r##"
 
 fn category_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "Widgets".to_string(), label: "Widgets".to_string() },
-        SelectOption { value: "Fasteners".to_string(), label: "Fasteners".to_string() },
-        SelectOption { value: "Raw Materials".to_string(), label: "Raw Materials".to_string() },
-        SelectOption { value: "Equipment".to_string(), label: "Equipment".to_string() },
-        SelectOption { value: "Consumables".to_string(), label: "Consumables".to_string() },
-        SelectOption { value: "Electrical".to_string(), label: "Electrical".to_string() },
-        SelectOption { value: "Packaging".to_string(), label: "Packaging".to_string() },
-        SelectOption { value: "Safety".to_string(), label: "Safety".to_string() },
+        SelectOption {
+            value: "Widgets".to_string(),
+            label: "Widgets".to_string(),
+        },
+        SelectOption {
+            value: "Fasteners".to_string(),
+            label: "Fasteners".to_string(),
+        },
+        SelectOption {
+            value: "Raw Materials".to_string(),
+            label: "Raw Materials".to_string(),
+        },
+        SelectOption {
+            value: "Equipment".to_string(),
+            label: "Equipment".to_string(),
+        },
+        SelectOption {
+            value: "Consumables".to_string(),
+            label: "Consumables".to_string(),
+        },
+        SelectOption {
+            value: "Electrical".to_string(),
+            label: "Electrical".to_string(),
+        },
+        SelectOption {
+            value: "Packaging".to_string(),
+            label: "Packaging".to_string(),
+        },
+        SelectOption {
+            value: "Safety".to_string(),
+            label: "Safety".to_string(),
+        },
     ]
 }
 
 fn uom_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "pcs".to_string(), label: "Pieces (pcs)".to_string() },
-        SelectOption { value: "kg".to_string(), label: "Kilograms (kg)".to_string() },
-        SelectOption { value: "liters".to_string(), label: "Liters".to_string() },
-        SelectOption { value: "rolls".to_string(), label: "Rolls".to_string() },
-        SelectOption { value: "sheets".to_string(), label: "Sheets".to_string() },
-        SelectOption { value: "packs".to_string(), label: "Packs".to_string() },
-        SelectOption { value: "meters".to_string(), label: "Meters (m)".to_string() },
-        SelectOption { value: "boxes".to_string(), label: "Boxes".to_string() },
+        SelectOption {
+            value: "pcs".to_string(),
+            label: "Pieces (pcs)".to_string(),
+        },
+        SelectOption {
+            value: "kg".to_string(),
+            label: "Kilograms (kg)".to_string(),
+        },
+        SelectOption {
+            value: "liters".to_string(),
+            label: "Liters".to_string(),
+        },
+        SelectOption {
+            value: "rolls".to_string(),
+            label: "Rolls".to_string(),
+        },
+        SelectOption {
+            value: "sheets".to_string(),
+            label: "Sheets".to_string(),
+        },
+        SelectOption {
+            value: "packs".to_string(),
+            label: "Packs".to_string(),
+        },
+        SelectOption {
+            value: "meters".to_string(),
+            label: "Meters (m)".to_string(),
+        },
+        SelectOption {
+            value: "boxes".to_string(),
+            label: "Boxes".to_string(),
+        },
     ]
 }
 
@@ -213,23 +261,31 @@ pub fn ItemCreatePage() -> Element {
                 errs.insert("category", "Category is required.".to_string());
             }
             if let Ok(c) = cost.read().parse::<f64>() {
-                if c < 0.0 { errs.insert("cost", "Cost cannot be negative.".to_string()); }
+                if c < 0.0 {
+                    errs.insert("cost", "Cost cannot be negative.".to_string());
+                }
             } else if !cost.read().is_empty() {
                 errs.insert("cost", "Invalid number.".to_string());
             }
             if let Ok(p) = price.read().parse::<f64>() {
-                if p < 0.0 { errs.insert("price", "Price cannot be negative.".to_string()); }
+                if p < 0.0 {
+                    errs.insert("price", "Price cannot be negative.".to_string());
+                }
             } else if !price.read().is_empty() {
                 errs.insert("price", "Invalid number.".to_string());
             }
             if let Ok(r) = reorder.read().parse::<i32>() {
-                if r < 0 { errs.insert("reorder", "Cannot be negative.".to_string()); }
+                if r < 0 {
+                    errs.insert("reorder", "Cannot be negative.".to_string());
+                }
             } else if !reorder.read().is_empty() {
                 errs.insert("reorder", "Invalid number.".to_string());
             }
 
             let is_valid = errs.is_empty();
-            if !is_valid { toast.warning("Validation Error", "Please fix the highlighted fields."); }
+            if !is_valid {
+                toast.warning("Validation Error", "Please fix the highlighted fields.");
+            }
             is_valid
         }
     };
@@ -250,58 +306,85 @@ pub fn ItemCreatePage() -> Element {
     let on_name_change = {
         let mut name = item_name.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { name.set(v); dirty.set(true); }
+        move |v: String| {
+            name.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_category_change = {
         let mut cat = category.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { cat.set(v); dirty.set(true); }
+        move |v: String| {
+            cat.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_uom_change = {
         let mut u = uom.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { u.set(v); dirty.set(true); }
+        move |v: String| {
+            u.set(v);
+            dirty.set(true);
+        }
     };
 
     #[allow(clippy::redundant_closure)]
     let on_cost_change = {
         let mut c = standard_cost.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { c.set(v); dirty.set(true); }
+        move |v: String| {
+            c.set(v);
+            dirty.set(true);
+        }
     };
 
     #[allow(clippy::redundant_closure)]
     let on_price_change = {
         let mut p = selling_price.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { p.set(v); dirty.set(true); }
+        move |v: String| {
+            p.set(v);
+            dirty.set(true);
+        }
     };
 
     #[allow(clippy::redundant_closure)]
     let on_reorder_change = {
         let mut r = reorder_level.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { r.set(v); dirty.set(true); }
+        move |v: String| {
+            r.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_warehouse_change = {
         let mut w = warehouse.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { w.set(v); dirty.set(true); }
+        move |v: String| {
+            w.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_code_change = {
         let mut code = item_code.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { code.set(v); dirty.set(true); }
+        move |v: String| {
+            code.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_notes_change = {
         let mut n = notes.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { n.set(v); dirty.set(true); }
+        move |v: String| {
+            n.set(v);
+            dirty.set(true);
+        }
     };
 
     // Toggle handlers
@@ -332,7 +415,9 @@ pub fn ItemCreatePage() -> Element {
         let manufactured = is_manufactured.clone();
 
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
 
             let form = crate::models::ItemForm {
@@ -340,11 +425,19 @@ pub fn ItemCreatePage() -> Element {
                 item_name: name.read().clone(),
                 description: {
                     let d = desc.read();
-                    if d.is_empty() { None } else { Some(d.clone()) }
+                    if d.is_empty() {
+                        None
+                    } else {
+                        Some(d.clone())
+                    }
                 },
                 category: {
                     let c = cat.read();
-                    if c.is_empty() { None } else { Some(c.clone()) }
+                    if c.is_empty() {
+                        None
+                    } else {
+                        Some(c.clone())
+                    }
                 },
                 unit_of_measure: Some(u.read().clone()),
                 reorder_level: reorder.read().parse::<f64>().ok(),
@@ -416,7 +509,9 @@ pub fn ItemCreatePage() -> Element {
         let manufactured = is_manufactured.clone();
 
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
 
             let form = crate::models::ItemForm {
@@ -424,11 +519,19 @@ pub fn ItemCreatePage() -> Element {
                 item_name: name.read().clone(),
                 description: {
                     let d = desc.read();
-                    if d.is_empty() { None } else { Some(d.clone()) }
+                    if d.is_empty() {
+                        None
+                    } else {
+                        Some(d.clone())
+                    }
                 },
                 category: {
                     let c = cat.read();
-                    if c.is_empty() { None } else { Some(c.clone()) }
+                    if c.is_empty() {
+                        None
+                    } else {
+                        Some(c.clone())
+                    }
                 },
                 unit_of_measure: Some(u.read().clone()),
                 reorder_level: reorder.read().parse::<f64>().ok(),
@@ -451,7 +554,10 @@ pub fn ItemCreatePage() -> Element {
                 let client = api.with(|a| a.clone());
                 match client.create_item(&form).await {
                     Ok(_) => {
-                        toast.success("Item Created", &format!("{} ({}) created. Creating another…", n, c));
+                        toast.success(
+                            "Item Created",
+                            &format!("{} ({}) created. Creating another…", n, c),
+                        );
                     }
                     Err(e) => {
                         toast.error("Error", &e);
@@ -486,15 +592,21 @@ pub fn ItemCreatePage() -> Element {
         let dirty = is_dirty.clone();
         let nav = navigator.clone();
         move |_| {
-            if *dirty.read() { modal.set(true); }
-            else { nav.push("/inventory/items"); }
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/inventory/items");
+            }
         }
     };
 
     let confirm_discard = {
         let nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
-        move |_| { modal.set(false); nav.push("/inventory/items"); }
+        move |_| {
+            modal.set(false);
+            nav.push("/inventory/items");
+        }
     };
 
     let cancel_discard = {
@@ -516,13 +628,37 @@ pub fn ItemCreatePage() -> Element {
     let price_err = errors.read().get("price").cloned();
     let reorder_err = errors.read().get("reorder").cloned();
 
-    let raw_chip_class = if *is_raw_material.read() { "item-type-chip item-type-chip-active" } else { "item-type-chip" };
-    let finished_chip_class = if *is_finished_good.read() { "item-type-chip item-type-chip-active" } else { "item-type-chip" };
-    let purchased_chip_class = if *is_purchased.read() { "item-type-chip item-type-chip-active" } else { "item-type-chip" };
-    let manufactured_chip_class = if *is_manufactured.read() { "item-type-chip item-type-chip-active" } else { "item-type-chip" };
-    let active_chip_class = if *is_active.read() { "item-type-chip item-type-chip-active" } else { "item-type-chip" };
+    let raw_chip_class = if *is_raw_material.read() {
+        "item-type-chip item-type-chip-active"
+    } else {
+        "item-type-chip"
+    };
+    let finished_chip_class = if *is_finished_good.read() {
+        "item-type-chip item-type-chip-active"
+    } else {
+        "item-type-chip"
+    };
+    let purchased_chip_class = if *is_purchased.read() {
+        "item-type-chip item-type-chip-active"
+    } else {
+        "item-type-chip"
+    };
+    let manufactured_chip_class = if *is_manufactured.read() {
+        "item-type-chip item-type-chip-active"
+    } else {
+        "item-type-chip"
+    };
+    let active_chip_class = if *is_active.read() {
+        "item-type-chip item-type-chip-active"
+    } else {
+        "item-type-chip"
+    };
     let active_icon = if *is_active.read() { "✅" } else { "⛔" };
-    let active_label = if *is_active.read() { "Active" } else { "Inactive" };
+    let active_label = if *is_active.read() {
+        "Active"
+    } else {
+        "Inactive"
+    };
 
     // ── Render ──
 

@@ -48,7 +48,12 @@ fn compute_summary(users: &[User]) -> UserSummary {
             _ => {}
         }
     }
-    UserSummary { total, active, inactive, disabled }
+    UserSummary {
+        total,
+        active,
+        inactive,
+        disabled,
+    }
 }
 
 // ============================================================================
@@ -66,18 +71,27 @@ pub fn UserListPage() -> Element {
         async move {
             let _ = *refresh_counter.read();
             let client = api.with(|c| c.clone());
-            client.list_users().await
+            client
+                .list_users()
+                .await
                 .map(|server_users| {
-                    server_users.into_iter().map(|u| User {
-                        id: u.id,
-                        username: u.username,
-                        full_name: u.full_name,
-                        email: u.email,
-                        role: u.role,
-                        status: if u.is_active { "Active".to_string() } else { "Inactive".to_string() },
-                        last_login: u.last_login.unwrap_or_default(),
-                        created_at: u.created_at.unwrap_or_default(),
-                    }).collect::<Vec<_>>()
+                    server_users
+                        .into_iter()
+                        .map(|u| User {
+                            id: u.id,
+                            username: u.username,
+                            full_name: u.full_name,
+                            email: u.email,
+                            role: u.role,
+                            status: if u.is_active {
+                                "Active".to_string()
+                            } else {
+                                "Inactive".to_string()
+                            },
+                            last_login: u.last_login.unwrap_or_default(),
+                            created_at: u.created_at.unwrap_or_default(),
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .unwrap_or_default()
         }
@@ -103,7 +117,14 @@ pub fn UserListPage() -> Element {
         ColumnDef::text("role", "Role", |u: &User| u.role.clone())
             .with_width(ColumnWidth::Px(120))
             .with_filter(FilterType::Select {
-                options: vec!["Admin".to_string(), "Manager".to_string(), "Sales".to_string(), "Accounts".to_string(), "Inventory".to_string(), "Production".to_string()],
+                options: vec![
+                    "Admin".to_string(),
+                    "Manager".to_string(),
+                    "Sales".to_string(),
+                    "Accounts".to_string(),
+                    "Inventory".to_string(),
+                    "Production".to_string(),
+                ],
             }),
         ColumnDef::text("status", "Status", |u: &User| u.status.clone())
             .with_width(ColumnWidth::Px(110))
@@ -116,11 +137,17 @@ pub fn UserListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Active".to_string(), "Inactive".to_string(), "Disabled".to_string()],
+                options: vec![
+                    "Active".to_string(),
+                    "Inactive".to_string(),
+                    "Disabled".to_string(),
+                ],
             }),
         ColumnDef::text("last_login", "Last Login", |u: &User| u.last_login.clone())
             .with_width(ColumnWidth::Px(160))
-            .with_renderer(CellRenderer::DateTime { format: "%d-%b-%Y %H:%M" }),
+            .with_renderer(CellRenderer::DateTime {
+                format: "%d-%b-%Y %H:%M",
+            }),
     ];
 
     let on_row_click = {
@@ -139,7 +166,9 @@ pub fn UserListPage() -> Element {
 
     let on_refresh = {
         let mut counter = refresh_counter.clone();
-        move |_| { counter += 1; }
+        move |_| {
+            counter += 1;
+        }
     };
 
     rsx! {

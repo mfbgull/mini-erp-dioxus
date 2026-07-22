@@ -33,8 +33,8 @@ pub struct InventoryItem {
     pub is_finished_good: bool,
     pub is_purchased: bool,
     pub is_manufactured: bool,
-    pub status: String,        // "Active" | "Discontinued" | "Out of Stock" | "Low Stock"
-    pub last_updated: String,  // "2026-06-15"
+    pub status: String, // "Active" | "Discontinued" | "Out of Stock" | "Low Stock"
+    pub last_updated: String, // "2026-06-15"
     pub warehouse: String,
 }
 
@@ -106,33 +106,36 @@ pub fn ItemListPage() -> Element {
         // Read the counter to create a dependency that can be bumped
         let _ = *refresh_counter.read();
         let client = api.with(|c| c.clone());
-        client.list_items().await.unwrap_or_default().into_iter().map(|i| InventoryItem {
-            id: i.id,
-            item_code: i.item_code.clone(),
-            item_name: i.item_name.clone(),
-            category: i.category.clone(),
-            unit_of_measure: i.unit_of_measure.clone(),
-            current_stock: i.current_stock as i32,
-            reorder_level: i.reorder_level as i32,
-            standard_cost: i.standard_cost,
-            standard_selling_price: i.selling_price,
-            is_raw_material: i.is_raw_material,
-            is_finished_good: i.is_finished_good,
-            is_purchased: i.is_purchased,
-            is_manufactured: i.is_manufactured,
-            status: derive_status(&i),
-            last_updated: i.updated_at.clone(),
-            warehouse: String::new(), // ponytail: not in list endpoint
-        }).collect::<Vec<_>>()
+        client
+            .list_items()
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|i| InventoryItem {
+                id: i.id,
+                item_code: i.item_code.clone(),
+                item_name: i.item_name.clone(),
+                category: i.category.clone(),
+                unit_of_measure: i.unit_of_measure.clone(),
+                current_stock: i.current_stock as i32,
+                reorder_level: i.reorder_level as i32,
+                standard_cost: i.standard_cost,
+                standard_selling_price: i.selling_price,
+                is_raw_material: i.is_raw_material,
+                is_finished_good: i.is_finished_good,
+                is_purchased: i.is_purchased,
+                is_manufactured: i.is_manufactured,
+                status: derive_status(&i),
+                last_updated: i.updated_at.clone(),
+                warehouse: String::new(), // ponytail: not in list endpoint
+            })
+            .collect::<Vec<_>>()
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
     // ── Derive loading state and data ──
     let is_loading = items_resource.read().is_none();
-    let items = items_resource.read()
-        .as_ref()
-        .cloned()
-        .unwrap_or_default();
+    let items = items_resource.read().as_ref().cloned().unwrap_or_default();
 
     // ── Summary ──
     let summary = compute_summary(&items);
@@ -141,66 +144,93 @@ pub fn ItemListPage() -> Element {
 
     let columns: Vec<ColumnDef<InventoryItem>> = vec![
         // Item code — text with text filter
-        ColumnDef::text("code", "Code", |item: &InventoryItem| item.item_code.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_filter(FilterType::Text)
-            .with_editable(true),
-
+        ColumnDef::text("code", "Code", |item: &InventoryItem| {
+            item.item_code.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_filter(FilterType::Text)
+        .with_editable(true),
         // Item name — text with text filter, fills remaining space
-        ColumnDef::text("name", "Item Name", |item: &InventoryItem| item.item_name.clone())
-            .with_width(ColumnWidth::Fr(1.2))
-            .with_filter(FilterType::Text)
-            .with_editable(true),
-
+        ColumnDef::text("name", "Item Name", |item: &InventoryItem| {
+            item.item_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.2))
+        .with_filter(FilterType::Text)
+        .with_editable(true),
         // Category — text with select filter
-        ColumnDef::text("category", "Category", |item: &InventoryItem| item.category.clone())
-            .with_width(ColumnWidth::Px(140))
-            .with_filter(FilterType::Select {
-                options: vec![
-                    "Widgets".to_string(), "Fasteners".to_string(), "Raw Materials".to_string(),
-                    "Equipment".to_string(), "Consumables".to_string(), "Electrical".to_string(),
-                    "Packaging".to_string(), "Safety".to_string(),
-                ],
-            }),
-
+        ColumnDef::text("category", "Category", |item: &InventoryItem| {
+            item.category.clone()
+        })
+        .with_width(ColumnWidth::Px(140))
+        .with_filter(FilterType::Select {
+            options: vec![
+                "Widgets".to_string(),
+                "Fasteners".to_string(),
+                "Raw Materials".to_string(),
+                "Equipment".to_string(),
+                "Consumables".to_string(),
+                "Electrical".to_string(),
+                "Packaging".to_string(),
+                "Safety".to_string(),
+            ],
+        }),
         // Unit — text
-        ColumnDef::text("uom", "UOM", |item: &InventoryItem| item.unit_of_measure.clone())
-            .with_width(ColumnWidth::Px(80)),
-
+        ColumnDef::text("uom", "UOM", |item: &InventoryItem| {
+            item.unit_of_measure.clone()
+        })
+        .with_width(ColumnWidth::Px(80)),
         // Stock — number renderer with number filter
-        ColumnDef::text("stock", "Stock", |item: &InventoryItem| item.current_stock.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(100))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 })
-            .with_filter(FilterType::Number)
-            .with_cell_class(CellClassRule::new(|item: &InventoryItem| {
-                if item.current_stock == 0 { "text-danger fw-bold".to_string() }
-                else if item.current_stock <= item.reorder_level { "text-warning".to_string() }
-                else { String::new() }
-            })),
-
+        ColumnDef::text("stock", "Stock", |item: &InventoryItem| {
+            item.current_stock.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(100))
+        .with_renderer(CellRenderer::Number {
+            prefix: "",
+            decimals: 0,
+        })
+        .with_filter(FilterType::Number)
+        .with_cell_class(CellClassRule::new(|item: &InventoryItem| {
+            if item.current_stock == 0 {
+                "text-danger fw-bold".to_string()
+            } else if item.current_stock <= item.reorder_level {
+                "text-warning".to_string()
+            } else {
+                String::new()
+            }
+        })),
         // Reorder Level — number renderer
-        ColumnDef::text("reorder", "Reorder", |item: &InventoryItem| item.reorder_level.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(80))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 }),
-
+        ColumnDef::text("reorder", "Reorder", |item: &InventoryItem| {
+            item.reorder_level.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(80))
+        .with_renderer(CellRenderer::Number {
+            prefix: "",
+            decimals: 0,
+        }),
         // Cost — currency renderer
-        ColumnDef::text("cost", "Cost", |item: &InventoryItem| item.standard_cost.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(110))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 }),
-
+        ColumnDef::text("cost", "Cost", |item: &InventoryItem| {
+            item.standard_cost.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(110))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 2,
+        }),
         // Selling Price — currency renderer with number filter, editable
         ColumnDef::text("price", "Sell Price", |item: &InventoryItem| {
             item.standard_selling_price.to_string()
         })
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(110))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 })
-            .with_filter(FilterType::Number)
-            .with_editable(true),
-
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(110))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 2,
+        })
+        .with_filter(FilterType::Number)
+        .with_editable(true),
         // Margin — percentage renderer (computed)
         ColumnDef::text("margin", "Margin", |item: &InventoryItem| {
             if item.standard_cost > 0.0 {
@@ -210,40 +240,43 @@ pub fn ItemListPage() -> Element {
                 "0".to_string()
             }
         })
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(80))
-            .with_renderer(CellRenderer::Percentage { decimals: 1 }),
-
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(80))
+        .with_renderer(CellRenderer::Percentage { decimals: 1 }),
         // Status — badge renderer with select filter
-        ColumnDef::text("status", "Status", |item: &InventoryItem| item.status.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Badge {
-                color_map: vec![
-                    ("Active", BadgeColor::Green),
-                    ("Discontinued", BadgeColor::Red),
-                    ("Out of Stock", BadgeColor::Gray),
-                    ("Low Stock", BadgeColor::Yellow),
-                ],
-                default_color: BadgeColor::Blue,
-            })
-            .with_filter(FilterType::Select {
-                options: vec![
-                    "Active".to_string(),
-                    "Discontinued".to_string(),
-                    "Out of Stock".to_string(),
-                    "Low Stock".to_string(),
-                ],
-            }),
-
+        ColumnDef::text("status", "Status", |item: &InventoryItem| {
+            item.status.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Badge {
+            color_map: vec![
+                ("Active", BadgeColor::Green),
+                ("Discontinued", BadgeColor::Red),
+                ("Out of Stock", BadgeColor::Gray),
+                ("Low Stock", BadgeColor::Yellow),
+            ],
+            default_color: BadgeColor::Blue,
+        })
+        .with_filter(FilterType::Select {
+            options: vec![
+                "Active".to_string(),
+                "Discontinued".to_string(),
+                "Out of Stock".to_string(),
+                "Low Stock".to_string(),
+            ],
+        }),
         // Warehouse — text
-        ColumnDef::text("warehouse", "Warehouse", |item: &InventoryItem| item.warehouse.clone())
-            .with_width(ColumnWidth::Px(150)),
-
+        ColumnDef::text("warehouse", "Warehouse", |item: &InventoryItem| {
+            item.warehouse.clone()
+        })
+        .with_width(ColumnWidth::Px(150)),
         // Last Updated — date renderer with date filter
-        ColumnDef::text("updated", "Updated", |item: &InventoryItem| item.last_updated.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
+        ColumnDef::text("updated", "Updated", |item: &InventoryItem| {
+            item.last_updated.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
     ];
 
     // ── Navigation Handlers ──
@@ -277,12 +310,15 @@ pub fn ItemListPage() -> Element {
         tracing::info!("Export inventory items to CSV");
     };
 
-    let on_cell_edit = move |(row_idx, col_key, _old_val, new_val): (usize, &'static str, String, String)| {
-        tracing::info!(
-            "Cell edited: row={}, col={}, new_value={}",
-            row_idx, col_key, new_val,
-        );
-    };
+    let on_cell_edit =
+        move |(row_idx, col_key, _old_val, new_val): (usize, &'static str, String, String)| {
+            tracing::info!(
+                "Cell edited: row={}, col={}, new_value={}",
+                row_idx,
+                col_key,
+                new_val,
+            );
+        };
 
     // ── Render ──
 

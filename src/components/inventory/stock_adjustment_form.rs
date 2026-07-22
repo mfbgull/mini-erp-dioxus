@@ -12,7 +12,7 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption, use_toast,
+    use_toast, Button, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption,
 };
 use crate::models::{Item, StockBalance, StockMovementForm, Warehouse};
 use dioxus::prelude::*;
@@ -70,9 +70,15 @@ pub fn StockAdjustmentForm(props: StockAdjustmentFormProps) -> Element {
         let mut warehouses = warehouses.clone();
         let mut balances = balances.clone();
         spawn(async move {
-            if let Ok(v) = client.list_items().await { items.set(v); }
-            if let Ok(v) = client.list_warehouses().await { warehouses.set(v); }
-            if let Ok(v) = client.list_stock_balances().await { balances.set(v); }
+            if let Ok(v) = client.list_items().await {
+                items.set(v);
+            }
+            if let Ok(v) = client.list_warehouses().await {
+                warehouses.set(v);
+            }
+            if let Ok(v) = client.list_stock_balances().await {
+                balances.set(v);
+            }
         });
     });
 
@@ -86,14 +92,22 @@ pub fn StockAdjustmentForm(props: StockAdjustmentFormProps) -> Element {
 
     let is_transfer = movement_type.read().clone() == "TRANSFER";
     // Source warehouse for available-stock lookups.
-    let source_wh = if is_transfer { *from_warehouse.read() } else { *to_warehouse.read() };
+    let source_wh = if is_transfer {
+        *from_warehouse.read()
+    } else {
+        *to_warehouse.read()
+    };
 
     // available stock for (item, warehouse) from loaded balances
     let get_stock = {
         let balances = balances.clone();
         move |item_id: i64, wh_id: i64| -> f64 {
-            if item_id == 0 || wh_id == 0 { return 0.0; }
-            balances.read().iter()
+            if item_id == 0 || wh_id == 0 {
+                return 0.0;
+            }
+            balances
+                .read()
+                .iter()
                 .find(|b| b.item_id == item_id && b.warehouse_id == wh_id)
                 .map(|b| b.quantity)
                 .unwrap_or(0.0)
@@ -104,19 +118,41 @@ pub fn StockAdjustmentForm(props: StockAdjustmentFormProps) -> Element {
     let item_options: Vec<SelectOption> = {
         let items = items.read();
         let balances = balances.read();
-        items.iter().filter(|i| {
-            if !is_transfer || *from_warehouse.read() == 0 { return true; }
-            balances.iter().any(|b| b.item_id == i.id && b.warehouse_id == *from_warehouse.read() && b.quantity > 0.0)
-        }).map(|i| SelectOption { value: i.id.to_string(), label: format!("{} - {}", i.item_code, i.item_name) })
-        .collect()
+        items
+            .iter()
+            .filter(|i| {
+                if !is_transfer || *from_warehouse.read() == 0 {
+                    return true;
+                }
+                balances.iter().any(|b| {
+                    b.item_id == i.id
+                        && b.warehouse_id == *from_warehouse.read()
+                        && b.quantity > 0.0
+                })
+            })
+            .map(|i| SelectOption {
+                value: i.id.to_string(),
+                label: format!("{} - {}", i.item_code, i.item_name),
+            })
+            .collect()
     };
-    let warehouse_options: Vec<SelectOption> = warehouses.read().iter()
-        .map(|w| SelectOption { value: w.id.to_string(), label: format!("{} - {}", w.warehouse_code, w.warehouse_name) })
+    let warehouse_options: Vec<SelectOption> = warehouses
+        .read()
+        .iter()
+        .map(|w| SelectOption {
+            value: w.id.to_string(),
+            label: format!("{} - {}", w.warehouse_code, w.warehouse_name),
+        })
         .collect();
     // TRANSFER destination excludes the chosen source warehouse.
-    let to_warehouse_options: Vec<SelectOption> = warehouses.read().iter()
+    let to_warehouse_options: Vec<SelectOption> = warehouses
+        .read()
+        .iter()
         .filter(|w| w.id != *from_warehouse.read())
-        .map(|w| SelectOption { value: w.id.to_string(), label: format!("{} - {}", w.warehouse_code, w.warehouse_name) })
+        .map(|w| SelectOption {
+            value: w.id.to_string(),
+            label: format!("{} - {}", w.warehouse_code, w.warehouse_name),
+        })
         .collect();
 
     // ── Handlers ──
@@ -125,14 +161,32 @@ pub fn StockAdjustmentForm(props: StockAdjustmentFormProps) -> Element {
         let mut to_wh = to_warehouse.clone();
         move |v: String| {
             mt.set(v.clone());
-            if v == "TRANSFER" { to_wh.set(0); } // clear stale ADJUSTMENT warehouse
+            if v == "TRANSFER" {
+                to_wh.set(0);
+            } // clear stale ADJUSTMENT warehouse
         }
     };
-    let on_from = { let mut w = from_warehouse.clone(); move |v: String| w.set(v.parse().unwrap_or(0)) };
-    let on_to = { let mut w = to_warehouse.clone(); move |v: String| w.set(v.parse().unwrap_or(0)) };
-    let on_remarks = { let mut r = remarks.clone(); move |v: String| r.set(v) };
+    let on_from = {
+        let mut w = from_warehouse.clone();
+        move |v: String| w.set(v.parse().unwrap_or(0))
+    };
+    let on_to = {
+        let mut w = to_warehouse.clone();
+        move |v: String| w.set(v.parse().unwrap_or(0))
+    };
+    let on_remarks = {
+        let mut r = remarks.clone();
+        move |v: String| r.set(v)
+    };
 
-    let add_line = { let mut lines = lines.clone(); move |_| { let mut v = lines.read().clone(); v.push(LineItem::default()); lines.set(v); } };
+    let add_line = {
+        let mut lines = lines.clone();
+        move |_| {
+            let mut v = lines.read().clone();
+            v.push(LineItem::default());
+            lines.set(v);
+        }
+    };
 
     // ── Submit: build movements and fan out ──
     // The submit closure captures signals by clone; reading them at call time
@@ -158,7 +212,10 @@ pub fn StockAdjustmentForm(props: StockAdjustmentFormProps) -> Element {
             // Warehouse validation
             if is_transfer {
                 if from_id == 0 || to_id == 0 {
-                    toast.warning("Validation Error", "Select both source and destination warehouses.");
+                    toast.warning(
+                        "Validation Error",
+                        "Select both source and destination warehouses.",
+                    );
                     return;
                 }
                 if from_id == to_id {
@@ -171,12 +228,20 @@ pub fn StockAdjustmentForm(props: StockAdjustmentFormProps) -> Element {
             }
 
             // Valid lines: adjustment allows ±, transfer requires > 0.
-            let valid: Vec<(i64, f64)> = lines.read().iter()
+            let valid: Vec<(i64, f64)> = lines
+                .read()
+                .iter()
                 .filter_map(|l| {
-                    if l.item_id == 0 { return None; }
+                    if l.item_id == 0 {
+                        return None;
+                    }
                     let q = l.quantity.parse::<f64>().unwrap_or(0.0);
                     if is_transfer {
-                        if q > 0.0 { Some((l.item_id, q)) } else { None }
+                        if q > 0.0 {
+                            Some((l.item_id, q))
+                        } else {
+                            None
+                        }
                     } else if q != 0.0 {
                         Some((l.item_id, q))
                     } else {
@@ -195,25 +260,45 @@ pub fn StockAdjustmentForm(props: StockAdjustmentFormProps) -> Element {
             let mut forms: Vec<StockMovementForm> = Vec::new();
             for (item_id, qty) in &valid {
                 if is_transfer {
-                    let n = if note.is_empty() { "Stock transfer".to_string() } else { note.clone() };
+                    let n = if note.is_empty() {
+                        "Stock transfer".to_string()
+                    } else {
+                        note.clone()
+                    };
                     forms.push(StockMovementForm {
-                        item_id: *item_id, warehouse_id: from_id,
-                        movement_type: "TRANSFER".to_string(), quantity: -qty.abs(),
-                        unit_cost: None, reference_doctype: None, reference_docno: None,
+                        item_id: *item_id,
+                        warehouse_id: from_id,
+                        movement_type: "TRANSFER".to_string(),
+                        quantity: -qty.abs(),
+                        unit_cost: None,
+                        reference_doctype: None,
+                        reference_docno: None,
                         notes: Some(n.clone()),
                     });
                     forms.push(StockMovementForm {
-                        item_id: *item_id, warehouse_id: to_id,
-                        movement_type: "TRANSFER".to_string(), quantity: qty.abs(),
-                        unit_cost: None, reference_doctype: None, reference_docno: None,
+                        item_id: *item_id,
+                        warehouse_id: to_id,
+                        movement_type: "TRANSFER".to_string(),
+                        quantity: qty.abs(),
+                        unit_cost: None,
+                        reference_doctype: None,
+                        reference_docno: None,
                         notes: Some(n),
                     });
                 } else {
-                    let n = if note.is_empty() { "Stock adjustment".to_string() } else { note.clone() };
+                    let n = if note.is_empty() {
+                        "Stock adjustment".to_string()
+                    } else {
+                        note.clone()
+                    };
                     forms.push(StockMovementForm {
-                        item_id: *item_id, warehouse_id: to_id,
-                        movement_type: "ADJUSTMENT".to_string(), quantity: *qty,
-                        unit_cost: None, reference_doctype: None, reference_docno: None,
+                        item_id: *item_id,
+                        warehouse_id: to_id,
+                        movement_type: "ADJUSTMENT".to_string(),
+                        quantity: *qty,
+                        unit_cost: None,
+                        reference_doctype: None,
+                        reference_docno: None,
                         notes: Some(n),
                     });
                 }
@@ -231,7 +316,10 @@ pub fn StockAdjustmentForm(props: StockAdjustmentFormProps) -> Element {
                         return;
                     }
                 }
-                toast.success("Recorded", &format!("{} stock movement(s) recorded.", count));
+                toast.success(
+                    "Recorded",
+                    &format!("{} stock movement(s) recorded.", count),
+                );
                 saving.set(false);
                 on_success.call(());
             });
@@ -240,7 +328,10 @@ pub fn StockAdjustmentForm(props: StockAdjustmentFormProps) -> Element {
 
     // ── Financial preview (adjustment only) ──
     let show_preview = !is_transfer
-        && lines.read().iter().any(|l| l.item_id != 0 && l.quantity.parse::<f64>().unwrap_or(0.0) != 0.0);
+        && lines
+            .read()
+            .iter()
+            .any(|l| l.item_id != 0 && l.quantity.parse::<f64>().unwrap_or(0.0) != 0.0);
 
     rsx! {
         style { "{FORM_CSS}" }

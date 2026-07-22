@@ -54,13 +54,23 @@ struct DecompositionRow {
 }
 
 fn parse_trend_data(val: &serde_json::Value) -> Vec<DecompositionRow> {
-    val.as_array().map(|arr| arr.iter().map(|v| DecompositionRow {
-        period: v.get("period").and_then(|s| s.as_str()).unwrap_or("").to_string(),
-        actual: v.get("actual").and_then(|n| n.as_f64()).unwrap_or(0.0),
-        trend: v.get("trend").and_then(|n| n.as_f64()).unwrap_or(0.0),
-        seasonal: v.get("seasonal").and_then(|n| n.as_f64()).unwrap_or(0.0),
-        residual: v.get("residual").and_then(|n| n.as_f64()).unwrap_or(0.0),
-    }).collect()).unwrap_or_default()
+    val.as_array()
+        .map(|arr| {
+            arr.iter()
+                .map(|v| DecompositionRow {
+                    period: v
+                        .get("period")
+                        .and_then(|s| s.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    actual: v.get("actual").and_then(|n| n.as_f64()).unwrap_or(0.0),
+                    trend: v.get("trend").and_then(|n| n.as_f64()).unwrap_or(0.0),
+                    seasonal: v.get("seasonal").and_then(|n| n.as_f64()).unwrap_or(0.0),
+                    residual: v.get("residual").and_then(|n| n.as_f64()).unwrap_or(0.0),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 // ============================================================================
@@ -86,17 +96,27 @@ pub fn TrendAnalysisPage() -> Element {
     let point_count = data.len();
 
     // Build SVG polyline points for actual data
-    let points_actual: String = data.iter().enumerate().map(|(i, d)| {
-        let x = (i as f64 / (point_count - 1) as f64) * width;
-        let y = height - ((d.actual / max_val) * height * 0.8 + height * 0.1);
-        format!("{:.1},{:.1}", x, y)
-    }).collect::<Vec<_>>().join(" ");
+    let points_actual: String = data
+        .iter()
+        .enumerate()
+        .map(|(i, d)| {
+            let x = (i as f64 / (point_count - 1) as f64) * width;
+            let y = height - ((d.actual / max_val) * height * 0.8 + height * 0.1);
+            format!("{:.1},{:.1}", x, y)
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
 
-    let points_trend: String = data.iter().enumerate().map(|(i, d)| {
-        let x = (i as f64 / (point_count - 1) as f64) * width;
-        let y = height - ((d.trend / max_val) * height * 0.8 + height * 0.1);
-        format!("{:.1},{:.1}", x, y)
-    }).collect::<Vec<_>>().join(" ");
+    let points_trend: String = data
+        .iter()
+        .enumerate()
+        .map(|(i, d)| {
+            let x = (i as f64 / (point_count - 1) as f64) * width;
+            let y = height - ((d.trend / max_val) * height * 0.8 + height * 0.1);
+            format!("{:.1},{:.1}", x, y)
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
 
     if loading {
         rsx! {
@@ -112,132 +132,132 @@ pub fn TrendAnalysisPage() -> Element {
         }
     } else {
         rsx! {
-            style { "{PAGE_CSS}" }
-            div { class: "page ta-page",
+                style { "{PAGE_CSS}" }
+                div { class: "page ta-page",
 
-            div { class: "ta-header",
-                div {
-                    h1 { "Trend Analysis" }
-                    p { class: "page-subtitle", "Seasonal decomposition and trend analysis for demand data." }
-                }
-            }
-
-            // Filters
-            div { class: "ta-filter-bar",
-                label { "Product / Category" }
-                select { style: "min-width: 220px;",
-                    option { value: "alpha", selected: true, "Premium Widget Alpha (ITM-0001)" }
-                    option { value: "widgets", "Widgets Category" }
-                    option { value: "all", "All Products" }
-                }
-                label { "Trend Type" }
-                select {
-                    option { value: "linear", selected: true, "Linear" }
-                    option { value: "exponential", "Exponential" }
-                    option { value: "seasonal", "Seasonal" }
-                }
-            }
-
-            // KPI cards
-            div { class: "ta-kpi-grid",
-                StatCard {
-                    title: "Trend Strength".to_string(),
-                    value: "0.92".to_string(),
-                    icon: "📈".to_string(),
-                    variant: StatCardVariant::Primary,
-                    footer: Some("Strong upward trend (0-1 scale)".to_string()),
-                }
-                StatCard {
-                    title: "Seasonal Strength".to_string(),
-                    value: "0.68".to_string(),
-                    icon: "🔄".to_string(),
-                    variant: StatCardVariant::Warning,
-                    footer: Some("Moderate seasonality detected".to_string()),
-                }
-                StatCard {
-                    title: "R".to_string(),
-                    value: "0.94".to_string(),
-                    icon: "📊".to_string(),
-                    variant: StatCardVariant::Success,
-                    footer: Some("R-squared of trend fit".to_string()),
-                }
-                StatCard {
-                    title: "Growth Rate".to_string(),
-                    value: "+3.2% / mo".to_string(),
-                    icon: "📈".to_string(),
-                    variant: StatCardVariant::Default,
-                    footer: Some("Linear trend slope".to_string()),
-                }
-            }
-
-            // Chart
-            div { class: "ta-chart-section",
-                div { class: "ta-chart-header",
-                    h2 { "📊 Actual vs Trend" }
-                    div { style: "display: flex; gap: 16px;",
-                        span { style: "font-size: 10px; display: flex; align-items: center; gap: 4px;", span { style: "display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent, #4a90d9);" }, "Actual" }
-                        span { style: "font-size: 10px; display: flex; align-items: center; gap: 4px;", span { style: "display: inline-block; width: 16px; height: 3px; background: #28a745;" }, "Trend" }
+                div { class: "ta-header",
+                    div {
+                        h1 { "Trend Analysis" }
+                        p { class: "page-subtitle", "Seasonal decomposition and trend analysis for demand data." }
                     }
                 }
-                div { class: "ta-chart",
-                    svg {
-                        view_box: "0 0 {width:.0} 220",
-                        preserve_aspect_ratio: "none",
-                        line { x1: "0", y1: "20", x2: "{width:.0}", y2: "20", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "60", x2: "{width:.0}", y2: "60", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "100", x2: "{width:.0}", y2: "100", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "140", x2: "{width:.0}", y2: "140", stroke: "#f0f0f0", stroke_width: "0.5" }
-                        line { x1: "0", y1: "180", x2: "{width:.0}", y2: "180", stroke: "#f0f0f0", stroke_width: "0.5" }
 
-                        // Actual data points
-                        polyline { points: "{points_actual}", fill: "none", stroke: "#4a90d9", stroke_width: "1.5", opacity: "0.6" }
-                        // Trend line
-                        polyline { points: "{points_trend}", fill: "none", stroke: "#28a745", stroke_width: "2.5" }
-
-                        // X-axis labels
-                        {data.iter().enumerate().filter(|(i, _)| i % 2 == 0).map(|(i, d)| {
-                            let x = (i as f64 / (point_count - 1) as f64) * width;
-                            rsx! {
-                                text {
-                                    key: "{i}",
-                                    x: "{x:.1}", y: "210",
-                                    font_size: "9", fill: "#6c757d", text_anchor: "middle",
-                                    "{d.period}"
-                                }
-                            }
-                        })}
+                // Filters
+                div { class: "ta-filter-bar",
+                    label { "Product / Category" }
+                    select { style: "min-width: 220px;",
+                        option { value: "alpha", selected: true, "Premium Widget Alpha (ITM-0001)" }
+                        option { value: "widgets", "Widgets Category" }
+                        option { value: "all", "All Products" }
+                    }
+                    label { "Trend Type" }
+                    select {
+                        option { value: "linear", selected: true, "Linear" }
+                        option { value: "exponential", "Exponential" }
+                        option { value: "seasonal", "Seasonal" }
                     }
                 }
-            }
 
-            // Decomposition table
-            div { class: "ta-section",
-                div { class: "ta-section-header",
-                    h2 { "📋 Seasonality Decomposition" }
+                // KPI cards
+                div { class: "ta-kpi-grid",
+                    StatCard {
+                        title: "Trend Strength".to_string(),
+                        value: "0.92".to_string(),
+                        icon: "📈".to_string(),
+                        variant: StatCardVariant::Primary,
+                        footer: Some("Strong upward trend (0-1 scale)".to_string()),
+                    }
+                    StatCard {
+                        title: "Seasonal Strength".to_string(),
+                        value: "0.68".to_string(),
+                        icon: "🔄".to_string(),
+                        variant: StatCardVariant::Warning,
+                        footer: Some("Moderate seasonality detected".to_string()),
+                    }
+                    StatCard {
+                        title: "R".to_string(),
+                        value: "0.94".to_string(),
+                        icon: "📊".to_string(),
+                        variant: StatCardVariant::Success,
+                        footer: Some("R-squared of trend fit".to_string()),
+                    }
+                    StatCard {
+                        title: "Growth Rate".to_string(),
+                        value: "+3.2% / mo".to_string(),
+                        icon: "📈".to_string(),
+                        variant: StatCardVariant::Default,
+                        footer: Some("Linear trend slope".to_string()),
+                    }
                 }
-                table { class: "ta-table",
-                    thead { tr {
-                        th { "Period" } th { class: "text-right", "Actual" }
-                        th { class: "text-right", "Trend" }
-                        th { class: "text-right", "Seasonal" }
-                        th { class: "text-right", "Residual" }
-                    }}
-                    tbody {
-                        {data.into_iter().map(|d| {
-                            rsx! {
-                                tr {
-                                    td { "{d.period}" }
-                                    td { class: "text-right", "{d.actual:.0}" }
-                                    td { class: "text-right", "{d.trend:.0}" }
-                                    td { class: "text-right", "{d.seasonal:.0}" }
-                                    td { class: "text-right", "{d.residual:.0}" }
+
+                // Chart
+                div { class: "ta-chart-section",
+                    div { class: "ta-chart-header",
+                        h2 { "📊 Actual vs Trend" }
+                        div { style: "display: flex; gap: 16px;",
+                            span { style: "font-size: 10px; display: flex; align-items: center; gap: 4px;", span { style: "display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--accent, #4a90d9);" }, "Actual" }
+                            span { style: "font-size: 10px; display: flex; align-items: center; gap: 4px;", span { style: "display: inline-block; width: 16px; height: 3px; background: #28a745;" }, "Trend" }
+                        }
+                    }
+                    div { class: "ta-chart",
+                        svg {
+                            view_box: "0 0 {width:.0} 220",
+                            preserve_aspect_ratio: "none",
+                            line { x1: "0", y1: "20", x2: "{width:.0}", y2: "20", stroke: "#f0f0f0", stroke_width: "0.5" }
+                            line { x1: "0", y1: "60", x2: "{width:.0}", y2: "60", stroke: "#f0f0f0", stroke_width: "0.5" }
+                            line { x1: "0", y1: "100", x2: "{width:.0}", y2: "100", stroke: "#f0f0f0", stroke_width: "0.5" }
+                            line { x1: "0", y1: "140", x2: "{width:.0}", y2: "140", stroke: "#f0f0f0", stroke_width: "0.5" }
+                            line { x1: "0", y1: "180", x2: "{width:.0}", y2: "180", stroke: "#f0f0f0", stroke_width: "0.5" }
+
+                            // Actual data points
+                            polyline { points: "{points_actual}", fill: "none", stroke: "#4a90d9", stroke_width: "1.5", opacity: "0.6" }
+                            // Trend line
+                            polyline { points: "{points_trend}", fill: "none", stroke: "#28a745", stroke_width: "2.5" }
+
+                            // X-axis labels
+                            {data.iter().enumerate().filter(|(i, _)| i % 2 == 0).map(|(i, d)| {
+                                let x = (i as f64 / (point_count - 1) as f64) * width;
+                                rsx! {
+                                    text {
+                                        key: "{i}",
+                                        x: "{x:.1}", y: "210",
+                                        font_size: "9", fill: "#6c757d", text_anchor: "middle",
+                                        "{d.period}"
+                                    }
                                 }
-                            }
-                        })}
+                            })}
+                        }
+                    }
+                }
+
+                // Decomposition table
+                div { class: "ta-section",
+                    div { class: "ta-section-header",
+                        h2 { "📋 Seasonality Decomposition" }
+                    }
+                    table { class: "ta-table",
+                        thead { tr {
+                            th { "Period" } th { class: "text-right", "Actual" }
+                            th { class: "text-right", "Trend" }
+                            th { class: "text-right", "Seasonal" }
+                            th { class: "text-right", "Residual" }
+                        }}
+                        tbody {
+                            {data.into_iter().map(|d| {
+                                rsx! {
+                                    tr {
+                                        td { "{d.period}" }
+                                        td { class: "text-right", "{d.actual:.0}" }
+                                        td { class: "text-right", "{d.trend:.0}" }
+                                        td { class: "text-right", "{d.seasonal:.0}" }
+                                        td { class: "text-right", "{d.residual:.0}" }
+                                    }
+                                }
+                            })}
+                        }
                     }
                 }
             }
         }
     }
-}
 }

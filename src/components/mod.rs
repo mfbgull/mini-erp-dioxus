@@ -33,8 +33,8 @@ pub mod rbac;
 pub mod shortcuts;
 
 // Future modules (unlocked as migration progresses)
-pub mod layout;
-pub mod invoice;
-pub mod dashboard;
 pub mod customer;
+pub mod dashboard;
 pub mod inventory;
+pub mod invoice;
+pub mod layout;

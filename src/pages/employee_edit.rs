@@ -1,7 +1,9 @@
 //! Employee Edit Page
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption, use_toast};
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption,
+};
 use crate::models::EmployeeForm;
 use dioxus::prelude::*;
 
@@ -22,29 +24,83 @@ const EDIT_CSS: &str = r#"
 
 fn departments() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "Management".to_string(), label: "Management".to_string() },
-        SelectOption { value: "Sales".to_string(), label: "Sales".to_string() },
-        SelectOption { value: "Accounts".to_string(), label: "Accounts".to_string() },
-        SelectOption { value: "Procurement".to_string(), label: "Procurement".to_string() },
-        SelectOption { value: "Production".to_string(), label: "Production".to_string() },
-        SelectOption { value: "Warehouse".to_string(), label: "Warehouse".to_string() },
-        SelectOption { value: "HR".to_string(), label: "HR".to_string() },
-        SelectOption { value: "IT".to_string(), label: "IT".to_string() },
+        SelectOption {
+            value: "Management".to_string(),
+            label: "Management".to_string(),
+        },
+        SelectOption {
+            value: "Sales".to_string(),
+            label: "Sales".to_string(),
+        },
+        SelectOption {
+            value: "Accounts".to_string(),
+            label: "Accounts".to_string(),
+        },
+        SelectOption {
+            value: "Procurement".to_string(),
+            label: "Procurement".to_string(),
+        },
+        SelectOption {
+            value: "Production".to_string(),
+            label: "Production".to_string(),
+        },
+        SelectOption {
+            value: "Warehouse".to_string(),
+            label: "Warehouse".to_string(),
+        },
+        SelectOption {
+            value: "HR".to_string(),
+            label: "HR".to_string(),
+        },
+        SelectOption {
+            value: "IT".to_string(),
+            label: "IT".to_string(),
+        },
     ]
 }
 
 fn designations() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "Manager".to_string(), label: "Manager".to_string() },
-        SelectOption { value: "Supervisor".to_string(), label: "Supervisor".to_string() },
-        SelectOption { value: "Sales Representative".to_string(), label: "Sales Representative".to_string() },
-        SelectOption { value: "Accountant".to_string(), label: "Accountant".to_string() },
-        SelectOption { value: "Procurement Officer".to_string(), label: "Procurement Officer".to_string() },
-        SelectOption { value: "Production Supervisor".to_string(), label: "Production Supervisor".to_string() },
-        SelectOption { value: "Machine Operator".to_string(), label: "Machine Operator".to_string() },
-        SelectOption { value: "Warehouse Manager".to_string(), label: "Warehouse Manager".to_string() },
-        SelectOption { value: "Store Keeper".to_string(), label: "Store Keeper".to_string() },
-        SelectOption { value: "HR Assistant".to_string(), label: "HR Assistant".to_string() },
+        SelectOption {
+            value: "Manager".to_string(),
+            label: "Manager".to_string(),
+        },
+        SelectOption {
+            value: "Supervisor".to_string(),
+            label: "Supervisor".to_string(),
+        },
+        SelectOption {
+            value: "Sales Representative".to_string(),
+            label: "Sales Representative".to_string(),
+        },
+        SelectOption {
+            value: "Accountant".to_string(),
+            label: "Accountant".to_string(),
+        },
+        SelectOption {
+            value: "Procurement Officer".to_string(),
+            label: "Procurement Officer".to_string(),
+        },
+        SelectOption {
+            value: "Production Supervisor".to_string(),
+            label: "Production Supervisor".to_string(),
+        },
+        SelectOption {
+            value: "Machine Operator".to_string(),
+            label: "Machine Operator".to_string(),
+        },
+        SelectOption {
+            value: "Warehouse Manager".to_string(),
+            label: "Warehouse Manager".to_string(),
+        },
+        SelectOption {
+            value: "Store Keeper".to_string(),
+            label: "Store Keeper".to_string(),
+        },
+        SelectOption {
+            value: "HR Assistant".to_string(),
+            label: "HR Assistant".to_string(),
+        },
     ]
 }
 
@@ -166,18 +222,95 @@ pub fn EmployeeEditPage(id: String) -> Element {
                 employee_code: ec.read().clone(),
                 first_name: fn_.read().clone(),
                 last_name: ln.read().clone(),
-                email: { let v = em.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                phone: { let v = ph.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                cnic_no: { let v = cn.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                address: { let v = addr.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                city: { let v = ci.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                department: { let v = dept.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                designation: { let v = desig.read(); if v.is_empty() { None } else { Some(v.clone()) } },
+                email: {
+                    let v = em.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                phone: {
+                    let v = ph.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                cnic_no: {
+                    let v = cn.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                address: {
+                    let v = addr.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                city: {
+                    let v = ci.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                department: {
+                    let v = dept.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                designation: {
+                    let v = desig.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
                 salary: sal.read().parse::<f64>().ok(),
-                bank_name: { let v = bn.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                bank_account_no: { let v = ba.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                emergency_contact_name: { let v = ecn.read(); if v.is_empty() { None } else { Some(v.clone()) } },
-                emergency_contact_phone: { let v = ecp.read(); if v.is_empty() { None } else { Some(v.clone()) } },
+                bank_name: {
+                    let v = bn.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                bank_account_no: {
+                    let v = ba.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                emergency_contact_name: {
+                    let v = ecn.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
+                emergency_contact_phone: {
+                    let v = ecp.read();
+                    if v.is_empty() {
+                        None
+                    } else {
+                        Some(v.clone())
+                    }
+                },
             };
             let api = api.clone();
             let mut toast = toast.clone();
@@ -189,10 +322,16 @@ pub fn EmployeeEditPage(id: String) -> Element {
                 let client = api.with(|c| c.clone());
                 match client.update_employee(parsed_id, &form).await {
                     Ok(_) => {
-                        toast.success("Employee Updated", &format!("{} {} updated.", fn_display, ln_display));
+                        toast.success(
+                            "Employee Updated",
+                            &format!("{} {} updated.", fn_display, ln_display),
+                        );
                         nav.push(format!("/employees/{}", parsed_id));
                     }
-                    Err(e) => { toast.error("Error", &e); saving.set(false); }
+                    Err(e) => {
+                        toast.error("Error", &e);
+                        saving.set(false);
+                    }
                 }
             });
         }

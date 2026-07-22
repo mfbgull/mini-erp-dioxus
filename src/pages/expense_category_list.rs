@@ -18,8 +18,6 @@ pub struct ExpenseCategory {
     pub is_active: bool,
 }
 
-
-
 #[component]
 pub fn ExpenseCategoryListPage() -> Element {
     let navigator = use_navigator();
@@ -31,14 +29,17 @@ pub fn ExpenseCategoryListPage() -> Element {
             let _ = *counter.read();
             let result = api.read().clone().list_expense_categories().await;
             match result {
-                Ok(list) => list.into_iter().map(|c| ExpenseCategory {
-                    id: c.id,
-                    category_name: c.category_name,
-                    description: String::new(),
-                    budget_amount: 0.0,
-                    spent_amount: 0.0,
-                    is_active: c.is_active,
-                }).collect(),
+                Ok(list) => list
+                    .into_iter()
+                    .map(|c| ExpenseCategory {
+                        id: c.id,
+                        category_name: c.category_name,
+                        description: String::new(),
+                        budget_amount: 0.0,
+                        spent_amount: 0.0,
+                        is_active: c.is_active,
+                    })
+                    .collect(),
                 Err(_) => vec![],
             }
         }
@@ -49,46 +50,80 @@ pub fn ExpenseCategoryListPage() -> Element {
     let categories = resource.read().cloned().unwrap_or_default();
 
     let columns: Vec<ColumnDef<ExpenseCategory>> = vec![
-        ColumnDef::text("name", "Category", |c: &ExpenseCategory| c.category_name.clone())
-            .with_width(ColumnWidth::Fr(0.8))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("desc", "Description", |c: &ExpenseCategory| c.description.clone())
-            .with_width(ColumnWidth::Fr(1.0))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("budget", "Budget", |c: &ExpenseCategory| c.budget_amount.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 0 })
-            .with_filter(FilterType::Number),
-        ColumnDef::text("spent", "Spent", |c: &ExpenseCategory| c.spent_amount.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 0 })
-            .with_cell_class(CellClassRule::new(|c: &ExpenseCategory| {
-                if c.spent_amount > c.budget_amount { "text-danger fw-bold".to_string() }
-                else if c.spent_amount > c.budget_amount * 0.8 { "text-warning".to_string() }
-                else { String::new() }
-            })),
-        ColumnDef::text("remaining", "Remaining", |c: &ExpenseCategory| (c.budget_amount - c.spent_amount).to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 0 })
-            .with_cell_class(CellClassRule::new(|c: &ExpenseCategory| {
-                if c.spent_amount > c.budget_amount { "text-danger".to_string() }
-                else { "text-success".to_string() }
-            })),
-        ColumnDef::text("active", "Active", |c: &ExpenseCategory| if c.is_active { "Active" } else { "Inactive" }.into())
-            .with_width(ColumnWidth::Px(90))
-            .with_renderer(CellRenderer::Badge {
-                color_map: vec![("Active", BadgeColor::Green), ("Inactive", BadgeColor::Gray)],
-                default_color: BadgeColor::Gray,
-            })
-            .with_filter(FilterType::Select {
-                options: vec!["Active".to_string(), "Inactive".to_string()],
-            }),
+        ColumnDef::text("name", "Category", |c: &ExpenseCategory| {
+            c.category_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(0.8))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("desc", "Description", |c: &ExpenseCategory| {
+            c.description.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.0))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("budget", "Budget", |c: &ExpenseCategory| {
+            c.budget_amount.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(130))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 0,
+        })
+        .with_filter(FilterType::Number),
+        ColumnDef::text("spent", "Spent", |c: &ExpenseCategory| {
+            c.spent_amount.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(130))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 0,
+        })
+        .with_cell_class(CellClassRule::new(|c: &ExpenseCategory| {
+            if c.spent_amount > c.budget_amount {
+                "text-danger fw-bold".to_string()
+            } else if c.spent_amount > c.budget_amount * 0.8 {
+                "text-warning".to_string()
+            } else {
+                String::new()
+            }
+        })),
+        ColumnDef::text("remaining", "Remaining", |c: &ExpenseCategory| {
+            (c.budget_amount - c.spent_amount).to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(130))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 0,
+        })
+        .with_cell_class(CellClassRule::new(|c: &ExpenseCategory| {
+            if c.spent_amount > c.budget_amount {
+                "text-danger".to_string()
+            } else {
+                "text-success".to_string()
+            }
+        })),
+        ColumnDef::text("active", "Active", |c: &ExpenseCategory| {
+            if c.is_active { "Active" } else { "Inactive" }.into()
+        })
+        .with_width(ColumnWidth::Px(90))
+        .with_renderer(CellRenderer::Badge {
+            color_map: vec![
+                ("Active", BadgeColor::Green),
+                ("Inactive", BadgeColor::Gray),
+            ],
+            default_color: BadgeColor::Gray,
+        })
+        .with_filter(FilterType::Select {
+            options: vec!["Active".to_string(), "Inactive".to_string()],
+        }),
     ];
 
-    let on_refresh = { let mut c = counter.clone(); move |_| c += 1 };
+    let on_refresh = {
+        let mut c = counter.clone();
+        move |_| c += 1
+    };
 
     rsx! {
         div { class: "page",

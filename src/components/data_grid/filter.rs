@@ -37,10 +37,7 @@ pub enum FilterValue {
     /// Number range filter — rows where value is in `[min, max]`.
     ///
     /// Unbounded sides are represented as `None`.
-    Number {
-        min: Option<f64>,
-        max: Option<f64>,
-    },
+    Number { min: Option<f64>, max: Option<f64> },
 
     /// Date range filter — rows where date is in `[from, to]`.
     Date {
@@ -188,15 +185,9 @@ fn matches_filter(value: &str, col: &ColumnDef<impl Clone>, filter: &FilterValue
 fn parse_number(value: &str, renderer: &CellRenderer) -> Option<f64> {
     // Strip common currency prefixes/suffixes
     let cleaned = match renderer {
-        CellRenderer::Currency { code, .. } => {
-            value.replace(code, "").trim().to_string()
-        }
-        CellRenderer::Number { prefix, .. } => {
-            value.replace(prefix, "").trim().to_string()
-        }
-        CellRenderer::Percentage { .. } => {
-            value.replace('%', "").trim().to_string()
-        }
+        CellRenderer::Currency { code, .. } => value.replace(code, "").trim().to_string(),
+        CellRenderer::Number { prefix, .. } => value.replace(prefix, "").trim().to_string(),
+        CellRenderer::Percentage { .. } => value.replace('%', "").trim().to_string(),
         _ => value.to_string(),
     };
 
@@ -264,7 +255,9 @@ mod tests {
     #[test]
     fn test_text_filter_matches() {
         let col = text_col("name");
-        let filter = FilterValue::Text { query: "apple".to_string() };
+        let filter = FilterValue::Text {
+            query: "apple".to_string(),
+        };
         assert!(matches_filter("Apple Pie", &col, &filter));
         assert!(matches_filter("apple", &col, &filter));
         assert!(!matches_filter("banana", &col, &filter));
@@ -273,14 +266,22 @@ mod tests {
     #[test]
     fn test_text_filter_empty_query() {
         let col = text_col("name");
-        let filter = FilterValue::Text { query: String::new() };
+        let filter = FilterValue::Text {
+            query: String::new(),
+        };
         assert!(matches_filter("anything", &col, &filter));
     }
 
     #[test]
     fn test_number_filter_range() {
-        let col = text_col("price").with_renderer(CellRenderer::Number { prefix: "$", decimals: 2 });
-        let filter = FilterValue::Number { min: Some(10.0), max: Some(100.0) };
+        let col = text_col("price").with_renderer(CellRenderer::Number {
+            prefix: "$",
+            decimals: 2,
+        });
+        let filter = FilterValue::Number {
+            min: Some(10.0),
+            max: Some(100.0),
+        };
         assert!(matches_filter("50", &col, &filter));
         assert!(matches_filter("10", &col, &filter));
         assert!(matches_filter("100", &col, &filter));
@@ -291,7 +292,10 @@ mod tests {
     #[test]
     fn test_number_filter_min_only() {
         let col = text_col("price");
-        let filter = FilterValue::Number { min: Some(50.0), max: None };
+        let filter = FilterValue::Number {
+            min: Some(50.0),
+            max: None,
+        };
         assert!(matches_filter("100", &col, &filter));
         assert!(!matches_filter("25", &col, &filter));
     }
@@ -299,7 +303,9 @@ mod tests {
     #[test]
     fn test_select_filter() {
         let col = text_col("status");
-        let filter = FilterValue::Select { selected: vec!["Active".to_string(), "Pending".to_string()] };
+        let filter = FilterValue::Select {
+            selected: vec!["Active".to_string(), "Pending".to_string()],
+        };
         assert!(matches_filter("Active", &col, &filter));
         assert!(matches_filter("Pending", &col, &filter));
         assert!(!matches_filter("Inactive", &col, &filter));
@@ -347,9 +353,18 @@ mod tests {
     #[test]
     fn test_apply_filters_some_pass() {
         let col = text_col("name");
-        let rows = vec![row("apple pie", 0), row("banana split", 1), row("appletini", 2)];
+        let rows = vec![
+            row("apple pie", 0),
+            row("banana split", 1),
+            row("appletini", 2),
+        ];
         let mut filters = HashMap::new();
-        filters.insert("name", FilterValue::Text { query: "apple".to_string() });
+        filters.insert(
+            "name",
+            FilterValue::Text {
+                query: "apple".to_string(),
+            },
+        );
         let result = apply_filters(rows, &[col], &filters);
         assert_eq!(result.len(), 2); // "apple pie" and "appletini"
         assert_eq!(result[0].index, 0);
@@ -361,19 +376,38 @@ mod tests {
         let mut filters: HashMap<&'static str, FilterValue> = HashMap::new();
         assert_eq!(count_active_filters(&filters), 0);
 
-        filters.insert("a", FilterValue::Text { query: "".to_string() });
+        filters.insert(
+            "a",
+            FilterValue::Text {
+                query: "".to_string(),
+            },
+        );
         assert_eq!(count_active_filters(&filters), 0);
 
-        filters.insert("a", FilterValue::Text { query: "hello".to_string() });
+        filters.insert(
+            "a",
+            FilterValue::Text {
+                query: "hello".to_string(),
+            },
+        );
         assert_eq!(count_active_filters(&filters), 1);
 
-        filters.insert("b", FilterValue::Number { min: Some(5.0), max: None });
+        filters.insert(
+            "b",
+            FilterValue::Number {
+                min: Some(5.0),
+                max: None,
+            },
+        );
         assert_eq!(count_active_filters(&filters), 2);
     }
 
     #[test]
     fn test_parse_number_with_currency() {
-        let renderer = CellRenderer::Currency { code: "USD", decimals: 2 };
+        let renderer = CellRenderer::Currency {
+            code: "USD",
+            decimals: 2,
+        };
         assert_eq!(parse_number("USD 1,234.56", &renderer), Some(1234.56));
     }
 
@@ -384,15 +418,27 @@ mod tests {
 
     #[test]
     fn test_normalize_date_formatted() {
-        assert_eq!(normalize_date("15-Jan-2024"), Some("2024-01-15".to_string()));
+        assert_eq!(
+            normalize_date("15-Jan-2024"),
+            Some("2024-01-15".to_string())
+        );
     }
 
     #[test]
     fn test_filter_value_is_active() {
         assert!(!FilterValue::None.is_active());
-        assert!(!FilterValue::Text { query: String::new() }.is_active());
-        assert!(FilterValue::Text { query: "a".to_string() }.is_active());
+        assert!(!FilterValue::Text {
+            query: String::new()
+        }
+        .is_active());
+        assert!(FilterValue::Text {
+            query: "a".to_string()
+        }
+        .is_active());
         assert!(!FilterValue::Select { selected: vec![] }.is_active());
-        assert!(FilterValue::Select { selected: vec!["x".to_string()] }.is_active());
+        assert!(FilterValue::Select {
+            selected: vec!["x".to_string()]
+        }
+        .is_active());
     }
 }

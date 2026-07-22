@@ -1,9 +1,9 @@
 //! Physical Count Detail Page — Detail view with per-item counting workflow.
 
-use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
-};
 use crate::auth::use_auth;
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
+};
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r##"
@@ -159,39 +159,47 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
         let _ = *counter.read();
         async move {
             let parsed = id.parse::<i64>().unwrap_or(0);
-            if parsed == 0 { return None; }
+            if parsed == 0 {
+                return None;
+            }
             let client = api.read().clone();
             match client.get_physical_count_with_items(parsed).await {
                 Ok((count, items_json)) => {
-                    let items: Vec<CountedItem> = items_json.into_iter().map(|item| {
-                        let sq = item["system_quantity"].as_f64().unwrap_or(0.0);
-                        let cq = item["counted_quantity"].as_f64();
-                        let variance = cq.map(|v| v - sq);
-                        let uc = item["unit_cost"].as_f64().unwrap_or(0.0);
-                        let vv = variance.map(|v| v * uc);
-                        CountedItem {
-                            id: item["id"].as_i64().unwrap_or(0),
-                            item_id: item["item_id"].as_i64().unwrap_or(0),
-                            item_code: item["item_code"].as_str().unwrap_or("").to_string(),
-                            item_name: item["item_name"].as_str().unwrap_or("").to_string(),
-                            system_quantity: sq,
-                            counted_quantity: cq,
-                            variance,
-                            unit_cost: uc,
-                            variance_value: vv,
-                        }
-                    }).collect();
-                    Some((CountDetail {
-                        id: count.id,
-                        count_no: count.count_no,
-                        count_date: count.count_date,
-                        warehouse_id: count.warehouse_id,
-                        warehouse_name: count.warehouse_name.unwrap_or_default(),
-                        status: count.status,
-                        notes: count.notes,
-                        created_at: count.created_at,
-                        completed_at: count.completed_at,
-                    }, items))
+                    let items: Vec<CountedItem> = items_json
+                        .into_iter()
+                        .map(|item| {
+                            let sq = item["system_quantity"].as_f64().unwrap_or(0.0);
+                            let cq = item["counted_quantity"].as_f64();
+                            let variance = cq.map(|v| v - sq);
+                            let uc = item["unit_cost"].as_f64().unwrap_or(0.0);
+                            let vv = variance.map(|v| v * uc);
+                            CountedItem {
+                                id: item["id"].as_i64().unwrap_or(0),
+                                item_id: item["item_id"].as_i64().unwrap_or(0),
+                                item_code: item["item_code"].as_str().unwrap_or("").to_string(),
+                                item_name: item["item_name"].as_str().unwrap_or("").to_string(),
+                                system_quantity: sq,
+                                counted_quantity: cq,
+                                variance,
+                                unit_cost: uc,
+                                variance_value: vv,
+                            }
+                        })
+                        .collect();
+                    Some((
+                        CountDetail {
+                            id: count.id,
+                            count_no: count.count_no,
+                            count_date: count.count_date,
+                            warehouse_id: count.warehouse_id,
+                            warehouse_name: count.warehouse_name.unwrap_or_default(),
+                            status: count.status,
+                            notes: count.notes,
+                            created_at: count.created_at,
+                            completed_at: count.completed_at,
+                        },
+                        items,
+                    ))
                 }
                 Err(_) => None,
             }
@@ -201,7 +209,10 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
     let snap = resource.read();
     let is_loading = snap.is_none();
     let data = snap.as_ref().and_then(|d| d.clone());
-    let is_draft = data.as_ref().map(|(c, _)| c.status == "Draft").unwrap_or(false);
+    let is_draft = data
+        .as_ref()
+        .map(|(c, _)| c.status == "Draft")
+        .unwrap_or(false);
 
     // Edit handlers
     let open_edit = {
@@ -210,7 +221,11 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
         let mut edit_notes = edit_notes.clone();
         let mut show = show_edit_modal.clone();
         move |item: CountedItem| {
-            edit_value.set(item.counted_quantity.map(|v| format!("{:.2}", v)).unwrap_or_default());
+            edit_value.set(
+                item.counted_quantity
+                    .map(|v| format!("{:.2}", v))
+                    .unwrap_or_default(),
+            );
             edit_notes.set(String::new());
             editing_item.set(Some(item));
             show.set(true);
@@ -245,7 +260,10 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
             let n = notes.read().clone();
             spawn(async move {
                 let client = api.read().clone();
-                match client.update_count_item(count_id, item_id, counted_qty).await {
+                match client
+                    .update_count_item(count_id, item_id, counted_qty)
+                    .await
+                {
                     Ok(_) => {
                         toast.success("Saved", "Count recorded.");
                         show.set(false);
@@ -274,7 +292,10 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
                 let client = api.read().clone();
                 match client.complete_physical_count(count_id).await {
                     Ok(_) => {
-                        toast.success("Completed", "Physical count completed and stock adjustments posted.");
+                        toast.success(
+                            "Completed",
+                            "Physical count completed and stock adjustments posted.",
+                        );
                         let current = *counter.read();
                         counter.set(current + 1);
                     }

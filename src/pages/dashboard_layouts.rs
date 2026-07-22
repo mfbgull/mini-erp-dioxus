@@ -1,7 +1,7 @@
 //! Dashboard Layouts Page — Manage saved dashboard layouts.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, Modal, ModalSize, use_toast};
+use crate::components::common::{use_toast, Button, ButtonVariant, Modal, ModalSize};
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r#"
@@ -54,13 +54,16 @@ pub fn DashboardLayoutsPage() -> Element {
         async move {
             let client = api.read().clone();
             match client.list_dashboard_layouts().await {
-                Ok(layouts) => layouts.into_iter().map(|l| LayoutItem {
-                    id: l.id,
-                    name: l.layout_name,
-                    blocks: l.blocks,
-                    is_active: l.is_active,
-                    created_at: l.created_at,
-                }).collect(),
+                Ok(layouts) => layouts
+                    .into_iter()
+                    .map(|l| LayoutItem {
+                        id: l.id,
+                        name: l.layout_name,
+                        blocks: l.blocks,
+                        is_active: l.is_active,
+                        created_at: l.created_at,
+                    })
+                    .collect(),
                 Err(_) => vec![],
             }
         }

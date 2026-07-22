@@ -62,7 +62,14 @@ pub fn format_currency_with_code(amount: f64, code: &str, decimals: u8) -> Strin
 
     if dec_places > 0 {
         let frac = ((abs_amount - int_part as f64) * 10_f64.powi(dec_places as i32)).round() as i64;
-        format!("{} {}{}.{:0width$}", code, sign, int_str, frac, width = dec_places)
+        format!(
+            "{} {}{}.{:0width$}",
+            code,
+            sign,
+            int_str,
+            frac,
+            width = dec_places
+        )
     } else {
         format!("{} {}{}", code, sign, int_str)
     }
@@ -215,11 +222,7 @@ pub fn format_phone(phone: &str) -> String {
             )
         } else {
             // +92 XX XXXXXXX (landline)
-            format!(
-                "+92 {} {}",
-                &cleaned[2..4],
-                &cleaned[4..11]
-            )
+            format!("+92 {} {}", &cleaned[2..4], &cleaned[4..11])
         }
     } else if cleaned.len() == 11 && cleaned.starts_with("92") {
         // 92421112233 → +92 42 1112233 (landline with country code, no +)

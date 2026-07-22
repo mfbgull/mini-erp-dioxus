@@ -2,7 +2,10 @@
 //! ponytail: header fields + component items table, no "Save & New"
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonSize, ButtonVariant, FormInput, InputType, SearchableSelect, SelectOption, use_toast};
+use crate::components::common::{
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, SearchableSelect,
+    SelectOption,
+};
 use crate::models::{BomForm, BomItemForm, Item};
 use dioxus::prelude::*;
 use std::collections::HashMap;
@@ -89,7 +92,12 @@ pub fn BomEditPage(id: String) -> Element {
                             bn.set(bom["bom_name"].as_str().unwrap_or("").to_string());
                             fi.set(bom["finished_item_id"].as_i64().unwrap_or(0).to_string());
                             qty.set(bom["quantity"].as_f64().unwrap_or(0.0).to_string());
-                            desc.set(bom.get("description").and_then(|d| d.as_str()).unwrap_or("").to_string());
+                            desc.set(
+                                bom.get("description")
+                                    .and_then(|d| d.as_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                            );
                             let mut comps = Vec::new();
                             if let Some(arr) = val["items"].as_array() {
                                 for (i, item) in arr.iter().enumerate() {
@@ -98,7 +106,10 @@ pub fn BomEditPage(id: String) -> Element {
                                     comps.push(EditCompItem {
                                         idx: i as u64,
                                         item_id: item["item_id"].as_i64().unwrap_or(0).to_string(),
-                                        item_name: item["item_name"].as_str().unwrap_or("").to_string(),
+                                        item_name: item["item_name"]
+                                            .as_str()
+                                            .unwrap_or("")
+                                            .to_string(),
                                         quantity: q,
                                         unit_cost: uc,
                                     });
@@ -116,8 +127,15 @@ pub fn BomEditPage(id: String) -> Element {
     }
 
     let (bom_data, all_items) = resource.read().clone().unwrap_or((None, vec![]));
-    let item_map: HashMap<String, &Item> = all_items.iter().map(|i| (i.id.to_string(), i)).collect();
-    let item_options: Vec<SelectOption> = all_items.iter().map(|i| SelectOption { value: i.id.to_string(), label: format!("{} - {}", i.item_code, i.item_name) }).collect();
+    let item_map: HashMap<String, &Item> =
+        all_items.iter().map(|i| (i.id.to_string(), i)).collect();
+    let item_options: Vec<SelectOption> = all_items
+        .iter()
+        .map(|i| SelectOption {
+            value: i.id.to_string(),
+            label: format!("{} - {}", i.item_code, i.item_name),
+        })
+        .collect();
 
     if resource.read().is_none() {
         return rsx! { style { "{EDIT_CSS}" } div { class: "bom-edit-page", div { class: "bom-loading", div { class: "loading-spinner" }, span { "Loading BOM..." } } } };
@@ -134,7 +152,13 @@ pub fn BomEditPage(id: String) -> Element {
         let mut nidx = next_idx.clone();
         move |_| {
             let idx = *nidx.read();
-            items.write().push(EditCompItem { idx, item_id: String::new(), item_name: String::new(), quantity: 1.0, unit_cost: 0.0 });
+            items.write().push(EditCompItem {
+                idx,
+                item_id: String::new(),
+                item_name: String::new(),
+                quantity: 1.0,
+                unit_cost: 0.0,
+            });
             nidx.set(idx + 1);
         }
     };
@@ -146,7 +170,11 @@ pub fn BomEditPage(id: String) -> Element {
         }
     };
 
-    let total_cost = comp_items.read().iter().map(|i| i.quantity * i.unit_cost).sum::<f64>();
+    let total_cost = comp_items
+        .read()
+        .iter()
+        .map(|i| i.quantity * i.unit_cost)
+        .sum::<f64>();
 
     let save = {
         let api = api.clone();
@@ -162,16 +190,28 @@ pub fn BomEditPage(id: String) -> Element {
             saving.set(true);
             let item_id = fi.read().parse::<i64>().unwrap_or(0);
             let q = qty.read().parse::<f64>().unwrap_or(1.0);
-            let bom_items: Vec<BomItemForm> = items.read().iter().filter(|i| !i.item_id.is_empty()).map(|i| BomItemForm {
-                item_id: i.item_id.parse::<i64>().unwrap_or(0),
-                quantity: i.quantity,
-                unit_cost: Some(i.unit_cost),
-            }).collect();
+            let bom_items: Vec<BomItemForm> = items
+                .read()
+                .iter()
+                .filter(|i| !i.item_id.is_empty())
+                .map(|i| BomItemForm {
+                    item_id: i.item_id.parse::<i64>().unwrap_or(0),
+                    quantity: i.quantity,
+                    unit_cost: Some(i.unit_cost),
+                })
+                .collect();
             let form = BomForm {
                 bom_name: bn.read().clone(),
                 finished_item_id: item_id,
                 quantity: q,
-                description: { let d = desc.read(); if d.is_empty() { None } else { Some(d.clone()) } },
+                description: {
+                    let d = desc.read();
+                    if d.is_empty() {
+                        None
+                    } else {
+                        Some(d.clone())
+                    }
+                },
                 items: bom_items,
             };
             let api = api.clone();
@@ -182,8 +222,14 @@ pub fn BomEditPage(id: String) -> Element {
             spawn(async move {
                 let client = api.with(|c| c.clone());
                 match client.update_bom(parsed_id, &form).await {
-                    Ok(_) => { toast.success("BOM Updated", &format!("BOM '{}' updated.", bn_display)); nav.push(format!("/manufacturing/boms/{}", parsed_id)); }
-                    Err(e) => { toast.error("Error", &e); saving.set(false); }
+                    Ok(_) => {
+                        toast.success("BOM Updated", &format!("BOM '{}' updated.", bn_display));
+                        nav.push(format!("/manufacturing/boms/{}", parsed_id));
+                    }
+                    Err(e) => {
+                        toast.error("Error", &e);
+                        saving.set(false);
+                    }
                 }
             });
         }

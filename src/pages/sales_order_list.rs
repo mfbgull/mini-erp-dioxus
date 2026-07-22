@@ -1,13 +1,13 @@
 //! Sales Order List Page — DataGrid-backed list for sales orders with status
 //! badges, summary bar, toolbar, and row click navigation.
 
+use crate::auth::use_auth;
 use crate::components::data_grid::{
     BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
     RowHeight, SelectionMode, TextAlign,
 };
 use dioxus::prelude::*;
 use std::collections::HashSet;
-use crate::auth::use_auth;
 
 // ============================================================================
 // Data Model
@@ -43,8 +43,11 @@ fn compute_summary(orders: &[SalesOrder]) -> OrderSummary {
     let mut s = OrderSummary {
         total_count: orders.len(),
         total_amount: 0.0,
-        draft_count: 0, confirmed_count: 0, processing_count: 0,
-        shipped_count: 0, delivered_count: 0,
+        draft_count: 0,
+        confirmed_count: 0,
+        processing_count: 0,
+        shipped_count: 0,
+        delivered_count: 0,
     };
     for o in orders {
         s.total_amount += o.total_amount;
@@ -75,16 +78,19 @@ pub fn SalesOrderListPage() -> Element {
             let _ = *refresh_counter.read();
             let client = api.with(|c| c.clone());
             match client.list_sales_orders().await {
-                Ok(server_orders) => server_orders.into_iter().map(|so| SalesOrder {
-                    id: so.id,
-                    order_no: so.so_no,
-                    customer_name: so.customer_name.unwrap_or_default(),
-                    order_date: so.so_date,
-                    delivery_date: so.delivery_date.unwrap_or_default(),
-                    status: so.status,
-                    total_amount: so.total_amount,
-                    item_count: 0, // ponytail: not returned by server
-                }).collect(),
+                Ok(server_orders) => server_orders
+                    .into_iter()
+                    .map(|so| SalesOrder {
+                        id: so.id,
+                        order_no: so.so_no,
+                        customer_name: so.customer_name.unwrap_or_default(),
+                        order_date: so.so_date,
+                        delivery_date: so.delivery_date.unwrap_or_default(),
+                        status: so.status,
+                        total_amount: so.total_amount,
+                        item_count: 0, // ponytail: not returned by server
+                    })
+                    .collect(),
                 Err(_) => vec![],
             }
         }
@@ -99,17 +105,23 @@ pub fn SalesOrderListPage() -> Element {
         ColumnDef::text("so_no", "Order #", |o: &SalesOrder| o.order_no.clone())
             .with_width(ColumnWidth::Px(140))
             .with_filter(FilterType::Text),
-        ColumnDef::text("customer", "Customer", |o: &SalesOrder| o.customer_name.clone())
-            .with_width(ColumnWidth::Fr(1.0))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("order_date", "Order Date", |o: &SalesOrder| o.order_date.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
-        ColumnDef::text("delivery_date", "Delivery Date", |o: &SalesOrder| o.delivery_date.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
+        ColumnDef::text("customer", "Customer", |o: &SalesOrder| {
+            o.customer_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.0))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("order_date", "Order Date", |o: &SalesOrder| {
+            o.order_date.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
+        ColumnDef::text("delivery_date", "Delivery Date", |o: &SalesOrder| {
+            o.delivery_date.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
         ColumnDef::text("status", "Status", |o: &SalesOrder| o.status.clone())
             .with_width(ColumnWidth::Px(130))
             .with_renderer(CellRenderer::Badge {
@@ -124,16 +136,31 @@ pub fn SalesOrderListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Draft".to_string(), "Confirmed".to_string(), "Processing".to_string(), "Shipped".to_string(), "Delivered".to_string(), "Cancelled".to_string()],
+                options: vec![
+                    "Draft".to_string(),
+                    "Confirmed".to_string(),
+                    "Processing".to_string(),
+                    "Shipped".to_string(),
+                    "Delivered".to_string(),
+                    "Cancelled".to_string(),
+                ],
             }),
-        ColumnDef::text("total", "Total", |o: &SalesOrder| o.total_amount.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(140))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 }),
+        ColumnDef::text("total", "Total", |o: &SalesOrder| {
+            o.total_amount.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(140))
+        .with_renderer(CellRenderer::Currency {
+            code: "PKR",
+            decimals: 2,
+        }),
         ColumnDef::text("items", "Items", |o: &SalesOrder| o.item_count.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(70))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 }),
+            .with_renderer(CellRenderer::Number {
+                prefix: "",
+                decimals: 0,
+            }),
     ];
 
     let on_row_click = move |(_idx, o): (usize, SalesOrder)| {
@@ -142,7 +169,10 @@ pub fn SalesOrderListPage() -> Element {
 
     let on_new = {
         let nav = navigator.clone();
-        move |_| { nav.push("/sales/orders/new"); } };
+        move |_| {
+            nav.push("/sales/orders/new");
+        }
+    };
 
     let on_refresh = {
         let mut cnt = refresh_counter.clone();

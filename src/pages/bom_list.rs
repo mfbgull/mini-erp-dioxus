@@ -31,19 +31,28 @@ pub fn BomListPage() -> Element {
         async move {
             let _ = *refresh_counter.read();
             let client = api.with(|c| c.clone());
-            client.list_boms().await
+            client
+                .list_boms()
+                .await
                 .map(|server_boms| {
-                    server_boms.into_iter().map(|b| BomItem {
-                        id: b.id,
-                        bom_code: b.bom_no,
-                        item_name: b.finished_item_name.unwrap_or_default(),
-                        item_code: b.finished_item_code.unwrap_or_default(),
-                        total_quantity: b.quantity,
-                        total_cost: 0.0, // ponytail: computed from bom_items
-                        status: if b.is_active { "Active".to_string() } else { "Inactive".to_string() },
-                        version: b.version.to_string(),
-                        last_updated: b.updated_at,
-                    }).collect::<Vec<_>>()
+                    server_boms
+                        .into_iter()
+                        .map(|b| BomItem {
+                            id: b.id,
+                            bom_code: b.bom_no,
+                            item_name: b.finished_item_name.unwrap_or_default(),
+                            item_code: b.finished_item_code.unwrap_or_default(),
+                            total_quantity: b.quantity,
+                            total_cost: 0.0, // ponytail: computed from bom_items
+                            status: if b.is_active {
+                                "Active".to_string()
+                            } else {
+                                "Inactive".to_string()
+                            },
+                            version: b.version.to_string(),
+                            last_updated: b.updated_at,
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .unwrap_or_default()
         }
@@ -51,11 +60,7 @@ pub fn BomListPage() -> Element {
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
     let is_loading = boms_resource.read().is_none();
-    let boms = boms_resource
-        .read()
-        .as_ref()
-        .cloned()
-        .unwrap_or_default();
+    let boms = boms_resource.read().as_ref().cloned().unwrap_or_default();
 
     let columns: Vec<ColumnDef<BomItem>> = vec![
         ColumnDef::text("code", "BOM Code", |b: &BomItem| b.bom_code.clone())
@@ -68,13 +73,15 @@ pub fn BomListPage() -> Element {
         .with_filter(FilterType::Text),
         ColumnDef::text("version", "Version", |b: &BomItem| b.version.clone())
             .with_width(ColumnWidth::Px(90)),
-        ColumnDef::text("qty", "Qty Produced", |b: &BomItem| b.total_quantity.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(110))
-            .with_renderer(CellRenderer::Number {
-                prefix: "",
-                decimals: 2,
-            }),
+        ColumnDef::text("qty", "Qty Produced", |b: &BomItem| {
+            b.total_quantity.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(110))
+        .with_renderer(CellRenderer::Number {
+            prefix: "",
+            decimals: 2,
+        }),
         ColumnDef::text("cost", "Total Cost", |b: &BomItem| b.total_cost.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(140))
@@ -93,14 +100,18 @@ pub fn BomListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Active".to_string(), "Inactive".to_string(), "Draft".to_string()],
+                options: vec![
+                    "Active".to_string(),
+                    "Inactive".to_string(),
+                    "Draft".to_string(),
+                ],
             }),
-        ColumnDef::text("updated", "Last Updated", |b: &BomItem| b.last_updated.clone())
-            .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Date {
-                format: "%d-%b-%Y",
-            })
-            .with_filter(FilterType::Date),
+        ColumnDef::text("updated", "Last Updated", |b: &BomItem| {
+            b.last_updated.clone()
+        })
+        .with_width(ColumnWidth::Px(130))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
     ];
 
     let on_row_click = {

@@ -58,19 +58,36 @@ struct EmployeeSummary {
 }
 
 fn compute_summary(employees: &[Employee]) -> EmployeeSummary {
-    let mut active = 0; let mut inactive = 0;
-    let mut permanent = 0; let mut contract = 0; let mut intern = 0;
+    let mut active = 0;
+    let mut inactive = 0;
+    let mut permanent = 0;
+    let mut contract = 0;
+    let mut intern = 0;
     let mut depts: Vec<String> = Vec::new();
     for e in employees {
-        if e.status == "Active" { active += 1; } else { inactive += 1; }
+        if e.status == "Active" {
+            active += 1;
+        } else {
+            inactive += 1;
+        }
         match e.employment_type.as_str() {
             "Permanent" => permanent += 1,
             "Contract" => contract += 1,
             _ => intern += 1,
         }
-        if !depts.contains(&e.department) { depts.push(e.department.clone()); }
+        if !depts.contains(&e.department) {
+            depts.push(e.department.clone());
+        }
     }
-    EmployeeSummary { total: employees.len(), active, inactive, permanent, contract, intern, departments: depts }
+    EmployeeSummary {
+        total: employees.len(),
+        active,
+        inactive,
+        permanent,
+        contract,
+        intern,
+        departments: depts,
+    }
 }
 
 #[component]
@@ -100,27 +117,51 @@ pub fn EmployeeListPage() -> Element {
             .with_width(ColumnWidth::Fr(1.0))
             .with_filter(FilterType::Text)
             .with_resizable(true),
-        ColumnDef::text("department", "Department", |e: &Employee| e.department.clone())
-            .with_width(ColumnWidth::Px(130))
-            .with_filter(FilterType::Select {
-                options: vec!["Sales".to_string(), "Purchasing".to_string(), "Warehouse".to_string(), "Manufacturing".to_string(), "Admin".to_string(), "Finance".to_string()],
-            }),
-        ColumnDef::text("designation", "Designation", |e: &Employee| e.designation.clone())
-            .with_width(ColumnWidth::Fr(0.8))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("type", "Employment Type", |e: &Employee| e.employment_type.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Badge {
-                color_map: vec![("Permanent", BadgeColor::Blue), ("Contract", BadgeColor::Yellow), ("Intern", BadgeColor::Purple)],
-                default_color: BadgeColor::Gray,
-            })
-            .with_filter(FilterType::Select {
-                options: vec!["Permanent".to_string(), "Contract".to_string(), "Intern".to_string()],
-            }),
+        ColumnDef::text("department", "Department", |e: &Employee| {
+            e.department.clone()
+        })
+        .with_width(ColumnWidth::Px(130))
+        .with_filter(FilterType::Select {
+            options: vec![
+                "Sales".to_string(),
+                "Purchasing".to_string(),
+                "Warehouse".to_string(),
+                "Manufacturing".to_string(),
+                "Admin".to_string(),
+                "Finance".to_string(),
+            ],
+        }),
+        ColumnDef::text("designation", "Designation", |e: &Employee| {
+            e.designation.clone()
+        })
+        .with_width(ColumnWidth::Fr(0.8))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("type", "Employment Type", |e: &Employee| {
+            e.employment_type.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Badge {
+            color_map: vec![
+                ("Permanent", BadgeColor::Blue),
+                ("Contract", BadgeColor::Yellow),
+                ("Intern", BadgeColor::Purple),
+            ],
+            default_color: BadgeColor::Gray,
+        })
+        .with_filter(FilterType::Select {
+            options: vec![
+                "Permanent".to_string(),
+                "Contract".to_string(),
+                "Intern".to_string(),
+            ],
+        }),
         ColumnDef::text("status", "Status", |e: &Employee| e.status.clone())
             .with_width(ColumnWidth::Px(100))
             .with_renderer(CellRenderer::Badge {
-                color_map: vec![("Active", BadgeColor::Green), ("Inactive", BadgeColor::Gray)],
+                color_map: vec![
+                    ("Active", BadgeColor::Green),
+                    ("Inactive", BadgeColor::Gray),
+                ],
                 default_color: BadgeColor::Blue,
             })
             .with_filter(FilterType::Select {
@@ -138,11 +179,21 @@ pub fn EmployeeListPage() -> Element {
 
     let on_row_click = {
         let nav = navigator.clone();
-        move |(_i, e): (usize, Employee)| { nav.push(format!("/employees/{}", e.id)); }
+        move |(_i, e): (usize, Employee)| {
+            nav.push(format!("/employees/{}", e.id));
+        }
     };
 
-    let on_new = { let nav = navigator.clone(); move |_| { nav.push("/employees/new"); } };
-    let on_refresh = { let mut c = refresh_counter.clone(); move |_| c += 1 };
+    let on_new = {
+        let nav = navigator.clone();
+        move |_| {
+            nav.push("/employees/new");
+        }
+    };
+    let on_refresh = {
+        let mut c = refresh_counter.clone();
+        move |_| c += 1
+    };
 
     rsx! {
         div { class: "page",

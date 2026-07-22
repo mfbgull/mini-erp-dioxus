@@ -9,17 +9,61 @@ pub struct Shortcut {
 
 pub fn default_shortcuts() -> Vec<Shortcut> {
     vec![
-        Shortcut { keys: "?".into(), description: "Show keyboard shortcuts".into(), category: "General".into() },
-        Shortcut { keys: "Ctrl+K".into(), description: "Quick search".into(), category: "General".into() },
-        Shortcut { keys: "/".into(), description: "Focus search".into(), category: "General".into() },
-        Shortcut { keys: "Ctrl+P".into(), description: "Print current page".into(), category: "Actions".into() },
-        Shortcut { keys: "Ctrl+S".into(), description: "Save".into(), category: "Actions".into() },
-        Shortcut { keys: "Escape".into(), description: "Close modal / Go back".into(), category: "Navigation".into() },
-        Shortcut { keys: "G then D".into(), description: "Go to Dashboard".into(), category: "Navigation".into() },
-        Shortcut { keys: "G then I".into(), description: "Go to Inventory".into(), category: "Navigation".into() },
-        Shortcut { keys: "G then S".into(), description: "Go to Sales".into(), category: "Navigation".into() },
-        Shortcut { keys: "G then P".into(), description: "Go to Purchases".into(), category: "Navigation".into() },
-        Shortcut { keys: "1-9".into(), description: "Navigate sidebar sections".into(), category: "Navigation".into() },
+        Shortcut {
+            keys: "?".into(),
+            description: "Show keyboard shortcuts".into(),
+            category: "General".into(),
+        },
+        Shortcut {
+            keys: "Ctrl+K".into(),
+            description: "Quick search".into(),
+            category: "General".into(),
+        },
+        Shortcut {
+            keys: "/".into(),
+            description: "Focus search".into(),
+            category: "General".into(),
+        },
+        Shortcut {
+            keys: "Ctrl+P".into(),
+            description: "Print current page".into(),
+            category: "Actions".into(),
+        },
+        Shortcut {
+            keys: "Ctrl+S".into(),
+            description: "Save".into(),
+            category: "Actions".into(),
+        },
+        Shortcut {
+            keys: "Escape".into(),
+            description: "Close modal / Go back".into(),
+            category: "Navigation".into(),
+        },
+        Shortcut {
+            keys: "G then D".into(),
+            description: "Go to Dashboard".into(),
+            category: "Navigation".into(),
+        },
+        Shortcut {
+            keys: "G then I".into(),
+            description: "Go to Inventory".into(),
+            category: "Navigation".into(),
+        },
+        Shortcut {
+            keys: "G then S".into(),
+            description: "Go to Sales".into(),
+            category: "Navigation".into(),
+        },
+        Shortcut {
+            keys: "G then P".into(),
+            description: "Go to Purchases".into(),
+            category: "Navigation".into(),
+        },
+        Shortcut {
+            keys: "1-9".into(),
+            description: "Navigate sidebar sections".into(),
+            category: "Navigation".into(),
+        },
     ]
 }
 

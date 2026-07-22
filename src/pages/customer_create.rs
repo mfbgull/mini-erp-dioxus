@@ -2,8 +2,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
+    SearchableSelect, SelectOption,
 };
 use crate::models::CustomerForm;
 use dioxus::prelude::*;
@@ -44,11 +44,26 @@ pub fn CustomerCreatePage() -> Element {
 
     // ── Payment terms options ──
     let terms_options = vec![
-        SelectOption { value: "Net 30".to_string(), label: "Net 30".to_string() },
-        SelectOption { value: "Net 15".to_string(), label: "Net 15".to_string() },
-        SelectOption { value: "COD".to_string(), label: "COD".to_string() },
-        SelectOption { value: "Due on Receipt".to_string(), label: "Due on Receipt".to_string() },
-        SelectOption { value: "Net 60".to_string(), label: "Net 60".to_string() },
+        SelectOption {
+            value: "Net 30".to_string(),
+            label: "Net 30".to_string(),
+        },
+        SelectOption {
+            value: "Net 15".to_string(),
+            label: "Net 15".to_string(),
+        },
+        SelectOption {
+            value: "COD".to_string(),
+            label: "COD".to_string(),
+        },
+        SelectOption {
+            value: "Due on Receipt".to_string(),
+            label: "Due on Receipt".to_string(),
+        },
+        SelectOption {
+            value: "Net 60".to_string(),
+            label: "Net 60".to_string(),
+        },
     ];
 
     // ── Dirty tracking & discard modal ──
@@ -60,47 +75,74 @@ pub fn CustomerCreatePage() -> Element {
     let on_code_change = {
         let mut s = customer_code.clone();
         let mut d = dirty.clone();
-        move |v: String| { s.set(v); d.set(true); }
+        move |v: String| {
+            s.set(v);
+            d.set(true);
+        }
     };
     let on_name_change = {
         let mut s = customer_name.clone();
         let mut d = dirty.clone();
-        move |v: String| { s.set(v); d.set(true); }
+        move |v: String| {
+            s.set(v);
+            d.set(true);
+        }
     };
     let on_email_change = {
         let mut s = email.clone();
         let mut d = dirty.clone();
-        move |v: String| { s.set(v); d.set(true); }
+        move |v: String| {
+            s.set(v);
+            d.set(true);
+        }
     };
     let on_phone_change = {
         let mut s = phone.clone();
         let mut d = dirty.clone();
-        move |v: String| { s.set(v); d.set(true); }
+        move |v: String| {
+            s.set(v);
+            d.set(true);
+        }
     };
     let on_ba_change = {
         let mut s = billing_address.clone();
         let mut d = dirty.clone();
-        move |v: String| { s.set(v); d.set(true); }
+        move |v: String| {
+            s.set(v);
+            d.set(true);
+        }
     };
     let on_sa_change = {
         let mut s = shipping_address.clone();
         let mut d = dirty.clone();
-        move |v: String| { s.set(v); d.set(true); }
+        move |v: String| {
+            s.set(v);
+            d.set(true);
+        }
     };
     let on_terms_change = {
         let mut s = payment_terms.clone();
         let mut d = dirty.clone();
-        move |v: String| { s.set(v); d.set(true); }
+        move |v: String| {
+            s.set(v);
+            d.set(true);
+        }
     };
     let on_cl_change = {
         let mut s = credit_limit.clone();
         let mut d = dirty.clone();
-        move |v: String| { s.set(v); d.set(true); }
+        move |v: String| {
+            s.set(v);
+            d.set(true);
+        }
     };
     let on_ob_change = {
         let mut s = opening_balance.clone();
         let mut d = dirty.clone();
-        move |v: String| { s.set(v); d.set(true); }
+        move |v: String| {
+            s.set(v);
+            d.set(true);
+        }
     };
 
     // ── Build form data ──
@@ -110,19 +152,35 @@ pub fn CustomerCreatePage() -> Element {
             customer_name: customer_name.read().clone(),
             email: {
                 let v = email.read().clone();
-                if v.is_empty() { None } else { Some(v) }
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
             },
             phone: {
                 let v = phone.read().clone();
-                if v.is_empty() { None } else { Some(v) }
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
             },
             billing_address: {
                 let v = billing_address.read().clone();
-                if v.is_empty() { None } else { Some(v) }
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
             },
             shipping_address: {
                 let v = shipping_address.read().clone();
-                if v.is_empty() { None } else { Some(v) }
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v)
+                }
             },
             payment_terms: Some(payment_terms.read().clone()),
             credit_limit: credit_limit.read().parse::<f64>().ok(),
@@ -152,7 +210,10 @@ pub fn CustomerCreatePage() -> Element {
             spawn(async move {
                 match client.create_customer(&form).await {
                     Ok(c) => {
-                        toast.success("Customer Created", &format!("Customer {} created.", c.customer_name));
+                        toast.success(
+                            "Customer Created",
+                            &format!("Customer {} created.", c.customer_name),
+                        );
                         saving.set(false);
                         dirty.set(false);
                         nav.push("/customers");

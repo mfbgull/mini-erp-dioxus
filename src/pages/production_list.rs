@@ -31,19 +31,24 @@ pub fn ProductionListPage() -> Element {
         async move {
             let _ = *refresh_counter.read();
             let client = api.with(|c| c.clone());
-            client.list_production_orders().await
+            client
+                .list_production_orders()
+                .await
                 .map(|server_orders| {
-                    server_orders.into_iter().map(|o| ProductionOrderItem {
-                        id: o.id,
-                        prd_no: o.production_no,
-                        item_name: o.output_item_name.unwrap_or_default(),
-                        item_code: o.output_item_code.unwrap_or_default(),
-                        planned_qty: o.output_quantity as i32,
-                        completed_qty: o.completed_qty as i32,
-                        start_date: o.created_at.clone(),
-                        end_date: o.end_date.unwrap_or_default(),
-                        status: o.status,
-                    }).collect::<Vec<_>>()
+                    server_orders
+                        .into_iter()
+                        .map(|o| ProductionOrderItem {
+                            id: o.id,
+                            prd_no: o.production_no,
+                            item_name: o.output_item_name.unwrap_or_default(),
+                            item_code: o.output_item_code.unwrap_or_default(),
+                            planned_qty: o.output_quantity as i32,
+                            completed_qty: o.completed_qty as i32,
+                            start_date: o.created_at.clone(),
+                            end_date: o.end_date.unwrap_or_default(),
+                            status: o.status,
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .unwrap_or_default()
         }
@@ -51,58 +56,82 @@ pub fn ProductionListPage() -> Element {
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
     let is_loading = orders_resource.read().is_none();
-    let orders = orders_resource
-        .read()
-        .as_ref()
-        .cloned()
-        .unwrap_or_default();
+    let orders = orders_resource.read().as_ref().cloned().unwrap_or_default();
 
     let columns: Vec<ColumnDef<ProductionOrderItem>> = vec![
-        ColumnDef::text("no", "Production #", |o: &ProductionOrderItem| o.prd_no.clone())
-            .with_width(ColumnWidth::Px(140))
-            .with_filter(FilterType::Text),
+        ColumnDef::text("no", "Production #", |o: &ProductionOrderItem| {
+            o.prd_no.clone()
+        })
+        .with_width(ColumnWidth::Px(140))
+        .with_filter(FilterType::Text),
         ColumnDef::text("item", "Item", |o: &ProductionOrderItem| {
             format!("{} - {}", o.item_code, o.item_name)
         })
         .with_width(ColumnWidth::Fr(1.0))
         .with_filter(FilterType::Text),
-        ColumnDef::text("planned", "Planned Qty", |o: &ProductionOrderItem| o.planned_qty.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(110))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 }),
-        ColumnDef::text("completed", "Completed", |o: &ProductionOrderItem| o.completed_qty.to_string())
-            .with_align(TextAlign::Right)
-            .with_width(ColumnWidth::Px(110))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 }),
+        ColumnDef::text("planned", "Planned Qty", |o: &ProductionOrderItem| {
+            o.planned_qty.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(110))
+        .with_renderer(CellRenderer::Number {
+            prefix: "",
+            decimals: 0,
+        }),
+        ColumnDef::text("completed", "Completed", |o: &ProductionOrderItem| {
+            o.completed_qty.to_string()
+        })
+        .with_align(TextAlign::Right)
+        .with_width(ColumnWidth::Px(110))
+        .with_renderer(CellRenderer::Number {
+            prefix: "",
+            decimals: 0,
+        }),
         ColumnDef::text("progress", "Progress", |o: &ProductionOrderItem| {
             if o.planned_qty > 0 {
-                format!("{:.1}%", (o.completed_qty as f64 / o.planned_qty as f64) * 100.0)
-            } else { "0%".to_string() }
+                format!(
+                    "{:.1}%",
+                    (o.completed_qty as f64 / o.planned_qty as f64) * 100.0
+                )
+            } else {
+                "0%".to_string()
+            }
         })
         .with_align(TextAlign::Right)
         .with_width(ColumnWidth::Px(100)),
-        ColumnDef::text("start", "Start Date", |o: &ProductionOrderItem| o.start_date.clone())
-            .with_width(ColumnWidth::Px(110))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
-        ColumnDef::text("end", "End Date", |o: &ProductionOrderItem| o.end_date.clone())
-            .with_width(ColumnWidth::Px(110))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
-        ColumnDef::text("status", "Status", |o: &ProductionOrderItem| o.status.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Badge {
-                color_map: vec![
-                    ("Completed", BadgeColor::Green),
-                    ("In Progress", BadgeColor::Blue),
-                    ("Planned", BadgeColor::Yellow),
-                    ("Cancelled", BadgeColor::Red),
-                ],
-                default_color: BadgeColor::Gray,
-            })
-            .with_filter(FilterType::Select {
-                options: vec!["Planned".to_string(), "In Progress".to_string(), "Completed".to_string(), "Cancelled".to_string()],
-            }),
+        ColumnDef::text("start", "Start Date", |o: &ProductionOrderItem| {
+            o.start_date.clone()
+        })
+        .with_width(ColumnWidth::Px(110))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
+        ColumnDef::text("end", "End Date", |o: &ProductionOrderItem| {
+            o.end_date.clone()
+        })
+        .with_width(ColumnWidth::Px(110))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
+        ColumnDef::text("status", "Status", |o: &ProductionOrderItem| {
+            o.status.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Badge {
+            color_map: vec![
+                ("Completed", BadgeColor::Green),
+                ("In Progress", BadgeColor::Blue),
+                ("Planned", BadgeColor::Yellow),
+                ("Cancelled", BadgeColor::Red),
+            ],
+            default_color: BadgeColor::Gray,
+        })
+        .with_filter(FilterType::Select {
+            options: vec![
+                "Planned".to_string(),
+                "In Progress".to_string(),
+                "Completed".to_string(),
+                "Cancelled".to_string(),
+            ],
+        }),
     ];
 
     let on_row_click = {

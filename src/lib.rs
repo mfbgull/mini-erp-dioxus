@@ -17,13 +17,13 @@
 #![allow(dead_code)]
 #![allow(non_snake_case)]
 
-pub mod calculations;
-pub mod models;
-pub mod money;
 pub mod api;
 pub mod auth;
-pub mod utils;
+pub mod calculations;
 pub mod i18n;
+pub mod models;
+pub mod money;
+pub mod utils;
 
 // Server module — only compiled on native targets (not WASM)
 #[cfg(not(target_arch = "wasm32"))]

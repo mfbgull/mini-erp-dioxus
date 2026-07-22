@@ -125,8 +125,14 @@ pub fn SalesDashboardPage() -> Element {
     let draft_quotations = dashboard["draft_quotations"].as_i64().unwrap_or(0);
     let pending_sales_orders = dashboard["pending_sales_orders"].as_i64().unwrap_or(0);
 
-    let unpaid_count = invoices_list.iter().filter(|i| matches!(i.status.as_str(), "Unpaid" | "Partially Paid")).count();
-    let overdue_count = invoices_list.iter().filter(|i| i.status == "Overdue").count();
+    let unpaid_count = invoices_list
+        .iter()
+        .filter(|i| matches!(i.status.as_str(), "Unpaid" | "Partially Paid"))
+        .count();
+    let overdue_count = invoices_list
+        .iter()
+        .filter(|i| i.status == "Overdue")
+        .count();
 
     let kpis = vec![
         SalesKpi {
@@ -143,7 +149,10 @@ pub fn SalesDashboardPage() -> Element {
             icon: "🧾".to_string(),
             variant: StatCardVariant::Primary,
             trend: None,
-            footer: Some(format!("{} unpaid / {} overdue", unpaid_count, overdue_count)),
+            footer: Some(format!(
+                "{} unpaid / {} overdue",
+                unpaid_count, overdue_count
+            )),
         },
         SalesKpi {
             title: "Draft Quotations".to_string(),

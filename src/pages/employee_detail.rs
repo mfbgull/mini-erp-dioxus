@@ -1,9 +1,9 @@
 //! Employee Detail Page — Single-section detail view for an employee.
 
-use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
-};
 use crate::auth::use_auth;
+use crate::components::common::{
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
+};
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r##"
@@ -42,7 +42,10 @@ fn type_badge_class(et: &str) -> &'static str {
 }
 
 fn status_class(s: &str) -> &'static str {
-    match s { "Active" => "emp-status-active", _ => "emp-status-inactive" }
+    match s {
+        "Active" => "emp-status-active",
+        _ => "emp-status-inactive",
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -79,7 +82,11 @@ pub fn EmployeeDetailPage(id: String) -> Element {
             Some(DisplayEmployee {
                 full_name: format!("{} {}", server.first_name, server.last_name),
                 employee_code: server.employee_code,
-                status: if server.is_active { "Active".to_string() } else { "Inactive".to_string() },
+                status: if server.is_active {
+                    "Active".to_string()
+                } else {
+                    "Inactive".to_string()
+                },
                 department: server.department,
                 designation: server.designation,
                 email: server.email,
@@ -98,7 +105,9 @@ pub fn EmployeeDetailPage(id: String) -> Element {
         let _ = *salary_counter.read();
         async move {
             let parsed = id.parse::<i64>().unwrap_or(0);
-            if parsed == 0 { return vec![]; }
+            if parsed == 0 {
+                return vec![];
+            }
             let client = api.read().clone();
             match client.list_salary_payments(parsed).await {
                 Ok(payments) => payments,
@@ -127,7 +136,9 @@ pub fn EmployeeDetailPage(id: String) -> Element {
             }
             let date = salary_date.read().clone();
             let emp_id: i64 = id_for_pay.parse().unwrap_or(0);
-            if emp_id == 0 { return; }
+            if emp_id == 0 {
+                return;
+            }
             let api = api.clone();
             let mut toast = toast.clone();
             let mut show = show_salary_modal.clone();

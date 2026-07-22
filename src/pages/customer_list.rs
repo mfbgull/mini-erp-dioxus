@@ -15,11 +15,11 @@
 
 use crate::api::ApiClient;
 use crate::auth::use_auth;
+use crate::components::data_grid::types::PinnedPosition;
 use crate::components::data_grid::{
     BadgeColor, CellClassRule, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType,
     PaginationMode, RowHeight, SelectionMode, TextAlign,
 };
-use crate::components::data_grid::types::PinnedPosition;
 use dioxus::prelude::*;
 use std::collections::HashSet;
 
@@ -40,15 +40,15 @@ pub struct Customer {
     pub email: String,
     pub phone: String,
     pub city: String,
-    pub payment_terms: String,          // "Net 30" | "Net 15" | "COD" | "Due on Receipt"
+    pub payment_terms: String, // "Net 30" | "Net 15" | "COD" | "Due on Receipt"
     pub credit_limit: f64,
     pub current_balance: f64,
     pub opening_balance: f64,
     pub total_invoiced: f64,
     pub total_paid: f64,
-    pub last_invoice_date: String,      // "2026-06-15"
-    pub status: String,                 // "Active" | "Inactive" | "Over Limit"
-    pub customer_type: String,          // "Retail" | "Wholesale" | "Distributor" | "Government"
+    pub last_invoice_date: String, // "2026-06-15"
+    pub status: String,            // "Active" | "Inactive" | "Over Limit"
+    pub customer_type: String,     // "Retail" | "Wholesale" | "Distributor" | "Government"
     pub notes: String,
 }
 
@@ -70,30 +70,39 @@ impl Customer {
 /// Fetch customers from the backend API and map to the local view model.
 async fn fetch_customers(client: &ApiClient) -> Vec<Customer> {
     match client.list_customers().await {
-        Ok(server_customers) => server_customers.into_iter().map(|sc| Customer {
-            id: sc.id,
-            customer_code: sc.customer_code,
-            customer_name: sc.customer_name,
-            email: sc.email,
-            phone: sc.phone,
-            city: sc.billing_address.split(',').next().unwrap_or("").trim().to_string(),
-            payment_terms: sc.payment_terms,
-            credit_limit: sc.credit_limit,
-            current_balance: sc.current_balance,
-            opening_balance: sc.opening_balance,
-            total_invoiced: sc.total_invoiced,
-            total_paid: sc.total_paid,
-            last_invoice_date: sc.last_invoice_date.unwrap_or_default(),
-            status: if sc.current_balance > sc.credit_limit && sc.credit_limit > 0.0 {
-                "Over Limit".to_string()
-            } else if sc.is_active {
-                "Active".to_string()
-            } else {
-                "Inactive".to_string()
-            },
-            customer_type: sc.customer_type,
-            notes: sc.notes,
-        }).collect(),
+        Ok(server_customers) => server_customers
+            .into_iter()
+            .map(|sc| Customer {
+                id: sc.id,
+                customer_code: sc.customer_code,
+                customer_name: sc.customer_name,
+                email: sc.email,
+                phone: sc.phone,
+                city: sc
+                    .billing_address
+                    .split(',')
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string(),
+                payment_terms: sc.payment_terms,
+                credit_limit: sc.credit_limit,
+                current_balance: sc.current_balance,
+                opening_balance: sc.opening_balance,
+                total_invoiced: sc.total_invoiced,
+                total_paid: sc.total_paid,
+                last_invoice_date: sc.last_invoice_date.unwrap_or_default(),
+                status: if sc.current_balance > sc.credit_limit && sc.credit_limit > 0.0 {
+                    "Over Limit".to_string()
+                } else if sc.is_active {
+                    "Active".to_string()
+                } else {
+                    "Inactive".to_string()
+                },
+                customer_type: sc.customer_type,
+                notes: sc.notes,
+            })
+            .collect(),
         Err(_) => Vec::new(),
     }
 }
@@ -110,7 +119,7 @@ struct CustomerSummary {
     over_limit_count: usize,
     total_credit_limit: f64,
     total_balance: f64,
-    weighted_utilization: f64,  // percentage
+    weighted_utilization: f64, // percentage
 }
 
 fn compute_summary(customers: &[Customer]) -> CustomerSummary {
@@ -201,14 +210,14 @@ pub fn CustomerListPage() -> Element {
             .with_filter(FilterType::Text)
             .with_pinned(PinnedPosition::Left)
             .with_resizable(true),
-
         // Customer name — text with text filter, primary identifier, resizable, editable
-        ColumnDef::text("name", "Customer Name", |c: &Customer| c.customer_name.clone())
-            .with_width(ColumnWidth::Fr(1.3))
-            .with_filter(FilterType::Text)
-            .with_resizable(true)
-            .with_editable(true),
-
+        ColumnDef::text("name", "Customer Name", |c: &Customer| {
+            c.customer_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.3))
+        .with_filter(FilterType::Text)
+        .with_resizable(true)
+        .with_editable(true),
         // City — text with select filter
         ColumnDef::text("city", "City", |c: &Customer| c.city.clone())
             .with_width(ColumnWidth::Px(120))
@@ -229,7 +238,6 @@ pub fn CustomerListPage() -> Element {
                     "Quetta".to_string(),
                 ],
             }),
-
         // Customer type — text with select filter
         ColumnDef::text("type", "Type", |c: &Customer| c.customer_type.clone())
             .with_width(ColumnWidth::Px(110))
@@ -241,7 +249,6 @@ pub fn CustomerListPage() -> Element {
                     "Government".to_string(),
                 ],
             }),
-
         // Status — badge renderer with select filter
         ColumnDef::text("status", "Status", |c: &Customer| c.status.clone())
             .with_width(ColumnWidth::Px(110))
@@ -260,13 +267,10 @@ pub fn CustomerListPage() -> Element {
                     "Over Limit".to_string(),
                 ],
             })
-            .with_cell_class(CellClassRule::new(|c: &Customer| {
-                match c.status.as_str() {
-                    "Over Limit" => "fw-bold".to_string(),
-                    _ => String::new(),
-                }
+            .with_cell_class(CellClassRule::new(|c: &Customer| match c.status.as_str() {
+                "Over Limit" => "fw-bold".to_string(),
+                _ => String::new(),
             })),
-
         // Payment terms — text with select filter
         ColumnDef::text("terms", "Terms", |c: &Customer| c.payment_terms.clone())
             .with_width(ColumnWidth::Px(120))
@@ -280,7 +284,6 @@ pub fn CustomerListPage() -> Element {
                     "Due on Receipt".to_string(),
                 ],
             }),
-
         // Credit limit — currency renderer with number filter
         ColumnDef::text("credit_limit", "Credit Limit", |c: &Customer| {
             c.credit_limit.to_string()
@@ -292,7 +295,6 @@ pub fn CustomerListPage() -> Element {
             decimals: 0,
         })
         .with_filter(FilterType::Number),
-
         // Current balance — currency renderer with cell class for over-limit warning
         ColumnDef::text("balance", "Current Balance", |c: &Customer| {
             c.current_balance.to_string()
@@ -312,7 +314,6 @@ pub fn CustomerListPage() -> Element {
                 String::new()
             }
         })),
-
         // Credit utilization — percentage renderer with cell class rules
         ColumnDef::text("utilization", "Utilization", |c: &Customer| {
             c.credit_utilization().to_string()
@@ -330,7 +331,6 @@ pub fn CustomerListPage() -> Element {
                 String::new()
             }
         })),
-
         // Total invoiced — currency renderer
         ColumnDef::text("invoiced", "Total Invoiced", |c: &Customer| {
             c.total_invoiced.to_string()
@@ -341,7 +341,6 @@ pub fn CustomerListPage() -> Element {
             code: "PKR",
             decimals: 0,
         }),
-
         // Total paid — currency renderer
         ColumnDef::text("paid", "Total Paid", |c: &Customer| {
             c.total_paid.to_string()
@@ -352,17 +351,13 @@ pub fn CustomerListPage() -> Element {
             code: "PKR",
             decimals: 0,
         }),
-
         // Last invoice date — date renderer with date filter
         ColumnDef::text("last_invoice", "Last Invoice", |c: &Customer| {
             c.last_invoice_date.clone()
         })
         .with_width(ColumnWidth::Px(120))
-        .with_renderer(CellRenderer::Date {
-            format: "%d-%b-%Y",
-        })
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
         .with_filter(FilterType::Date),
-
         // Phone — text (no filter)
         ColumnDef::text("phone", "Phone", |c: &Customer| c.phone.clone())
             .with_width(ColumnWidth::Px(140))
@@ -400,12 +395,15 @@ pub fn CustomerListPage() -> Element {
     };
 
     // Cell edit: log the change
-    let on_cell_edit = move |(row_idx, col_key, _old_val, new_val): (usize, &'static str, String, String)| {
-        tracing::info!(
-            "Customer cell edited: row={}, col={}, new_value={}",
-            row_idx, col_key, new_val,
-        );
-    };
+    let on_cell_edit =
+        move |(row_idx, col_key, _old_val, new_val): (usize, &'static str, String, String)| {
+            tracing::info!(
+                "Customer cell edited: row={}, col={}, new_value={}",
+                row_idx,
+                col_key,
+                new_val,
+            );
+        };
 
     // ── Render ──
 

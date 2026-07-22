@@ -2,8 +2,8 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
-    SearchableSelect, SelectOption, use_toast,
+    use_toast, Button, ButtonSize, ButtonVariant, FormInput, InputType, Modal, ModalSize,
+    SearchableSelect, SelectOption,
 };
 use crate::models::{BomForm, BomItemForm, Item};
 use dioxus::prelude::*;
@@ -90,11 +90,26 @@ const PAGE_CSS: &str = r##"
 
 fn uom_options() -> Vec<SelectOption> {
     vec![
-        SelectOption { value: "pcs".to_string(), label: "Pieces (pcs)".to_string() },
-        SelectOption { value: "kg".to_string(), label: "Kilograms (kg)".to_string() },
-        SelectOption { value: "liters".to_string(), label: "Liters".to_string() },
-        SelectOption { value: "meters".to_string(), label: "Meters (m)".to_string() },
-        SelectOption { value: "sheets".to_string(), label: "Sheets".to_string() },
+        SelectOption {
+            value: "pcs".to_string(),
+            label: "Pieces (pcs)".to_string(),
+        },
+        SelectOption {
+            value: "kg".to_string(),
+            label: "Kilograms (kg)".to_string(),
+        },
+        SelectOption {
+            value: "liters".to_string(),
+            label: "Liters".to_string(),
+        },
+        SelectOption {
+            value: "meters".to_string(),
+            label: "Meters (m)".to_string(),
+        },
+        SelectOption {
+            value: "sheets".to_string(),
+            label: "Sheets".to_string(),
+        },
     ]
 }
 
@@ -154,9 +169,17 @@ pub fn BomCreatePage() -> Element {
     let description = use_signal(String::new);
     let finished_item = use_signal(String::new);
     let quantity_produced = use_signal(|| "1.0".to_string());
-    let component_lines = use_signal(|| vec![
-        BomComponentLine { id: 1, item_code: String::new(), item_label: String::new(), quantity: 1.0, uom: "pcs".to_string(), unit_cost: 0.0, scrap_pct: 0.0 },
-    ]);
+    let component_lines = use_signal(|| {
+        vec![BomComponentLine {
+            id: 1,
+            item_code: String::new(),
+            item_label: String::new(),
+            quantity: 1.0,
+            uom: "pcs".to_string(),
+            unit_cost: 0.0,
+            scrap_pct: 0.0,
+        }]
+    });
     let next_line_id = use_signal(|| 2usize);
 
     let is_saving = use_signal(|| false);
@@ -164,7 +187,9 @@ pub fn BomCreatePage() -> Element {
     let mut show_discard_modal = use_signal(|| false);
     let errors = use_signal(HashMap::<&'static str, String>::new);
 
-    let total_cost = component_lines.read().iter()
+    let total_cost = component_lines
+        .read()
+        .iter()
         .map(|l| {
             let base = l.quantity * l.unit_cost;
             base * (1.0 + l.scrap_pct / 100.0)
@@ -177,11 +202,23 @@ pub fn BomCreatePage() -> Element {
         let mut toast = toast.clone();
         move || -> bool {
             let mut errs = HashMap::<&'static str, String>::new();
-            if fi.read().is_empty() { errs.insert("item", "Finished item is required.".to_string()); }
-            let has_all = cls.read().iter().all(|l| !l.item_code.is_empty() && l.quantity > 0.0);
-            if !has_all { errs.insert("components", "All component lines must have an item and quantity > 0.".to_string()); }
+            if fi.read().is_empty() {
+                errs.insert("item", "Finished item is required.".to_string());
+            }
+            let has_all = cls
+                .read()
+                .iter()
+                .all(|l| !l.item_code.is_empty() && l.quantity > 0.0);
+            if !has_all {
+                errs.insert(
+                    "components",
+                    "All component lines must have an item and quantity > 0.".to_string(),
+                );
+            }
             let is_valid = errs.is_empty();
-            if !is_valid { toast.warning("Validation Error", "Please fix the highlighted fields."); }
+            if !is_valid {
+                toast.warning("Validation Error", "Please fix the highlighted fields.");
+            }
             is_valid
         }
     };
@@ -189,13 +226,19 @@ pub fn BomCreatePage() -> Element {
     let on_item_change = {
         let mut fi = finished_item.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { fi.set(v); dirty.set(true); }
+        move |v: String| {
+            fi.set(v);
+            dirty.set(true);
+        }
     };
 
     let on_qty_change = {
         let mut q = quantity_produced.clone();
         let mut dirty = is_dirty.clone();
-        move |v: String| { q.set(v); dirty.set(true); }
+        move |v: String| {
+            q.set(v);
+            dirty.set(true);
+        }
     };
 
     let add_line = {
@@ -203,7 +246,15 @@ pub fn BomCreatePage() -> Element {
         let mut nid = next_line_id.clone();
         move |_| {
             let id = *nid.read();
-            lines.write().push(BomComponentLine { id, item_code: String::new(), item_label: String::new(), quantity: 1.0, uom: "pcs".to_string(), unit_cost: 0.0, scrap_pct: 0.0 });
+            lines.write().push(BomComponentLine {
+                id,
+                item_code: String::new(),
+                item_label: String::new(),
+                quantity: 1.0,
+                uom: "pcs".to_string(),
+                unit_cost: 0.0,
+                scrap_pct: 0.0,
+            });
             nid.set(id + 1);
         }
     };
@@ -231,19 +282,27 @@ pub fn BomCreatePage() -> Element {
         let api = api.clone();
 
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let bom_name = bc.read().clone();
             let description = Some(desc.read().clone()).filter(|s| !s.is_empty());
             let finished_item_id = fi.read().parse::<i64>().unwrap_or(0);
             let quantity = qty.read().parse::<f64>().unwrap_or(0.0);
-            let items: Vec<BomItemForm> = cls.read().iter().map(|l| {
-                BomItemForm {
+            let items: Vec<BomItemForm> = cls
+                .read()
+                .iter()
+                .map(|l| BomItemForm {
                     item_id: l.item_code.parse::<i64>().unwrap_or(0),
                     quantity: l.quantity,
-                    unit_cost: if l.unit_cost == 0.0 { None } else { Some(l.unit_cost) },
-                }
-            }).collect();
+                    unit_cost: if l.unit_cost == 0.0 {
+                        None
+                    } else {
+                        Some(l.unit_cost)
+                    },
+                })
+                .collect();
             let mut toast = toast.clone();
             let nav = nav.clone();
             let mut saving = saving.clone();
@@ -252,7 +311,11 @@ pub fn BomCreatePage() -> Element {
             spawn(async move {
                 let client = api.read().clone();
                 let form = BomForm {
-                    bom_name: if bom_name.is_empty() { "New BOM".to_string() } else { bom_name },
+                    bom_name: if bom_name.is_empty() {
+                        "New BOM".to_string()
+                    } else {
+                        bom_name
+                    },
                     finished_item_id,
                     quantity,
                     description,
@@ -287,19 +350,27 @@ pub fn BomCreatePage() -> Element {
         let api = api.clone();
 
         move |_| {
-            if !validate() { return; }
+            if !validate() {
+                return;
+            }
             saving.set(true);
             let bom_name = bc.read().clone();
             let description = Some(desc.read().clone()).filter(|s| !s.is_empty());
             let finished_item_id = fi.read().parse::<i64>().unwrap_or(0);
             let quantity = qty.read().parse::<f64>().unwrap_or(0.0);
-            let items: Vec<BomItemForm> = lines.read().iter().map(|l| {
-                BomItemForm {
+            let items: Vec<BomItemForm> = lines
+                .read()
+                .iter()
+                .map(|l| BomItemForm {
                     item_id: l.item_code.parse::<i64>().unwrap_or(0),
                     quantity: l.quantity,
-                    unit_cost: if l.unit_cost == 0.0 { None } else { Some(l.unit_cost) },
-                }
-            }).collect();
+                    unit_cost: if l.unit_cost == 0.0 {
+                        None
+                    } else {
+                        Some(l.unit_cost)
+                    },
+                })
+                .collect();
             let mut toast = toast.clone();
             let mut saving = saving.clone();
             let mut dirty = dirty.clone();
@@ -313,7 +384,11 @@ pub fn BomCreatePage() -> Element {
             spawn(async move {
                 let client = api.read().clone();
                 let form = BomForm {
-                    bom_name: if bom_name.is_empty() { "New BOM".to_string() } else { bom_name },
+                    bom_name: if bom_name.is_empty() {
+                        "New BOM".to_string()
+                    } else {
+                        bom_name
+                    },
                     finished_item_id,
                     quantity,
                     description,
@@ -326,7 +401,15 @@ pub fn BomCreatePage() -> Element {
                         desc.set(String::new());
                         fi.set(String::new());
                         qty.set("1.0".to_string());
-                        lines.set(vec![BomComponentLine { id: 1, item_code: String::new(), item_label: String::new(), quantity: 1.0, uom: "pcs".to_string(), unit_cost: 0.0, scrap_pct: 0.0 }]);
+                        lines.set(vec![BomComponentLine {
+                            id: 1,
+                            item_code: String::new(),
+                            item_label: String::new(),
+                            quantity: 1.0,
+                            uom: "pcs".to_string(),
+                            unit_cost: 0.0,
+                            scrap_pct: 0.0,
+                        }]);
                         nid.set(2);
                         dirty.set(false);
                         saving.set(false);
@@ -345,15 +428,21 @@ pub fn BomCreatePage() -> Element {
         let mut dirty = is_dirty.clone();
         let mut nav = navigator.clone();
         move |_| {
-            if *dirty.read() { modal.set(true); }
-            else { nav.push("/manufacturing/boms"); }
+            if *dirty.read() {
+                modal.set(true);
+            } else {
+                nav.push("/manufacturing/boms");
+            }
         }
     };
 
     let confirm_discard = {
         let mut nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
-        move |_| { modal.set(false); nav.push("/manufacturing/boms"); }
+        move |_| {
+            modal.set(false);
+            nav.push("/manufacturing/boms");
+        }
     };
 
     let cancel_discard = {

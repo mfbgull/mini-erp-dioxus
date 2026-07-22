@@ -22,8 +22,6 @@ pub struct Expense {
     pub approved_by: Option<String>,
 }
 
-
-
 struct ExpenseSummary {
     total: usize,
     total_amount: f64,
@@ -49,7 +47,13 @@ fn compute_summary(expenses: &[Expense]) -> ExpenseSummary {
     }
     let mut by_category: Vec<(String, f64)> = cat_map.into_iter().collect();
     by_category.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-    ExpenseSummary { total, total_amount, by_category, approved, draft }
+    ExpenseSummary {
+        total,
+        total_amount,
+        by_category,
+        approved,
+        draft,
+    }
 }
 
 #[component]
@@ -63,18 +67,21 @@ pub fn ExpenseListPage() -> Element {
             let _ = *counter.read();
             let result = api.read().clone().list_expenses().await;
             match result {
-                Ok(list) => list.into_iter().map(|e| Expense {
-                    id: e.id,
-                    expense_no: e.expense_no,
-                    category: e.category,
-                    description: e.description,
-                    amount: e.amount,
-                    expense_date: e.expense_date,
-                    paid_to: String::new(),
-                    payment_method: String::new(),
-                    status: e.status,
-                    approved_by: None,
-                }).collect(),
+                Ok(list) => list
+                    .into_iter()
+                    .map(|e| Expense {
+                        id: e.id,
+                        expense_no: e.expense_no,
+                        category: e.category,
+                        description: e.description,
+                        amount: e.amount,
+                        expense_date: e.expense_date,
+                        paid_to: String::new(),
+                        payment_method: String::new(),
+                        status: e.status,
+                        approved_by: None,
+                    })
+                    .collect(),
                 Err(_) => vec![],
             }
         }
@@ -103,7 +110,14 @@ pub fn ExpenseListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Travel".to_string(), "Office Supplies".to_string(), "Utilities".to_string(), "Maintenance".to_string(), "Salary".to_string(), "Other".to_string()],
+                options: vec![
+                    "Travel".to_string(),
+                    "Office Supplies".to_string(),
+                    "Utilities".to_string(),
+                    "Maintenance".to_string(),
+                    "Salary".to_string(),
+                    "Other".to_string(),
+                ],
             }),
         ColumnDef::text("desc", "Description", |e: &Expense| e.description.clone())
             .with_width(ColumnWidth::Fr(1.0))
@@ -112,7 +126,10 @@ pub fn ExpenseListPage() -> Element {
         ColumnDef::text("amount", "Amount", |e: &Expense| e.amount.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 0 })
+            .with_renderer(CellRenderer::Currency {
+                code: "PKR",
+                decimals: 0,
+            })
             .with_filter(FilterType::Number),
         ColumnDef::text("date", "Date", |e: &Expense| e.expense_date.clone())
             .with_width(ColumnWidth::Px(110))
@@ -123,7 +140,11 @@ pub fn ExpenseListPage() -> Element {
         ColumnDef::text("method", "Method", |e: &Expense| e.payment_method.clone())
             .with_width(ColumnWidth::Px(110))
             .with_filter(FilterType::Select {
-                options: vec!["Cash".to_string(), "Bank".to_string(), "Credit Card".to_string()],
+                options: vec![
+                    "Cash".to_string(),
+                    "Bank".to_string(),
+                    "Credit Card".to_string(),
+                ],
             }),
         ColumnDef::text("status", "Status", |e: &Expense| e.status.clone())
             .with_width(ColumnWidth::Px(120))
@@ -137,14 +158,29 @@ pub fn ExpenseListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Draft".to_string(), "Approved".to_string(), "Reimbursed".to_string(), "Rejected".to_string()],
+                options: vec![
+                    "Draft".to_string(),
+                    "Approved".to_string(),
+                    "Reimbursed".to_string(),
+                    "Rejected".to_string(),
+                ],
             }),
-        ColumnDef::text("approved_by", "Approved By", |e: &Expense| e.approved_by.clone().unwrap_or("-".to_string()))
-            .with_width(ColumnWidth::Px(130)),
+        ColumnDef::text("approved_by", "Approved By", |e: &Expense| {
+            e.approved_by.clone().unwrap_or("-".to_string())
+        })
+        .with_width(ColumnWidth::Px(130)),
     ];
 
-    let on_new = { let nav = navigator.clone(); move |_| { nav.push("/expenses/new"); } };
-    let on_refresh = { let mut c = counter.clone(); move |_| c += 1 };
+    let on_new = {
+        let nav = navigator.clone();
+        move |_| {
+            nav.push("/expenses/new");
+        }
+    };
+    let on_refresh = {
+        let mut c = counter.clone();
+        move |_| c += 1
+    };
 
     rsx! {
         div { class: "page",

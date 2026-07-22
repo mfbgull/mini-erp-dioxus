@@ -1,7 +1,7 @@
 //! Tax Summary Page — Sales Tax, Income Tax, and Withholding Tax summaries by period.
 
 use crate::auth::use_auth;
-use crate::components::common::{Button, ButtonVariant, StatCard, StatCardVariant, use_toast};
+use crate::components::common::{use_toast, Button, ButtonVariant, StatCard, StatCardVariant};
 use dioxus::prelude::*;
 
 // ============================================================================
@@ -61,14 +61,26 @@ struct TaxPeriodRow {
 }
 
 fn parse_tax_rows(arr: &[serde_json::Value]) -> Vec<TaxPeriodRow> {
-    arr.iter().map(|item| TaxPeriodRow {
-        period: item.get("period").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        tax_base: item.get("tax_base").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        rate: item.get("rate").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        tax_amount: item.get("tax_amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        paid_amount: item.get("paid_amount").and_then(|v| v.as_f64()).unwrap_or(0.0),
-        balance: item.get("balance").and_then(|v| v.as_f64()).unwrap_or(0.0),
-    }).collect()
+    arr.iter()
+        .map(|item| TaxPeriodRow {
+            period: item
+                .get("period")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            tax_base: item.get("tax_base").and_then(|v| v.as_f64()).unwrap_or(0.0),
+            rate: item.get("rate").and_then(|v| v.as_f64()).unwrap_or(0.0),
+            tax_amount: item
+                .get("tax_amount")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0),
+            paid_amount: item
+                .get("paid_amount")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0),
+            balance: item.get("balance").and_then(|v| v.as_f64()).unwrap_or(0.0),
+        })
+        .collect()
 }
 
 fn total_row(data: &[TaxPeriodRow]) -> TaxPeriodRow {
@@ -104,9 +116,27 @@ pub fn TaxSummaryPage() -> Element {
     let loading = resource.read().is_none();
     let data_val = resource.read().clone().unwrap_or_default();
 
-    let sales = parse_tax_rows(&data_val.get("sales_tax").and_then(|v| v.as_array()).cloned().unwrap_or_default());
-    let income = parse_tax_rows(&data_val.get("income_tax").and_then(|v| v.as_array()).cloned().unwrap_or_default());
-    let withholding = parse_tax_rows(&data_val.get("withholding_tax").and_then(|v| v.as_array()).cloned().unwrap_or_default());
+    let sales = parse_tax_rows(
+        &data_val
+            .get("sales_tax")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default(),
+    );
+    let income = parse_tax_rows(
+        &data_val
+            .get("income_tax")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default(),
+    );
+    let withholding = parse_tax_rows(
+        &data_val
+            .get("withholding_tax")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default(),
+    );
 
     let st_total = total_row(&sales);
     let it_total = total_row(&income);
@@ -132,7 +162,9 @@ pub fn TaxSummaryPage() -> Element {
 
     let on_export = {
         let mut t = toast.clone();
-        move |_| { t.info("Export", "Tax summary will be exported as PDF."); }
+        move |_| {
+            t.info("Export", "Tax summary will be exported as PDF.");
+        }
     };
 
     if loading {

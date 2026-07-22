@@ -1,11 +1,9 @@
 //! Sales Order Detail Page — View a single sales order with header, KPI cards,
 //! line items, action bar, and conversion to invoice.
 
-use crate::components::common::{
-    use_toast,
-};
-use dioxus::prelude::*;
 use crate::auth::use_auth;
+use crate::components::common::use_toast;
+use dioxus::prelude::*;
 
 // ============================================================================
 // Constants & CSS
@@ -99,8 +97,6 @@ struct SalesOrderDetail {
     items: Vec<SoLineItem>,
 }
 
-
-
 fn sostatus_class(status: &str) -> &'static str {
     match status {
         "Draft" => "sostatus-draft",
@@ -129,8 +125,10 @@ pub fn SalesOrderDetailPage(id: String) -> Element {
             let parsed = pid.parse::<i64>().ok()?;
             let client = api.with(|c| c.clone());
             let result = client.get_sales_order(parsed).await.ok()?;
-            let order: crate::models::SalesOrder = serde_json::from_value(result.get("order")?.clone()).ok()?;
-            let items: Vec<crate::models::SalesOrderItem> = serde_json::from_value(result.get("items")?.clone()).ok()?;
+            let order: crate::models::SalesOrder =
+                serde_json::from_value(result.get("order")?.clone()).ok()?;
+            let items: Vec<crate::models::SalesOrderItem> =
+                serde_json::from_value(result.get("items")?.clone()).ok()?;
             Some(SalesOrderDetail {
                 id: order.id,
                 order_no: order.so_no,
@@ -139,21 +137,25 @@ pub fn SalesOrderDetailPage(id: String) -> Element {
                 order_date: order.so_date.clone(),
                 delivery_date: order.delivery_date.unwrap_or_default(),
                 status: order.status,
-                subtotal: order.total_amount,  // ponytail: server only has total_amount
+                subtotal: order.total_amount, // ponytail: server only has total_amount
                 discount_percent: 0.0,
                 discount_amount: 0.0,
                 tax_rate: 0.0,
                 tax_amount: 0.0,
                 total: order.total_amount,
                 notes: order.notes.unwrap_or_default(),
-                items: items.into_iter().enumerate().map(|(i, item)| SoLineItem {
-                    line_no: (i + 1) as i32,
-                    item_code: item.item_code.unwrap_or_default(),
-                    item_name: item.item_name.unwrap_or_default(),
-                    quantity: item.quantity,
-                    unit_price: item.unit_price,
-                    net_amount: item.amount,
-                }).collect(),
+                items: items
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, item)| SoLineItem {
+                        line_no: (i + 1) as i32,
+                        item_code: item.item_code.unwrap_or_default(),
+                        item_name: item.item_name.unwrap_or_default(),
+                        quantity: item.quantity,
+                        unit_price: item.unit_price,
+                        net_amount: item.amount,
+                    })
+                    .collect(),
             })
         }
     });
@@ -187,7 +189,12 @@ pub fn SalesOrderDetailPage(id: String) -> Element {
     let so = so_opt.as_ref().unwrap();
     let sid = so.id;
 
-    let on_back = { let nav = navigator; move |_| { nav.push("/sales/sales-orders"); } };
+    let on_back = {
+        let nav = navigator;
+        move |_| {
+            nav.push("/sales/sales-orders");
+        }
+    };
     let on_convert = {
         let toast = toast.clone();
         move |_| {

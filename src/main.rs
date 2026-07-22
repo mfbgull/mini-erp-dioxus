@@ -13,11 +13,11 @@ use mini_erp::pages;
 
 use components::common::ToastProvider;
 use components::data_grid::{
-    BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType,
-    PaginationMode, RowHeight, SelectionMode, TextAlign,
+    BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
+    RowHeight, SelectionMode, TextAlign,
 };
 use components::layout::{Sidebar, SIDEBAR_CSS};
-use components::rbac::{RbacContext, use_rbac, ProtectedRoute};
+use components::rbac::{use_rbac, ProtectedRoute, RbacContext};
 
 /// Helper macro to wrap a page component with a permission check.
 /// Usage: protected_page!("inventory:read", pages::item_list::ItemListPage())
@@ -50,231 +50,230 @@ enum Route {
 
     /// All authenticated pages share the main layout shell
     #[layout(MainLayout)]
+    // ── Dashboard ──
+    #[route("/")]
+    DashboardPage {},
 
-        // ── Dashboard ──
-        #[route("/")]
-        DashboardPage {},
+    // ── Profile ──
+    #[route("/profile")]
+    UserProfilePage {},
 
-        // ── Profile ──
-        #[route("/profile")]
-        UserProfilePage {},
+    // ── Inventory ──
+    #[route("/inventory")]
+    InventoryDashboardPage {},
+    #[route("/inventory/items")]
+    ItemListPage {},
+    #[route("/inventory/items/new")]
+    ItemCreatePage {},
+    #[route("/inventory/items/:id")]
+    ItemDetailPage { id: String },
+    #[route("/inventory/items/:id/edit")]
+    ItemEditPage { id: String },
+    #[route("/inventory/warehouses")]
+    WarehouseListPage {},
+    #[route("/inventory/warehouses/new")]
+    WarehouseCreatePage {},
+    #[route("/inventory/warehouses/:id")]
+    WarehouseDetailPage { id: String },
+    #[route("/inventory/warehouses/:id/edit")]
+    WarehouseEditPage { id: String },
+    #[route("/inventory/stock-movements")]
+    StockMovementListPage {},
 
-        // ── Inventory ──
-        #[route("/inventory")]
-        InventoryDashboardPage {},
-        #[route("/inventory/items")]
-        ItemListPage {},
-        #[route("/inventory/items/new")]
-        ItemCreatePage {},
-        #[route("/inventory/items/:id")]
-        ItemDetailPage { id: String },
-        #[route("/inventory/items/:id/edit")]
-        ItemEditPage { id: String },
-        #[route("/inventory/warehouses")]
-        WarehouseListPage {},
-        #[route("/inventory/warehouses/new")]
-        WarehouseCreatePage {},
-        #[route("/inventory/warehouses/:id")]
-        WarehouseDetailPage { id: String },
-        #[route("/inventory/warehouses/:id/edit")]
-        WarehouseEditPage { id: String },
-        #[route("/inventory/stock-movements")]
-        StockMovementListPage {},
+    #[route("/inventory/physical-counts")]
+    PhysicalCountListPage {},
+    #[route("/inventory/physical-counts/new")]
+    PhysicalCountCreatePage {},
+    #[route("/inventory/physical-counts/:id")]
+    PhysicalCountDetailPage { id: String },
 
-        #[route("/inventory/physical-counts")]
-        PhysicalCountListPage {},
-        #[route("/inventory/physical-counts/new")]
-        PhysicalCountCreatePage {},
-        #[route("/inventory/physical-counts/:id")]
-        PhysicalCountDetailPage { id: String },
+    // ── Sales ──
+    #[route("/sales")]
+    SalesDashboardPage {},
+    #[route("/sales/invoices")]
+    InvoiceListPage {},
+    #[route("/sales/invoices/new")]
+    InvoiceCreatePage {},
+    #[route("/sales/invoices/:id")]
+    InvoiceDetailPage { id: String },
+    #[route("/sales/invoices/:id/edit")]
+    InvoiceEditPage { id: String },
+    #[route("/sales/invoices/:id/print")]
+    InvoicePrintPage { id: String },
+    #[route("/sales/quotations")]
+    QuotationListPage {},
+    #[route("/sales/quotations/new")]
+    QuotationCreatePage {},
+    #[route("/sales/quotations/:id")]
+    QuotationDetailPage { id: String },
+    #[route("/sales/quotations/:id/print")]
+    QuotationPrintPage { id: String },
+    #[route("/sales/orders")]
+    SalesOrderListPage {},
+    #[route("/sales/orders/new")]
+    SalesOrderCreatePage {},
+    #[route("/sales/orders/:id")]
+    SalesOrderDetailPage { id: String },
+    #[route("/sales/returns")]
+    SalesReturnListPage {},
+    #[route("/pos")]
+    PosTerminalPage {},
 
-        // ── Sales ──
-        #[route("/sales")]
-        SalesDashboardPage {},
-        #[route("/sales/invoices")]
-        InvoiceListPage {},
-        #[route("/sales/invoices/new")]
-        InvoiceCreatePage {},
-        #[route("/sales/invoices/:id")]
-        InvoiceDetailPage { id: String },
-        #[route("/sales/invoices/:id/edit")]
-        InvoiceEditPage { id: String },
-        #[route("/sales/invoices/:id/print")]
-        InvoicePrintPage { id: String },
-        #[route("/sales/quotations")]
-        QuotationListPage {},
-        #[route("/sales/quotations/new")]
-        QuotationCreatePage {},
-        #[route("/sales/quotations/:id")]
-        QuotationDetailPage { id: String },
-        #[route("/sales/quotations/:id/print")]
-        QuotationPrintPage { id: String },
-        #[route("/sales/orders")]
-        SalesOrderListPage {},
-        #[route("/sales/orders/new")]
-        SalesOrderCreatePage {},
-        #[route("/sales/orders/:id")]
-        SalesOrderDetailPage { id: String },
-        #[route("/sales/returns")]
-        SalesReturnListPage {},
-        #[route("/pos")]
-        PosTerminalPage {},
+    // ── Purchasing ──
+    #[route("/purchases")]
+    PurchasesDashboardPage {},
+    #[route("/purchases/direct")]
+    DirectPurchaseListPage {},
+    #[route("/purchases/direct/new")]
+    DirectPurchaseCreatePage {},
+    #[route("/purchases/direct/:id")]
+    DirectPurchaseDetailPage { id: String },
+    #[route("/purchases/orders")]
+    PurchaseOrderListPage {},
+    #[route("/purchases/orders/new")]
+    PurchaseOrderCreatePage {},
+    #[route("/purchases/orders/:id")]
+    PurchaseOrderDetailPage { id: String },
+    #[route("/purchases/orders/:id/edit")]
+    PurchaseOrderEditPage { id: String },
+    #[route("/purchases/orders/:id/print")]
+    PurchaseOrderPrintPage { id: String },
+    #[route("/purchases/receipts")]
+    GoodsReceiptListPage {},
+    #[route("/purchases/returns")]
+    PurchaseReturnListPage {},
 
-        // ── Purchasing ──
-        #[route("/purchases")]
-        PurchasesDashboardPage {},
-        #[route("/purchases/direct")]
-        DirectPurchaseListPage {},
-        #[route("/purchases/direct/new")]
-        DirectPurchaseCreatePage {},
-        #[route("/purchases/direct/:id")]
-        DirectPurchaseDetailPage { id: String },
-        #[route("/purchases/orders")]
-        PurchaseOrderListPage {},
-        #[route("/purchases/orders/new")]
-        PurchaseOrderCreatePage {},
-        #[route("/purchases/orders/:id")]
-        PurchaseOrderDetailPage { id: String },
-        #[route("/purchases/orders/:id/edit")]
-        PurchaseOrderEditPage { id: String },
-        #[route("/purchases/orders/:id/print")]
-        PurchaseOrderPrintPage { id: String },
-        #[route("/purchases/receipts")]
-        GoodsReceiptListPage {},
-        #[route("/purchases/returns")]
-        PurchaseReturnListPage {},
+    // ── Manufacturing ──
+    #[route("/manufacturing")]
+    ManufacturingDashboardPage {},
+    #[route("/manufacturing/boms")]
+    BomListPage {},
+    #[route("/manufacturing/boms/new")]
+    BomCreatePage {},
+    #[route("/manufacturing/boms/:id")]
+    BomDetailPage { id: String },
+    #[route("/manufacturing/boms/:id/edit")]
+    BomEditPage { id: String },
+    #[route("/manufacturing/production")]
+    ProductionListPage {},
+    #[route("/manufacturing/production/new")]
+    ProductionCreatePage {},
+    #[route("/manufacturing/production/:id")]
+    ProductionDetailPage { id: String },
 
-        // ── Manufacturing ──
-        #[route("/manufacturing")]
-        ManufacturingDashboardPage {},
-        #[route("/manufacturing/boms")]
-        BomListPage {},
-        #[route("/manufacturing/boms/new")]
-        BomCreatePage {},
-        #[route("/manufacturing/boms/:id")]
-        BomDetailPage { id: String },
-        #[route("/manufacturing/boms/:id/edit")]
-        BomEditPage { id: String },
-        #[route("/manufacturing/production")]
-        ProductionListPage {},
-        #[route("/manufacturing/production/new")]
-        ProductionCreatePage {},
-        #[route("/manufacturing/production/:id")]
-        ProductionDetailPage { id: String },
+    // ── Customers ──
+    #[route("/customers")]
+    CustomerListPage {},
+    #[route("/customers/new")]
+    CustomerCreatePage {},
+    #[route("/customers/:id")]
+    CustomerDetailPage { id: String },
+    #[route("/customers/:id/edit")]
+    CustomerEditPage { id: String },
 
-        // ── Customers ──
-        #[route("/customers")]
-        CustomerListPage {},
-        #[route("/customers/new")]
-        CustomerCreatePage {},
-        #[route("/customers/:id")]
-        CustomerDetailPage { id: String },
-        #[route("/customers/:id/edit")]
-        CustomerEditPage { id: String },
+    // ── Suppliers ──
+    #[route("/suppliers")]
+    SupplierListPage {},
+    #[route("/suppliers/new")]
+    SupplierCreatePage {},
+    #[route("/suppliers/:id")]
+    SupplierDetailPage { id: String },
+    #[route("/suppliers/:id/edit")]
+    SupplierEditPage { id: String },
 
-        // ── Suppliers ──
-        #[route("/suppliers")]
-        SupplierListPage {},
-        #[route("/suppliers/new")]
-        SupplierCreatePage {},
-        #[route("/suppliers/:id")]
-        SupplierDetailPage { id: String },
-        #[route("/suppliers/:id/edit")]
-        SupplierEditPage { id: String },
+    // ── Employees ──
+    #[route("/employees")]
+    EmployeeListPage {},
+    #[route("/employees/new")]
+    EmployeeCreatePage {},
+    #[route("/employees/:id")]
+    EmployeeDetailPage { id: String },
+    #[route("/employees/:id/edit")]
+    EmployeeEditPage { id: String },
 
-        // ── Employees ──
-        #[route("/employees")]
-        EmployeeListPage {},
-        #[route("/employees/new")]
-        EmployeeCreatePage {},
-        #[route("/employees/:id")]
-        EmployeeDetailPage { id: String },
-        #[route("/employees/:id/edit")]
-        EmployeeEditPage { id: String },
+    // ── Expenses ──
+    #[route("/expenses")]
+    ExpenseListPage {},
+    #[route("/expenses/new")]
+    ExpenseCreatePage {},
+    #[route("/expenses/categories")]
+    ExpenseCategoryListPage {},
 
-        // ── Expenses ──
-        #[route("/expenses")]
-        ExpenseListPage {},
-        #[route("/expenses/new")]
-        ExpenseCreatePage {},
-        #[route("/expenses/categories")]
-        ExpenseCategoryListPage {},
+    // ── Accounting ──
+    #[route("/accounting")]
+    AccountingDashboardPage {},
+    #[route("/accounting/chart-of-accounts")]
+    ChartOfAccountsPage {},
+    #[route("/accounting/periods")]
+    AccountingPeriodsPage {},
+    #[route("/accounting/journal-entries")]
+    JournalEntryListPage {},
+    #[route("/accounting/journal-entries/new")]
+    JournalEntryCreatePage {},
+    #[route("/accounting/journal-entries/:id")]
+    JournalEntryDetailPage { id: String },
 
-        // ── Accounting ──
-        #[route("/accounting")]
-        AccountingDashboardPage {},
-        #[route("/accounting/chart-of-accounts")]
-        ChartOfAccountsPage {},
-        #[route("/accounting/periods")]
-        AccountingPeriodsPage {},
-        #[route("/accounting/journal-entries")]
-        JournalEntryListPage {},
-        #[route("/accounting/journal-entries/new")]
-        JournalEntryCreatePage {},
-        #[route("/accounting/journal-entries/:id")]
-        JournalEntryDetailPage { id: String },
+    // ── Dashboard Layouts ──
+    #[route("/dashboard/layouts")]
+    DashboardLayoutsPage {},
 
-        // ── Dashboard Layouts ──
-        #[route("/dashboard/layouts")]
-        DashboardLayoutsPage {},
+    // ── Reports ──
+    #[route("/reports")]
+    ReportsDashboardPage {},
+    #[route("/reports/ar-aging")]
+    ArAgingReportPage {},
+    #[route("/reports/customer-statements")]
+    CustomerStatementsPage {},
+    #[route("/reports/sales")]
+    SalesReportPage {},
+    #[route("/reports/inventory")]
+    InventoryReportPage {},
+    #[route("/reports/fifo")]
+    FifoReportPage {},
+    #[route("/reports/financial")]
+    FinancialReportPage {},
+    #[route("/reports/custom")]
+    CustomReportBuilderPage {},
+    #[route("/reports/tax")]
+    TaxSummaryPage {},
 
-        // ── Reports ──
-        #[route("/reports")]
-        ReportsDashboardPage {},
-        #[route("/reports/ar-aging")]
-        ArAgingReportPage {},
-        #[route("/reports/customer-statements")]
-        CustomerStatementsPage {},
-        #[route("/reports/sales")]
-        SalesReportPage {},
-        #[route("/reports/inventory")]
-        InventoryReportPage {},
-        #[route("/reports/fifo")]
-        FifoReportPage {},
-        #[route("/reports/financial")]
-        FinancialReportPage {},
-        #[route("/reports/custom")]
-        CustomReportBuilderPage {},
-        #[route("/reports/tax")]
-        TaxSummaryPage {},
+    // ── Forecasts ──
+    #[route("/forecasts")]
+    ForecastsDashboardPage {},
+    #[route("/forecasts/demand")]
+    DemandForecastPage {},
+    #[route("/forecasts/trends")]
+    TrendAnalysisPage {},
+    #[route("/forecasts/accuracy")]
+    ForecastAccuracyPage {},
+    #[route("/forecasts/model-config")]
+    ForecastModelConfigPage {},
+    #[route("/forecasts/seasonal-events")]
+    SeasonalEventsPage {},
 
-        // ── Forecasts ──
-        #[route("/forecasts")]
-        ForecastsDashboardPage {},
-        #[route("/forecasts/demand")]
-        DemandForecastPage {},
-        #[route("/forecasts/trends")]
-        TrendAnalysisPage {},
-        #[route("/forecasts/accuracy")]
-        ForecastAccuracyPage {},
-        #[route("/forecasts/model-config")]
-        ForecastModelConfigPage {},
-        #[route("/forecasts/seasonal-events")]
-        SeasonalEventsPage {},
+    // ── Settings & Admin ──
+    #[route("/settings")]
+    SettingsPage {},
+    #[route("/settings/integrations")]
+    IntegrationsPage {},
+    #[route("/users")]
+    UserListPage {},
+    #[route("/users/new")]
+    UserCreatePage {},
+    #[route("/users/:id/edit")]
+    UserEditPage { id: String },
+    #[route("/users/:id")]
+    UserDetailPage { id: String },
+    #[route("/roles")]
+    RoleListPage {},
+    #[route("/roles/:id")]
+    RoleDetailPage { id: String },
+    #[route("/activity-log")]
+    ActivityLogPage {},
 
-        // ── Settings & Admin ──
-        #[route("/settings")]
-        SettingsPage {},
-        #[route("/settings/integrations")]
-        IntegrationsPage {},
-        #[route("/users")]
-        UserListPage {},
-        #[route("/users/new")]
-        UserCreatePage {},
-        #[route("/users/:id/edit")]
-        UserEditPage { id: String },
-        #[route("/users/:id")]
-        UserDetailPage { id: String },
-        #[route("/roles")]
-        RoleListPage {},
-        #[route("/roles/:id")]
-        RoleDetailPage { id: String },
-        #[route("/activity-log")]
-        ActivityLogPage {},
-
-        // ── Demo ──
-        #[route("/demo/data-grid")]
-        DataGridDemoPage {},
+    // ── Demo ──
+    #[route("/demo/data-grid")]
+    DataGridDemoPage {},
 
     /// Catch-all 404
     #[route("/:..route")]
@@ -294,7 +293,8 @@ enum Route {
 #[cfg(all(feature = "desktop", not(target_arch = "wasm32")))]
 fn start_background_server() {
     std::thread::spawn(|| {
-        let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime for embedded server");
+        let runtime = tokio::runtime::Runtime::new()
+            .expect("Failed to create tokio runtime for embedded server");
         runtime.block_on(async {
             let port: u16 = std::env::var("MINI_ERP_PORT")
                 .ok()
@@ -1390,30 +1390,47 @@ fn DataGridDemoPage() -> Element {
         ColumnDef::text("name", "Item Name", |item: &DemoItem| item.name.clone())
             .with_width(ColumnWidth::Fr(1.0))
             .with_filter(FilterType::Text),
-        ColumnDef::text("category", "Category", |item: &DemoItem| item.category.clone())
-            .with_width(ColumnWidth::Px(140))
-            .with_filter(FilterType::Select {
-                options: vec![
-                    "Widgets".to_string(), "Fasteners".to_string(), "Raw Materials".to_string(),
-                    "Equipment".to_string(), "Consumables".to_string(), "Electrical".to_string(),
-                    "Packaging".to_string(), "Safety".to_string(),
-                ],
-            }),
+        ColumnDef::text("category", "Category", |item: &DemoItem| {
+            item.category.clone()
+        })
+        .with_width(ColumnWidth::Px(140))
+        .with_filter(FilterType::Select {
+            options: vec![
+                "Widgets".to_string(),
+                "Fasteners".to_string(),
+                "Raw Materials".to_string(),
+                "Equipment".to_string(),
+                "Consumables".to_string(),
+                "Electrical".to_string(),
+                "Packaging".to_string(),
+                "Safety".to_string(),
+            ],
+        }),
         ColumnDef::text("stock", "Stock", |item: &DemoItem| item.stock.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(100))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 })
+            .with_renderer(CellRenderer::Number {
+                prefix: "",
+                decimals: 0,
+            })
             .with_cell_class(components::data_grid::CellClassRule::new(
                 |item: &DemoItem| {
-                    if item.stock == 0 { "text-danger fw-bold".to_string() }
-                    else if item.stock <= 10 { "text-warning".to_string() }
-                    else { String::new() }
+                    if item.stock == 0 {
+                        "text-danger fw-bold".to_string()
+                    } else if item.stock <= 10 {
+                        "text-warning".to_string()
+                    } else {
+                        String::new()
+                    }
                 },
             )),
         ColumnDef::text("price", "Price", |item: &DemoItem| item.price.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Currency { code: "USD", decimals: 2 }),
+            .with_renderer(CellRenderer::Currency {
+                code: "USD",
+                decimals: 2,
+            }),
         ColumnDef::text("status", "Status", |item: &DemoItem| item.status.clone())
             .with_width(ColumnWidth::Px(130))
             .with_renderer(CellRenderer::Badge {
@@ -1425,9 +1442,11 @@ fn DataGridDemoPage() -> Element {
                 ],
                 default_color: BadgeColor::Blue,
             }),
-        ColumnDef::text("updated", "Last Updated", |item: &DemoItem| item.last_updated.clone())
-            .with_width(ColumnWidth::Px(130))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" }),
+        ColumnDef::text("updated", "Last Updated", |item: &DemoItem| {
+            item.last_updated.clone()
+        })
+        .with_width(ColumnWidth::Px(130))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" }),
     ];
 
     rsx! {
@@ -1517,15 +1536,95 @@ struct DemoItem {
 
 fn demo_items() -> Vec<DemoItem> {
     vec![
-        DemoItem { code: "ITM-0001".to_string(), name: "Premium Widget Alpha".to_string(), category: "Widgets".to_string(), stock: 150, price: 29.99, status: "Active".to_string(), last_updated: "2026-06-15".to_string() },
-        DemoItem { code: "ITM-0002".to_string(), name: "Industrial Bolt M12".to_string(), category: "Fasteners".to_string(), stock: 3400, price: 0.45, status: "Active".to_string(), last_updated: "2026-06-10".to_string() },
-        DemoItem { code: "ITM-0003".to_string(), name: "Steel Rod 12mm x 6m".to_string(), category: "Raw Materials".to_string(), stock: 80, price: 15.75, status: "Active".to_string(), last_updated: "2026-06-01".to_string() },
-        DemoItem { code: "ITM-0004".to_string(), name: "Hydraulic Pump HPD-200".to_string(), category: "Equipment".to_string(), stock: 5, price: 1250.00, status: "Discontinued".to_string(), last_updated: "2026-05-20".to_string() },
-        DemoItem { code: "ITM-0005".to_string(), name: "Rubber Gasket Set".to_string(), category: "Consumables".to_string(), stock: 0, price: 8.99, status: "Out of Stock".to_string(), last_updated: "2026-06-18".to_string() },
-        DemoItem { code: "ITM-0006".to_string(), name: "Copper Wire 2.5mm (100m)".to_string(), category: "Raw Materials".to_string(), stock: 25, price: 45.00, status: "Active".to_string(), last_updated: "2026-06-12".to_string() },
-        DemoItem { code: "ITM-0007".to_string(), name: "LED Panel Light 24W".to_string(), category: "Electrical".to_string(), stock: 200, price: 18.50, status: "Active".to_string(), last_updated: "2026-06-14".to_string() },
-        DemoItem { code: "ITM-0008".to_string(), name: "Packaging Box 40x30x20cm".to_string(), category: "Packaging".to_string(), stock: 1200, price: 1.20, status: "Active".to_string(), last_updated: "2026-06-16".to_string() },
-        DemoItem { code: "ITM-0009".to_string(), name: "Safety Helmet (Yellow)".to_string(), category: "Safety".to_string(), stock: 60, price: 12.00, status: "Low Stock".to_string(), last_updated: "2026-06-08".to_string() },
-        DemoItem { code: "ITM-0010".to_string(), name: "Assembly Robot Arm v3".to_string(), category: "Equipment".to_string(), stock: 2, price: 15999.99, status: "Active".to_string(), last_updated: "2026-05-30".to_string() },
+        DemoItem {
+            code: "ITM-0001".to_string(),
+            name: "Premium Widget Alpha".to_string(),
+            category: "Widgets".to_string(),
+            stock: 150,
+            price: 29.99,
+            status: "Active".to_string(),
+            last_updated: "2026-06-15".to_string(),
+        },
+        DemoItem {
+            code: "ITM-0002".to_string(),
+            name: "Industrial Bolt M12".to_string(),
+            category: "Fasteners".to_string(),
+            stock: 3400,
+            price: 0.45,
+            status: "Active".to_string(),
+            last_updated: "2026-06-10".to_string(),
+        },
+        DemoItem {
+            code: "ITM-0003".to_string(),
+            name: "Steel Rod 12mm x 6m".to_string(),
+            category: "Raw Materials".to_string(),
+            stock: 80,
+            price: 15.75,
+            status: "Active".to_string(),
+            last_updated: "2026-06-01".to_string(),
+        },
+        DemoItem {
+            code: "ITM-0004".to_string(),
+            name: "Hydraulic Pump HPD-200".to_string(),
+            category: "Equipment".to_string(),
+            stock: 5,
+            price: 1250.00,
+            status: "Discontinued".to_string(),
+            last_updated: "2026-05-20".to_string(),
+        },
+        DemoItem {
+            code: "ITM-0005".to_string(),
+            name: "Rubber Gasket Set".to_string(),
+            category: "Consumables".to_string(),
+            stock: 0,
+            price: 8.99,
+            status: "Out of Stock".to_string(),
+            last_updated: "2026-06-18".to_string(),
+        },
+        DemoItem {
+            code: "ITM-0006".to_string(),
+            name: "Copper Wire 2.5mm (100m)".to_string(),
+            category: "Raw Materials".to_string(),
+            stock: 25,
+            price: 45.00,
+            status: "Active".to_string(),
+            last_updated: "2026-06-12".to_string(),
+        },
+        DemoItem {
+            code: "ITM-0007".to_string(),
+            name: "LED Panel Light 24W".to_string(),
+            category: "Electrical".to_string(),
+            stock: 200,
+            price: 18.50,
+            status: "Active".to_string(),
+            last_updated: "2026-06-14".to_string(),
+        },
+        DemoItem {
+            code: "ITM-0008".to_string(),
+            name: "Packaging Box 40x30x20cm".to_string(),
+            category: "Packaging".to_string(),
+            stock: 1200,
+            price: 1.20,
+            status: "Active".to_string(),
+            last_updated: "2026-06-16".to_string(),
+        },
+        DemoItem {
+            code: "ITM-0009".to_string(),
+            name: "Safety Helmet (Yellow)".to_string(),
+            category: "Safety".to_string(),
+            stock: 60,
+            price: 12.00,
+            status: "Low Stock".to_string(),
+            last_updated: "2026-06-08".to_string(),
+        },
+        DemoItem {
+            code: "ITM-0010".to_string(),
+            name: "Assembly Robot Arm v3".to_string(),
+            category: "Equipment".to_string(),
+            stock: 2,
+            price: 15999.99,
+            status: "Active".to_string(),
+            last_updated: "2026-05-30".to_string(),
+        },
     ]
 }

@@ -25,8 +25,6 @@ pub struct Quotation {
     pub item_count: i32,
 }
 
-
-
 // ============================================================================
 // Summary
 // ============================================================================
@@ -79,16 +77,22 @@ pub fn QuotationListPage() -> Element {
         let api = auth.api.read();
         let client = api.clone();
         drop(api);
-        client.list_quotations().await.unwrap_or_default().into_iter().map(|q| Quotation {
-            id: q.id,
-            quotation_no: q.quotation_no,
-            customer_name: q.customer_name.unwrap_or_default(),
-            date: q.quotation_date,
-            valid_until: q.expiry_date,
-            status: q.status,
-            total_amount: q.total_amount,
-            item_count: 0,
-        }).collect::<Vec<_>>()
+        client
+            .list_quotations()
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|q| Quotation {
+                id: q.id,
+                quotation_no: q.quotation_no,
+                customer_name: q.customer_name.unwrap_or_default(),
+                date: q.quotation_date,
+                valid_until: q.expiry_date,
+                status: q.status,
+                total_amount: q.total_amount,
+                item_count: 0,
+            })
+            .collect::<Vec<_>>()
     });
     let selected_ids = use_signal(|| HashSet::<usize>::new());
 
@@ -97,20 +101,26 @@ pub fn QuotationListPage() -> Element {
     let summary = compute_summary(&quotations);
 
     let columns: Vec<ColumnDef<Quotation>> = vec![
-        ColumnDef::text("qot_no", "Quotation #", |q: &Quotation| q.quotation_no.clone())
-            .with_width(ColumnWidth::Px(140))
-            .with_filter(FilterType::Text),
-        ColumnDef::text("customer", "Customer", |q: &Quotation| q.customer_name.clone())
-            .with_width(ColumnWidth::Fr(1.0))
-            .with_filter(FilterType::Text),
+        ColumnDef::text("qot_no", "Quotation #", |q: &Quotation| {
+            q.quotation_no.clone()
+        })
+        .with_width(ColumnWidth::Px(140))
+        .with_filter(FilterType::Text),
+        ColumnDef::text("customer", "Customer", |q: &Quotation| {
+            q.customer_name.clone()
+        })
+        .with_width(ColumnWidth::Fr(1.0))
+        .with_filter(FilterType::Text),
         ColumnDef::text("date", "Date", |q: &Quotation| q.date.clone())
             .with_width(ColumnWidth::Px(120))
             .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
             .with_filter(FilterType::Date),
-        ColumnDef::text("valid_until", "Valid Until", |q: &Quotation| q.valid_until.clone())
-            .with_width(ColumnWidth::Px(120))
-            .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
-            .with_filter(FilterType::Date),
+        ColumnDef::text("valid_until", "Valid Until", |q: &Quotation| {
+            q.valid_until.clone()
+        })
+        .with_width(ColumnWidth::Px(120))
+        .with_renderer(CellRenderer::Date { format: "%d-%b-%Y" })
+        .with_filter(FilterType::Date),
         ColumnDef::text("status", "Status", |q: &Quotation| q.status.clone())
             .with_width(ColumnWidth::Px(120))
             .with_renderer(CellRenderer::Badge {
@@ -124,16 +134,28 @@ pub fn QuotationListPage() -> Element {
                 default_color: BadgeColor::Gray,
             })
             .with_filter(FilterType::Select {
-                options: vec!["Draft".to_string(), "Sent".to_string(), "Accepted".to_string(), "Rejected".to_string(), "Expired".to_string()],
+                options: vec![
+                    "Draft".to_string(),
+                    "Sent".to_string(),
+                    "Accepted".to_string(),
+                    "Rejected".to_string(),
+                    "Expired".to_string(),
+                ],
             }),
         ColumnDef::text("total", "Total", |q: &Quotation| q.total_amount.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(140))
-            .with_renderer(CellRenderer::Currency { code: "PKR", decimals: 2 }),
+            .with_renderer(CellRenderer::Currency {
+                code: "PKR",
+                decimals: 2,
+            }),
         ColumnDef::text("items", "Items", |q: &Quotation| q.item_count.to_string())
             .with_align(TextAlign::Right)
             .with_width(ColumnWidth::Px(70))
-            .with_renderer(CellRenderer::Number { prefix: "", decimals: 0 }),
+            .with_renderer(CellRenderer::Number {
+                prefix: "",
+                decimals: 0,
+            }),
     ];
 
     let on_row_click = move |(_idx, q): (usize, Quotation)| {
@@ -142,7 +164,10 @@ pub fn QuotationListPage() -> Element {
 
     let on_new = {
         let nav = navigator.clone();
-        move |_| { nav.push("/sales/quotations/new"); } };
+        move |_| {
+            nav.push("/sales/quotations/new");
+        }
+    };
 
     let on_refresh = {
         let mut cnt = refresh_counter.clone();

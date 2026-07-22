@@ -87,8 +87,8 @@ mod data_grid;
 pub use data_grid::DataGrid;
 
 // Convenience re-exports for callers
+pub use filter::FilterValue;
 pub use types::{
     BadgeColor, CellClassRule, CellRenderer, ColumnDef, ColumnWidth, FilterType, PaginationMode,
     RowHeight, SelectionMode, SortColumn, SortDirection, TextAlign,
 };
-pub use filter::FilterValue;

@@ -1,9 +1,9 @@
 //! Sidebar navigation component with collapse/expand functionality.
 
+use crate::components::rbac::use_rbac;
+use crate::i18n::LanguageToggle;
 use dioxus::prelude::*;
 use std::collections::HashSet;
-use crate::i18n::LanguageToggle;
-use crate::components::rbac::use_rbac;
 
 // ============================================================================
 // Types
@@ -30,121 +30,406 @@ pub struct NavModule {
 pub fn nav_modules() -> Vec<NavModule> {
     vec![
         NavModule {
-            name: "Dashboard", icon: "📊", permission: "dashboard:read",
+            name: "Dashboard",
+            icon: "📊",
+            permission: "dashboard:read",
+            items: vec![NavItem {
+                label: "Overview",
+                icon: "🏠",
+                route: "/",
+                permission: "dashboard:read",
+            }],
+        },
+        NavModule {
+            name: "Inventory",
+            icon: "📦",
+            permission: "inventory:read",
             items: vec![
-                NavItem { label: "Overview", icon: "🏠", route: "/", permission: "dashboard:read" },
+                NavItem {
+                    label: "Dashboard",
+                    icon: "📊",
+                    route: "/inventory",
+                    permission: "inventory:read",
+                },
+                NavItem {
+                    label: "Items",
+                    icon: "📦",
+                    route: "/inventory/items",
+                    permission: "inventory:read",
+                },
+                NavItem {
+                    label: "New Item",
+                    icon: "➕",
+                    route: "/inventory/items/new",
+                    permission: "inventory:create",
+                },
+                NavItem {
+                    label: "Warehouses",
+                    icon: "🏭",
+                    route: "/inventory/warehouses",
+                    permission: "inventory:read",
+                },
+                NavItem {
+                    label: "Stock Movements",
+                    icon: "📋",
+                    route: "/inventory/stock-movements",
+                    permission: "inventory:read",
+                },
+                NavItem {
+                    label: "Physical Counts",
+                    icon: "🔢",
+                    route: "/inventory/physical-counts",
+                    permission: "inventory:read",
+                },
             ],
         },
         NavModule {
-            name: "Inventory", icon: "📦", permission: "inventory:read",
+            name: "Sales",
+            icon: "💰",
+            permission: "invoices:read",
             items: vec![
-                NavItem { label: "Dashboard", icon: "📊", route: "/inventory", permission: "inventory:read" },
-                NavItem { label: "Items", icon: "📦", route: "/inventory/items", permission: "inventory:read" },
-                NavItem { label: "New Item", icon: "➕", route: "/inventory/items/new", permission: "inventory:create" },
-                NavItem { label: "Warehouses", icon: "🏭", route: "/inventory/warehouses", permission: "inventory:read" },
-                NavItem { label: "Stock Movements", icon: "📋", route: "/inventory/stock-movements", permission: "inventory:read" },
-                NavItem { label: "Physical Counts", icon: "🔢", route: "/inventory/physical-counts", permission: "inventory:read" },
+                NavItem {
+                    label: "Dashboard",
+                    icon: "📊",
+                    route: "/sales",
+                    permission: "dashboard:read",
+                },
+                NavItem {
+                    label: "Invoices",
+                    icon: "🧾",
+                    route: "/sales/invoices",
+                    permission: "invoices:read",
+                },
+                NavItem {
+                    label: "New Invoice",
+                    icon: "➕",
+                    route: "/sales/invoices/new",
+                    permission: "invoices:create",
+                },
+                NavItem {
+                    label: "Quotations",
+                    icon: "📄",
+                    route: "/sales/quotations",
+                    permission: "quotations:read",
+                },
+                NavItem {
+                    label: "Sales Orders",
+                    icon: "📋",
+                    route: "/sales/orders",
+                    permission: "sales_orders:read",
+                },
+                NavItem {
+                    label: "Returns",
+                    icon: "↩",
+                    route: "/sales/returns",
+                    permission: "invoices:read",
+                },
+                NavItem {
+                    label: "POS",
+                    icon: "🏪",
+                    route: "/pos",
+                    permission: "invoices:create",
+                },
             ],
         },
         NavModule {
-            name: "Sales", icon: "💰", permission: "invoices:read",
+            name: "Purchasing",
+            icon: "📥",
+            permission: "purchase_orders:read",
             items: vec![
-                NavItem { label: "Dashboard", icon: "📊", route: "/sales", permission: "dashboard:read" },
-                NavItem { label: "Invoices", icon: "🧾", route: "/sales/invoices", permission: "invoices:read" },
-                NavItem { label: "New Invoice", icon: "➕", route: "/sales/invoices/new", permission: "invoices:create" },
-                NavItem { label: "Quotations", icon: "📄", route: "/sales/quotations", permission: "quotations:read" },
-                NavItem { label: "Sales Orders", icon: "📋", route: "/sales/orders", permission: "sales_orders:read" },
-                NavItem { label: "Returns", icon: "↩", route: "/sales/returns", permission: "invoices:read" },
-                NavItem { label: "POS", icon: "🏪", route: "/pos", permission: "invoices:create" },
+                NavItem {
+                    label: "Dashboard",
+                    icon: "📊",
+                    route: "/purchases",
+                    permission: "dashboard:read",
+                },
+                NavItem {
+                    label: "Direct Purchases",
+                    icon: "📥",
+                    route: "/purchases/direct",
+                    permission: "purchase_orders:read",
+                },
+                NavItem {
+                    label: "Purchase Orders",
+                    icon: "📋",
+                    route: "/purchases/orders",
+                    permission: "purchase_orders:read",
+                },
+                NavItem {
+                    label: "Goods Receipts",
+                    icon: "📦",
+                    route: "/purchases/receipts",
+                    permission: "purchase_orders:read",
+                },
+                NavItem {
+                    label: "Returns",
+                    icon: "↩",
+                    route: "/purchases/returns",
+                    permission: "purchase_orders:read",
+                },
             ],
         },
         NavModule {
-            name: "Purchasing", icon: "📥", permission: "purchase_orders:read",
+            name: "Manufacturing",
+            icon: "🏭",
+            permission: "bom:read",
             items: vec![
-                NavItem { label: "Dashboard", icon: "📊", route: "/purchases", permission: "dashboard:read" },
-                NavItem { label: "Direct Purchases", icon: "📥", route: "/purchases/direct", permission: "purchase_orders:read" },
-                NavItem { label: "Purchase Orders", icon: "📋", route: "/purchases/orders", permission: "purchase_orders:read" },
-                NavItem { label: "Goods Receipts", icon: "📦", route: "/purchases/receipts", permission: "purchase_orders:read" },
-                NavItem { label: "Returns", icon: "↩", route: "/purchases/returns", permission: "purchase_orders:read" },
+                NavItem {
+                    label: "Dashboard",
+                    icon: "📊",
+                    route: "/manufacturing",
+                    permission: "dashboard:read",
+                },
+                NavItem {
+                    label: "BOM",
+                    icon: "📋",
+                    route: "/manufacturing/boms",
+                    permission: "bom:read",
+                },
+                NavItem {
+                    label: "Production",
+                    icon: "⚙",
+                    route: "/manufacturing/production",
+                    permission: "production:read",
+                },
             ],
         },
         NavModule {
-            name: "Manufacturing", icon: "🏭", permission: "bom:read",
+            name: "Customers",
+            icon: "👥",
+            permission: "customers:read",
+            items: vec![NavItem {
+                label: "All Customers",
+                icon: "👥",
+                route: "/customers",
+                permission: "customers:read",
+            }],
+        },
+        NavModule {
+            name: "Suppliers",
+            icon: "🏢",
+            permission: "suppliers:read",
+            items: vec![NavItem {
+                label: "All Suppliers",
+                icon: "🏢",
+                route: "/suppliers",
+                permission: "suppliers:read",
+            }],
+        },
+        NavModule {
+            name: "Employees",
+            icon: "👤",
+            permission: "employees:read",
             items: vec![
-                NavItem { label: "Dashboard", icon: "📊", route: "/manufacturing", permission: "dashboard:read" },
-                NavItem { label: "BOM", icon: "📋", route: "/manufacturing/boms", permission: "bom:read" },
-                NavItem { label: "Production", icon: "⚙", route: "/manufacturing/production", permission: "production:read" },
+                NavItem {
+                    label: "All Employees",
+                    icon: "👤",
+                    route: "/employees",
+                    permission: "employees:read",
+                },
+                NavItem {
+                    label: "New Employee",
+                    icon: "➕",
+                    route: "/employees/new",
+                    permission: "employees:create",
+                },
             ],
         },
         NavModule {
-            name: "Customers", icon: "👥", permission: "customers:read",
+            name: "Expenses",
+            icon: "💰",
+            permission: "expenses:read",
             items: vec![
-                NavItem { label: "All Customers", icon: "👥", route: "/customers", permission: "customers:read" },
+                NavItem {
+                    label: "All Expenses",
+                    icon: "💰",
+                    route: "/expenses",
+                    permission: "expenses:read",
+                },
+                NavItem {
+                    label: "Categories",
+                    icon: "📋",
+                    route: "/expenses/categories",
+                    permission: "expenses:read",
+                },
             ],
         },
         NavModule {
-            name: "Suppliers", icon: "🏢", permission: "suppliers:read",
+            name: "Accounting",
+            icon: "📊",
+            permission: "accounting:read",
             items: vec![
-                NavItem { label: "All Suppliers", icon: "🏢", route: "/suppliers", permission: "suppliers:read" },
+                NavItem {
+                    label: "Dashboard",
+                    icon: "📊",
+                    route: "/accounting",
+                    permission: "dashboard:read",
+                },
+                NavItem {
+                    label: "Chart of Accounts",
+                    icon: "📋",
+                    route: "/accounting/chart-of-accounts",
+                    permission: "accounting:read",
+                },
+                NavItem {
+                    label: "Periods",
+                    icon: "📅",
+                    route: "/accounting/periods",
+                    permission: "accounting:read",
+                },
+                NavItem {
+                    label: "Journal Entries",
+                    icon: "📝",
+                    route: "/accounting/journal-entries",
+                    permission: "accounting:read",
+                },
             ],
         },
         NavModule {
-            name: "Employees", icon: "👤", permission: "employees:read",
+            name: "Reports",
+            icon: "📈",
+            permission: "reports:read",
             items: vec![
-                NavItem { label: "All Employees", icon: "👤", route: "/employees", permission: "employees:read" },
-                NavItem { label: "New Employee", icon: "➕", route: "/employees/new", permission: "employees:create" },
+                NavItem {
+                    label: "Dashboard",
+                    icon: "📊",
+                    route: "/reports",
+                    permission: "reports:read",
+                },
+                NavItem {
+                    label: "AR Aging",
+                    icon: "📈",
+                    route: "/reports/ar-aging",
+                    permission: "reports:read",
+                },
+                NavItem {
+                    label: "Customer Statements",
+                    icon: "📈",
+                    route: "/reports/customer-statements",
+                    permission: "reports:read",
+                },
+                NavItem {
+                    label: "Sales",
+                    icon: "📈",
+                    route: "/reports/sales",
+                    permission: "reports:read",
+                },
+                NavItem {
+                    label: "Inventory",
+                    icon: "📈",
+                    route: "/reports/inventory",
+                    permission: "reports:read",
+                },
+                NavItem {
+                    label: "FIFO Reports",
+                    icon: "📦",
+                    route: "/reports/fifo",
+                    permission: "reports:read",
+                },
+                NavItem {
+                    label: "Financial",
+                    icon: "📈",
+                    route: "/reports/financial",
+                    permission: "reports:read",
+                },
+                NavItem {
+                    label: "Custom Reports",
+                    icon: "📈",
+                    route: "/reports/custom",
+                    permission: "reports:create",
+                },
+                NavItem {
+                    label: "Tax Summary",
+                    icon: "📈",
+                    route: "/reports/tax",
+                    permission: "reports:read",
+                },
             ],
         },
         NavModule {
-            name: "Expenses", icon: "💰", permission: "expenses:read",
+            name: "Forecasts",
+            icon: "🔮",
+            permission: "forecasts:read",
             items: vec![
-                NavItem { label: "All Expenses", icon: "💰", route: "/expenses", permission: "expenses:read" },
-                NavItem { label: "Categories", icon: "📋", route: "/expenses/categories", permission: "expenses:read" },
+                NavItem {
+                    label: "Dashboard",
+                    icon: "🔮",
+                    route: "/forecasts",
+                    permission: "forecasts:read",
+                },
+                NavItem {
+                    label: "Demand",
+                    icon: "📈",
+                    route: "/forecasts/demand",
+                    permission: "forecasts:read",
+                },
+                NavItem {
+                    label: "Trends",
+                    icon: "📈",
+                    route: "/forecasts/trends",
+                    permission: "forecasts:read",
+                },
+                NavItem {
+                    label: "Accuracy",
+                    icon: "📊",
+                    route: "/forecasts/accuracy",
+                    permission: "forecasts:read",
+                },
+                NavItem {
+                    label: "Model Config",
+                    icon: "⚙",
+                    route: "/forecasts/model-config",
+                    permission: "forecasts:update",
+                },
+                NavItem {
+                    label: "Seasonal Events",
+                    icon: "📅",
+                    route: "/forecasts/seasonal-events",
+                    permission: "forecasts:read",
+                },
             ],
         },
         NavModule {
-            name: "Accounting", icon: "📊", permission: "accounting:read",
+            name: "Admin",
+            icon: "⚙",
+            permission: "settings:read",
             items: vec![
-                NavItem { label: "Dashboard", icon: "📊", route: "/accounting", permission: "dashboard:read" },
-                NavItem { label: "Chart of Accounts", icon: "📋", route: "/accounting/chart-of-accounts", permission: "accounting:read" },
-                NavItem { label: "Periods", icon: "📅", route: "/accounting/periods", permission: "accounting:read" },
-                NavItem { label: "Journal Entries", icon: "📝", route: "/accounting/journal-entries", permission: "accounting:read" },
-            ],
-        },
-        NavModule {
-            name: "Reports", icon: "📈", permission: "reports:read",
-            items: vec![
-                NavItem { label: "Dashboard", icon: "📊", route: "/reports", permission: "reports:read" },
-                NavItem { label: "AR Aging", icon: "📈", route: "/reports/ar-aging", permission: "reports:read" },
-                NavItem { label: "Customer Statements", icon: "📈", route: "/reports/customer-statements", permission: "reports:read" },
-                NavItem { label: "Sales", icon: "📈", route: "/reports/sales", permission: "reports:read" },
-                NavItem { label: "Inventory", icon: "📈", route: "/reports/inventory", permission: "reports:read" },
-                NavItem { label: "FIFO Reports", icon: "📦", route: "/reports/fifo", permission: "reports:read" },
-                NavItem { label: "Financial", icon: "📈", route: "/reports/financial", permission: "reports:read" },
-                NavItem { label: "Custom Reports", icon: "📈", route: "/reports/custom", permission: "reports:create" },
-                NavItem { label: "Tax Summary", icon: "📈", route: "/reports/tax", permission: "reports:read" },
-            ],
-        },
-        NavModule {
-            name: "Forecasts", icon: "🔮", permission: "forecasts:read",
-            items: vec![
-                NavItem { label: "Dashboard", icon: "🔮", route: "/forecasts", permission: "forecasts:read" },
-                NavItem { label: "Demand", icon: "📈", route: "/forecasts/demand", permission: "forecasts:read" },
-                NavItem { label: "Trends", icon: "📈", route: "/forecasts/trends", permission: "forecasts:read" },
-                NavItem { label: "Accuracy", icon: "📊", route: "/forecasts/accuracy", permission: "forecasts:read" },
-                NavItem { label: "Model Config", icon: "⚙", route: "/forecasts/model-config", permission: "forecasts:update" },
-                NavItem { label: "Seasonal Events", icon: "📅", route: "/forecasts/seasonal-events", permission: "forecasts:read" },
-            ],
-        },
-        NavModule {
-            name: "Admin", icon: "⚙", permission: "settings:read",
-            items: vec![
-                NavItem { label: "Settings", icon: "⚙", route: "/settings", permission: "settings:read" },
-                NavItem { label: "Integrations", icon: "🔗", route: "/settings/integrations", permission: "settings:read" },
-                NavItem { label: "Users", icon: "👤", route: "/users", permission: "users:read" },
-                NavItem { label: "Roles", icon: "🔐", route: "/roles", permission: "roles:read" },
-                NavItem { label: "Activity Log", icon: "📋", route: "/activity-log", permission: "activity_log:read" },
-                NavItem { label: "Dashboard Layouts", icon: "📐", route: "/dashboard/layouts", permission: "dashboard:read" },
+                NavItem {
+                    label: "Settings",
+                    icon: "⚙",
+                    route: "/settings",
+                    permission: "settings:read",
+                },
+                NavItem {
+                    label: "Integrations",
+                    icon: "🔗",
+                    route: "/settings/integrations",
+                    permission: "settings:read",
+                },
+                NavItem {
+                    label: "Users",
+                    icon: "👤",
+                    route: "/users",
+                    permission: "users:read",
+                },
+                NavItem {
+                    label: "Roles",
+                    icon: "🔐",
+                    route: "/roles",
+                    permission: "roles:read",
+                },
+                NavItem {
+                    label: "Activity Log",
+                    icon: "📋",
+                    route: "/activity-log",
+                    permission: "activity_log:read",
+                },
+                NavItem {
+                    label: "Dashboard Layouts",
+                    icon: "📐",
+                    route: "/dashboard/layouts",
+                    permission: "dashboard:read",
+                },
             ],
         },
     ]
@@ -529,7 +814,11 @@ pub fn Sidebar(props: SidebarProps) -> Element {
     let lang = crate::i18n::use_i18n();
     let rbac = use_rbac();
     let collapsed = *is_collapsed.read();
-    let sidebar_class = if collapsed { "app-sidebar collapsed" } else { "app-sidebar" };
+    let sidebar_class = if collapsed {
+        "app-sidebar collapsed"
+    } else {
+        "app-sidebar"
+    };
 
     rsx! {
         aside { class: "{sidebar_class}",

@@ -9,12 +9,12 @@
 
 use crate::auth::use_auth;
 use crate::components::common::{
-    Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant, use_toast,
+    use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
 use crate::models;
-use std::collections::HashMap;
 use crate::pages::customer_list::Customer;
 use dioxus::prelude::*;
+use std::collections::HashMap;
 
 // ============================================================================
 // Constants & CSS
@@ -155,7 +155,10 @@ fn badge_class(status: &str) -> &'static str {
 }
 
 /// Generate recent activity items from invoices and ledger entries.
-fn generate_activity_items(invoices: &[InvoiceItem], ledger: &[LedgerEntry]) -> Vec<(String, String, String)> {
+fn generate_activity_items(
+    invoices: &[InvoiceItem],
+    ledger: &[LedgerEntry],
+) -> Vec<(String, String, String)> {
     let mut items: Vec<(String, String, String)> = Vec::new();
 
     // Latest invoices
@@ -167,7 +170,10 @@ fn generate_activity_items(invoices: &[InvoiceItem], ledger: &[LedgerEntry]) -> 
             _ => "activity-icon-blue",
         };
         items.push((
-            format!("Invoice <strong>{}</strong> — PKR {:.0}", inv.invoice_no, inv.total),
+            format!(
+                "Invoice <strong>{}</strong> — PKR {:.0}",
+                inv.invoice_no, inv.total
+            ),
             icon.to_string(),
             inv.date.clone(),
         ));
@@ -180,7 +186,10 @@ fn generate_activity_items(invoices: &[InvoiceItem], ledger: &[LedgerEntry]) -> 
         }
         if entry.entry_type == "PAYMENT" {
             items.push((
-                format!("Payment of <strong>PKR {:.0}</strong> received", entry.credit),
+                format!(
+                    "Payment of <strong>PKR {:.0}</strong> received",
+                    entry.credit
+                ),
                 "activity-icon-blue".to_string(),
                 entry.date.clone(),
             ));
@@ -188,7 +197,11 @@ fn generate_activity_items(invoices: &[InvoiceItem], ledger: &[LedgerEntry]) -> 
     }
 
     if items.is_empty() {
-        items.push(("No recent activity".to_string(), "activity-icon-blue".to_string(), String::new()));
+        items.push((
+            "No recent activity".to_string(),
+            "activity-icon-blue".to_string(),
+            String::new(),
+        ));
     }
 
     items
@@ -240,14 +253,31 @@ pub fn CustomerDetailPage(id: String) -> Element {
             let ledger_entries = client.get_customer_ledger(parsed).await.unwrap_or_default();
 
             // Fetch payments
-            let payment_entries = client.get_customer_payments(parsed).await.unwrap_or_default();
+            let payment_entries = client
+                .get_customer_payments(parsed)
+                .await
+                .unwrap_or_default();
 
-            Some((server_customer, customer_invoices, ledger_entries, payment_entries))
+            Some((
+                server_customer,
+                customer_invoices,
+                ledger_entries,
+                payment_entries,
+            ))
         }
     });
 
     // ── Extract & map data, then drop the read guard ──
-    let (customer_opt, invoices, payments, ledger, util, balance_remaining, overdue_count, unpaid_count) = {
+    let (
+        customer_opt,
+        invoices,
+        payments,
+        ledger,
+        util,
+        balance_remaining,
+        overdue_count,
+        unpaid_count,
+    ) = {
         let snapshot = customer_resource.read();
 
         let mut invoices: Vec<InvoiceItem> = Vec::new();
