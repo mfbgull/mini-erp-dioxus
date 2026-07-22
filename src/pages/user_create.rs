@@ -35,13 +35,13 @@ pub fn UserCreatePage() -> Element {
     let role_id = use_signal(|| "3".to_string()); // default to viewer
     let is_active = use_signal(|| true);
     let saving = use_signal(|| false);
-    let mut is_dirty = use_signal(|| false);
+    let is_dirty = use_signal(|| false);
 
     // Load roles
     let roles = use_signal(Vec::<(i64, String)>::new);
     {
         let api = api.clone();
-        let mut roles = roles.clone();
+        let roles = roles.clone();
         use_effect(move || {
             let api = api.clone();
             let mut roles = roles.clone();
@@ -98,17 +98,17 @@ pub fn UserCreatePage() -> Element {
 
     let save_user = {
         let api = api.clone();
-        let mut toast = toast.clone();
-        let mut nav = navigator.clone();
-        let mut u = username.clone();
-        let mut n = full_name.clone();
-        let mut e = email.clone();
-        let mut p = password.clone();
-        let mut r = role_id.clone();
-        let mut a = is_active.clone();
+        let toast = toast.clone();
+        let nav = navigator.clone();
+        let u = username.clone();
+        let n = full_name.clone();
+        let e = email.clone();
+        let p = password.clone();
+        let r = role_id.clone();
+        let a = is_active.clone();
         let mut saving = saving.clone();
         let mut validate = validate.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         move |_| {
             if !validate() {
                 return;
@@ -124,7 +124,7 @@ pub fn UserCreatePage() -> Element {
             });
             let api = api.clone();
             let mut toast = toast.clone();
-            let mut nav = nav.clone();
+            let nav = nav.clone();
             let mut saving = saving.clone();
             let mut dirty = dirty.clone();
             spawn(async move {
@@ -149,7 +149,7 @@ pub fn UserCreatePage() -> Element {
 
     let save_and_new = {
         let api = api.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let mut u = username.clone();
         let mut n = full_name.clone();
         let mut e = email.clone();
@@ -159,7 +159,7 @@ pub fn UserCreatePage() -> Element {
         let mut a = is_active.clone();
         let mut saving = saving.clone();
         let mut validate = validate.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         move |_| {
             if !validate() {
                 return;

@@ -360,7 +360,7 @@ pub fn ItemCreatePage() -> Element {
         }
     };
 
-    let on_warehouse_change = {
+    let _on_warehouse_change = {
         let mut w = warehouse.clone();
         let mut dirty = is_dirty.clone();
         move |v: String| {
@@ -396,12 +396,12 @@ pub fn ItemCreatePage() -> Element {
     // Save
     let save_item = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let nav = navigator.clone();
         let name = item_name.clone();
         let code = item_code.clone();
         let mut validate = validate.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
         let cat = category.clone();
         let u = uom.clone();
@@ -495,7 +495,7 @@ pub fn ItemCreatePage() -> Element {
         let mut i_manufactured = is_manufactured.clone();
         let mut i_code = item_code.clone();
         let mut i_active = is_active.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
         let cat = category.clone();
         let u = uom.clone();
@@ -623,7 +623,7 @@ pub fn ItemCreatePage() -> Element {
         0.0
     };
     let name_err = errors.read().get("name").cloned();
-    let category_err = errors.read().get("category").cloned();
+    let _category_err = errors.read().get("category").cloned();
     let cost_err = errors.read().get("cost").cloned();
     let price_err = errors.read().get("price").cloned();
     let reorder_err = errors.read().get("reorder").cloned();

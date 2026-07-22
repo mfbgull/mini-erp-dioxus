@@ -143,7 +143,7 @@ pub fn WarehouseCreatePage() -> Element {
     // ── Validation ──
     let validate = {
         let name = warehouse_name.clone();
-        let loc = location.clone();
+        let _loc = location.clone();
         let mut toast = toast.clone();
         move || -> bool {
             let mut errs = HashMap::<&'static str, String>::new();
@@ -181,7 +181,7 @@ pub fn WarehouseCreatePage() -> Element {
     // Save
     let save_warehouse = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let api = api.clone();
         let nav = navigator.clone();
         let name = warehouse_name.clone();
@@ -228,7 +228,7 @@ pub fn WarehouseCreatePage() -> Element {
     // Save & New
     let save_and_new = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let api = api.clone();
         let name = warehouse_name.clone();
         let code = warehouse_code.clone();

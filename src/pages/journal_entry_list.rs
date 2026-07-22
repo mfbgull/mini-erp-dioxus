@@ -129,8 +129,8 @@ pub fn JournalEntryListPage() -> Element {
             } else if entries.is_empty() {
                 div { class: "je-empty", "No journal entries found for this date range." }
             } else {{
-                let total_debit: f64 = 0.0;
-                let total_credit: f64 = 0.0;
+                let _total_debit: f64 = 0.0;
+                let _total_credit: f64 = 0.0;
                 rsx! {
                     div { class: "je-table-container",
                         table { class: "je-table",

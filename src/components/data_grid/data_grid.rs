@@ -226,10 +226,10 @@ where
 
     // Tracks which cell is currently being edited: (row_index, column_key, original_value).
     // `None` means no cell is being edited.
-    let mut editing_cell: Signal<Option<(usize, &'static str, String)>> = use_signal(|| None);
+    let editing_cell: Signal<Option<(usize, &'static str, String)>> = use_signal(|| None);
 
     // The current value in the inline edit input.
-    let mut edit_value: Signal<String> = use_signal(String::new);
+    let edit_value: Signal<String> = use_signal(String::new);
 
     // ── Phase 5: Column visibility toggle state ──
 
@@ -239,7 +239,7 @@ where
         use_signal(|| columns.iter().map(|c| c.key).collect());
 
     // Whether the column visibility dropdown menu is open.
-    let mut show_column_menu: Signal<bool> = use_signal(|| false);
+    let show_column_menu: Signal<bool> = use_signal(|| false);
 
     // Resolved columns — if column toggle is enabled, only visible columns;
     // otherwise the full column list. Used for rendering.
@@ -439,7 +439,7 @@ where
         }
     };
 
-    let mut on_edit_commit = {
+    let on_edit_commit = {
         let mut editing_cell = editing_cell.clone();
         let mut edit_value = edit_value.clone();
         let on_cell_edit = on_cell_edit.clone();
@@ -456,7 +456,7 @@ where
         }
     };
 
-    let mut on_edit_cancel = {
+    let on_edit_cancel = {
         let mut editing_cell = editing_cell.clone();
         let mut edit_value = edit_value.clone();
         move || {
@@ -482,7 +482,7 @@ where
 
     // ---- Compute pinned column boundaries for CSS sticky ----
 
-    let (left_pinned_keys, right_pinned_keys) = {
+    let (_left_pinned_keys, _right_pinned_keys) = {
         let mut left = Vec::new();
         let mut right = Vec::new();
         for col in &display_columns {
@@ -541,7 +541,7 @@ where
                 role: "table",
                 aria_label: "Loading data grid",
                 div { class: "dg-header-row",
-                    {columns.iter().map(|col| {
+                    {columns.iter().map(|_col| {
                         rsx! {
                             div {
                                 class: "dg-header-cell",
@@ -614,7 +614,7 @@ where
     let row_height_px = row_height.px();
     let is_striped = striped;
     let selection_read = selection.read().clone();
-    let sel_mode = selection_mode;
+    let _sel_mode = selection_mode;
     let filters_read = filters.read().clone();
     let open_filter_val = *open_filter.read();
     let active_filter_count = count_active_filters(&filters_read);
@@ -629,11 +629,8 @@ where
     let mut visible_end: usize;
     let spacer_top_px: f64;
     let spacer_bottom_px: f64;
-    let total_content_height: f64;
-
     if use_virtual {
         let row_h = row_height_px as f64;
-        total_content_height = total_display_rows as f64 * row_h;
 
         // Compute visible range from scroll position
         let start_row = (scroll_top_val / row_h).floor() as usize;
@@ -656,7 +653,6 @@ where
         visible_end = total_display_rows;
         spacer_top_px = 0.0;
         spacer_bottom_px = 0.0;
-        total_content_height = 0.0;
     }
 
     // The slice of rows to render
@@ -927,7 +923,7 @@ where
                                     // Data cells with sticky positioning for pinned columns
                                     {display_columns.iter().enumerate().map(|(col_idx, col)| {
                                         let cell_value = (col.get_value)(data);
-                                        let cell_width = widths
+                                        let _cell_width = widths
                                             .get(col_idx)
                                             .copied()
                                             .unwrap_or(120.0);
@@ -1135,7 +1131,7 @@ where
 
                                     {display_columns.iter().enumerate().map(|(col_idx, col)| {
                                         let cell_value = (col.get_value)(data);
-                                        let cell_width = widths
+                                        let _cell_width = widths
                                             .get(col_idx)
                                             .copied()
                                             .unwrap_or(120.0);

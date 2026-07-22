@@ -198,7 +198,7 @@ pub fn EmployeeEditPage(id: String) -> Element {
 
     let save = {
         let api = api.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let nav = navigator.clone();
         let mut saving = saving.clone();
         let ec = employee_code.clone();

@@ -144,7 +144,7 @@ fn format_number(num: f64, decimals: u8) -> String {
     let rounded = format!("{:.prec$}", num, prec = precision);
 
     // Add thousands separator
-    let mut parts: Vec<&str> = rounded.split('.').collect();
+    let parts: Vec<&str> = rounded.split('.').collect();
     let int_part = parts[0];
     let mut formatted = String::new();
 

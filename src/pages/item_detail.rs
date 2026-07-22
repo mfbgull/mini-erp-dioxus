@@ -412,7 +412,7 @@ fn status_class(status: &str) -> &'static str {
 /// stock ledger entries, and action buttons.
 #[component]
 pub fn ItemDetailPage(id: String) -> Element {
-    let mut toast = use_toast();
+    let toast = use_toast();
     let navigator = use_navigator();
 
     // ── Async data fetch ──
@@ -439,7 +439,7 @@ pub fn ItemDetailPage(id: String) -> Element {
     let is_loading = item_resource.read().is_none();
 
     // ── Delete confirmation modal state ──
-    let mut show_delete_modal = use_signal(|| false);
+    let show_delete_modal = use_signal(|| false);
 
     // ── Handler closures (defined early so they're available everywhere) ──
 

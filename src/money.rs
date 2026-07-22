@@ -52,7 +52,7 @@ impl Money {
 
     /// Check if the value is positive.
     pub fn is_positive(self) -> bool {
-        self.0.is_positive()
+        self.0.is_sign_positive()
     }
 
     /// Check if the value is negative.
@@ -447,10 +447,10 @@ impl rusqlite::types::FromSql for Money {
         match value {
             rusqlite::types::ValueRef::Text(bytes) => {
                 let s = std::str::from_utf8(bytes)
-                    .map_err(|e| rusqlite::types::FromSqlError::InvalidType)?;
+                    .map_err(|_e| rusqlite::types::FromSqlError::InvalidType)?;
                 Decimal::from_str(s)
                     .map(Money)
-                    .map_err(|e| rusqlite::types::FromSqlError::InvalidType)
+                    .map_err(|_e| rusqlite::types::FromSqlError::InvalidType)
             }
             rusqlite::types::ValueRef::Real(f) => Ok(Money::from(f)),
             rusqlite::types::ValueRef::Integer(i) => Ok(Money::from(i)),

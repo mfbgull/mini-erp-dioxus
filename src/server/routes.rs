@@ -2,7 +2,7 @@ use super::auth_routes::{self, AppState};
 use super::*;
 use axum::http::{HeaderName, HeaderValue};
 use axum::Router;
-use tower_http::cors::{AllowHeaders, AllowMethods, CorsLayer};
+use tower_http::cors::{AllowMethods, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 pub fn create_router(state: AppState) -> Router {

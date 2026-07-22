@@ -5,7 +5,6 @@ use crate::auth::use_auth;
 use crate::components::common::{
     use_toast, Button, ButtonVariant, Modal, ModalSize, StatCard, StatCardVariant,
 };
-use crate::models;
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r##"
@@ -84,7 +83,7 @@ fn status_class(s: &str) -> &'static str {
 
 #[component]
 pub fn DirectPurchaseDetailPage(id: String) -> Element {
-    let toast = use_toast();
+    let _toast = use_toast();
     let navigator = use_navigator();
     let id_display = id.clone();
 
@@ -128,11 +127,11 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
 
     let loading = resource.read().is_none();
     let detail_opt = resource.read().as_ref().and_then(|d| d.clone());
-    let mut show_delete_modal = use_signal(|| false);
+    let show_delete_modal = use_signal(|| false);
     let toast = use_toast();
 
     // Extract detail fields for use in RSX
-    let (d, detail_ready) = if let Some(ref d) = detail_opt {
+    let (_d, detail_ready) = if let Some(ref d) = detail_opt {
         (Some(d.clone()), true)
     } else {
         (None, false)
@@ -159,7 +158,7 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
     };
     let confirm_delete = {
         let mut m = show_delete_modal.clone();
-        let mut t = toast.clone();
+        let t = toast.clone();
         let nav = navigator.clone();
         let api = api.clone();
         let pid = id_display.clone();
@@ -224,12 +223,12 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
 fn render_detail(
     d: PurchaseDetail,
     sc: &'static str,
-    mut on_back: impl FnMut(Event<MouseData>) + 'static,
-    mut on_edit: impl FnMut(Event<MouseData>) + 'static,
-    mut on_receipt: impl FnMut(Event<MouseData>) + 'static,
-    mut on_print: impl FnMut(Event<MouseData>) + 'static,
-    mut on_delete_prompt: impl FnMut(Event<MouseData>) + 'static,
-    mut confirm_delete: impl FnMut(Event<MouseData>) + 'static,
+    on_back: impl FnMut(Event<MouseData>) + 'static,
+    on_edit: impl FnMut(Event<MouseData>) + 'static,
+    on_receipt: impl FnMut(Event<MouseData>) + 'static,
+    on_print: impl FnMut(Event<MouseData>) + 'static,
+    on_delete_prompt: impl FnMut(Event<MouseData>) + 'static,
+    confirm_delete: impl FnMut(Event<MouseData>) + 'static,
     mut show_delete_modal: Signal<bool>,
 ) -> Element {
     rsx! {

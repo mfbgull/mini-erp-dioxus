@@ -7,7 +7,7 @@ use crate::components::common::{
     use_toast, Button, ButtonVariant, FormInput, InputType, Modal, ModalSize, SearchableSelect,
     SelectOption,
 };
-use crate::models::{Bom, BomItem, Item, ProductionForm, StockBalance};
+use crate::models::{Bom, BomItem, Item, ProductionForm};
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -97,7 +97,7 @@ struct MaterialAvailability {
 
 #[component]
 pub fn ProductionCreatePage() -> Element {
-    let mut toast = use_toast();
+    let toast = use_toast();
     let navigator = use_navigator();
     let api = use_auth().api;
 
@@ -110,9 +110,9 @@ pub fn ProductionCreatePage() -> Element {
     let notes = use_signal(String::new);
 
     let is_saving = use_signal(|| false);
-    let mut is_dirty = use_signal(|| false);
-    let mut show_discard_modal = use_signal(|| false);
-    let errors = use_signal(HashMap::<&'static str, String>::new);
+    let is_dirty = use_signal(|| false);
+    let show_discard_modal = use_signal(|| false);
+    let _errors = use_signal(HashMap::<&'static str, String>::new);
 
     // API-loaded data
     let item_map = use_signal(HashMap::<i64, Item>::new);
@@ -129,10 +129,10 @@ pub fn ProductionCreatePage() -> Element {
     // Load items and BOMs from API — only items with active BOMs appear
     {
         let api = api.clone();
-        let mut item_map = item_map.clone();
-        let mut item_options_signal = item_options_signal.clone();
-        let mut bom_list = bom_list.clone();
-        let mut bom_options_signal = bom_options_signal.clone();
+        let item_map = item_map.clone();
+        let item_options_signal = item_options_signal.clone();
+        let bom_list = bom_list.clone();
+        let bom_options_signal = bom_options_signal.clone();
         use_effect(move || {
             let api = api.clone();
             let mut item_map = item_map.clone();
@@ -181,8 +181,8 @@ pub fn ProductionCreatePage() -> Element {
     // Must be a use_effect — setting signals inside a bare render block causes
     // an infinite re-render loop (each set dirties the component → re-render → set again).
     {
-        let mut item_to_produce = item_to_produce.clone();
-        let mut bom_list = bom_list.clone();
+        let item_to_produce = item_to_produce.clone();
+        let bom_list = bom_list.clone();
         let mut bom_sig = bom.clone();
         let mut bom_opts = bom_options_signal.clone();
         use_effect(move || {
@@ -235,10 +235,10 @@ pub fn ProductionCreatePage() -> Element {
     // Load BOM details + stock when BOM or quantity changes
     {
         let api = api.clone();
-        let mut bom_items_sig = bom_items.clone();
-        let mut stock_map_sig = stock_map.clone();
-        let mut material_rows_sig = material_rows.clone();
-        let mut loading = loading_materials.clone();
+        let bom_items_sig = bom_items.clone();
+        let stock_map_sig = stock_map.clone();
+        let material_rows_sig = material_rows.clone();
+        let loading = loading_materials.clone();
         use_effect(move || {
             // Read signals here for dependency tracking, then pass cloned values to spawn
             let bom_id_str = bom.read().clone();
@@ -410,14 +410,14 @@ pub fn ProductionCreatePage() -> Element {
 
     let save_prd = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
-        let mut nav = navigator.clone();
-        let mut item = item_to_produce.clone();
-        let mut bom_sig = bom.clone();
-        let mut qty = planned_qty.clone();
-        let mut nts = notes.clone();
+        let toast = toast.clone();
+        let nav = navigator.clone();
+        let item = item_to_produce.clone();
+        let bom_sig = bom.clone();
+        let qty = planned_qty.clone();
+        let nts = notes.clone();
         let mut validate = validate.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
         move |_| {
             if !validate() {
@@ -429,7 +429,7 @@ pub fn ProductionCreatePage() -> Element {
             let qty_val = qty.read().parse::<f64>().unwrap_or(100.0);
             let nts_val = nts.read().clone();
             let mut toast = toast.clone();
-            let mut nav = nav.clone();
+            let nav = nav.clone();
             let mut saving = saving.clone();
             let mut dirty = dirty.clone();
             let api = api.clone();
@@ -469,7 +469,7 @@ pub fn ProductionCreatePage() -> Element {
 
     let save_and_new = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let mut item = item_to_produce.clone();
         let mut bom_sig = bom.clone();
         let mut qty = planned_qty.clone();
@@ -477,7 +477,7 @@ pub fn ProductionCreatePage() -> Element {
         let mut start = start_date.clone();
         let mut end = expected_end_date.clone();
         let mut validate = validate.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
         move |_| {
             if !validate() {
@@ -534,8 +534,8 @@ pub fn ProductionCreatePage() -> Element {
 
     let open_discard = {
         let mut modal = show_discard_modal.clone();
-        let mut dirty = is_dirty.clone();
-        let mut nav = navigator.clone();
+        let dirty = is_dirty.clone();
+        let nav = navigator.clone();
         move |_| {
             if *dirty.read() {
                 modal.set(true);
@@ -546,7 +546,7 @@ pub fn ProductionCreatePage() -> Element {
     };
 
     let confirm_discard = {
-        let mut nav = navigator.clone();
+        let nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
         move |_| {
             modal.set(false);

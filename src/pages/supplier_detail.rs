@@ -113,7 +113,7 @@ fn badge_class(status: &str) -> &'static str {
 
 #[component]
 pub fn SupplierDetailPage(id: String) -> Element {
-    let mut toast = use_toast();
+    let toast = use_toast();
     let navigator = use_navigator();
     let id_display = id.clone();
     let id_clone = id.clone();

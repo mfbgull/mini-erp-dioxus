@@ -38,13 +38,13 @@ struct LayoutItem {
 #[component]
 pub fn DashboardLayoutsPage() -> Element {
     let navigator = use_navigator();
-    let mut toast = use_toast();
+    let toast = use_toast();
     let api = use_auth().api;
     let counter = use_signal(|| 0u32);
 
     let mut show_create_modal = use_signal(|| false);
     let mut show_delete_modal = use_signal(|| false);
-    let mut delete_id = use_signal(|| 0i64);
+    let delete_id = use_signal(|| 0i64);
     let mut new_name = use_signal(|| String::new());
     let mut new_blocks = use_signal(|| "{}".to_string());
 
@@ -152,7 +152,7 @@ pub fn DashboardLayoutsPage() -> Element {
                         }}
                         tbody {
                             for layout in layouts.iter() {
-                                {let layout_clone = layout.clone(); rsx! {
+                                {let _layout_clone = layout.clone(); rsx! {
                                     tr {
                                         td { style: "font-weight: 600;", "{layout.name}" }
                                         td {
@@ -170,7 +170,7 @@ pub fn DashboardLayoutsPage() -> Element {
                                             div { class: "dl-actions",
                                                 Button {
                                                     variant: ButtonVariant::Ghost,
-                                                    onclick: { let mut nav = navigator.clone(); let eid = layout.id; move |_| { nav.push(format!("/dashboard?layout={}", eid)); } },
+                                                    onclick: { let nav = navigator.clone(); let eid = layout.id; move |_| { nav.push(format!("/dashboard?layout={}", eid)); } },
                                                     "View"
                                                 }
                                                 Button {

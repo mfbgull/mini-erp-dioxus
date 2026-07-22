@@ -127,7 +127,7 @@ pub fn BomEditPage(id: String) -> Element {
     }
 
     let (bom_data, all_items) = resource.read().clone().unwrap_or((None, vec![]));
-    let item_map: HashMap<String, &Item> =
+    let _item_map: HashMap<String, &Item> =
         all_items.iter().map(|i| (i.id.to_string(), i)).collect();
     let item_options: Vec<SelectOption> = all_items
         .iter()
@@ -178,7 +178,7 @@ pub fn BomEditPage(id: String) -> Element {
 
     let save = {
         let api = api.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let nav = navigator.clone();
         let mut saving = saving.clone();
         let bn = bom_name.clone();

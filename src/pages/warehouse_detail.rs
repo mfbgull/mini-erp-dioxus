@@ -323,7 +323,7 @@ pub fn WarehouseDetailPage(id: String) -> Element {
     let data_opt = warehouse_resource.read().as_ref().cloned();
 
     // ── Delete confirmation modal ──
-    let mut show_delete_modal = use_signal(|| false);
+    let show_delete_modal = use_signal(|| false);
 
     // ── Derive variables for rendering ──
 

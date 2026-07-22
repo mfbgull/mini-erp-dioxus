@@ -202,12 +202,12 @@ pub fn PurchaseOrderCreatePage() -> Element {
     let save = {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
-        let mut c_code = supplier_code.clone();
-        let c_name = supplier_name.clone();
+        let c_code = supplier_code.clone();
+        let _c_name = supplier_name.clone();
         let its = line_items.clone();
         let o_date = order_date.clone();
         let nts = notes.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let nav = navigator.clone();
         let api = api.clone();
         move |_| {
@@ -277,13 +277,13 @@ pub fn PurchaseOrderCreatePage() -> Element {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
         let mut c_code = supplier_code.clone();
-        let c_name = supplier_name.clone();
+        let _c_name = supplier_name.clone();
         let mut its = line_items.clone();
         let o_date = order_date.clone();
         let nts = notes.clone();
         let mut dp = discount_pct.clone();
         let mut tr = tax_rate_str.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
         move |_| {
             if c_code.read().is_empty() {

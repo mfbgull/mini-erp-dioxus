@@ -185,8 +185,8 @@ pub fn InvoiceDetailPage(id: String) -> Element {
 
     let is_loading = invoice_resource.read().is_none();
     let inv_opt = invoice_resource.read().as_ref().cloned().flatten();
-    let mut show_delete_modal = use_signal(|| false);
-    let mut show_payment_modal = use_signal(|| false);
+    let show_delete_modal = use_signal(|| false);
+    let show_payment_modal = use_signal(|| false);
     let mut show_return_modal = use_signal(|| false);
     let mut return_items = use_signal(|| Vec::<ReturnItemInput>::new());
     let mut payment_info = use_signal(|| PaymentInfo::default());
@@ -469,7 +469,7 @@ pub fn InvoiceDetailPage(id: String) -> Element {
                             Button { variant: ButtonVariant::Secondary, onclick: on_print, icon: Some("🖨".to_string()), "Print" }
                             Button { variant: ButtonVariant::Secondary, onclick: on_payment, icon: Some("💰".to_string()), "Record Payment" }
                             if inv.status != "Cancelled" {
-                                Button { variant: ButtonVariant::Warning, onclick: { let mut show = show_return_modal.clone(); let inv_clone = inv.clone(); let items_clone = inv.items.clone(); move |_| {
+                                Button { variant: ButtonVariant::Warning, onclick: { let mut show = show_return_modal.clone(); let _inv_clone = inv.clone(); let items_clone = inv.items.clone(); move |_| {
                                     // Initialize return items
                                     let returnInputs: Vec<ReturnItemInput> = items_clone.iter().map(|item| ReturnItemInput {
                                         item_id: item.item_id.unwrap_or(0),
@@ -533,7 +533,7 @@ pub fn InvoiceDetailPage(id: String) -> Element {
                             Button { variant: ButtonVariant::Secondary, onclick: move |_| show_return_modal.set(false), "Cancel" }
                             Button {
                                 variant: ButtonVariant::Warning,
-                                onclick: { let api = use_auth().api; let mut toast = toast.clone(); let mut show = show_return_modal.clone(); let items = return_items.clone(); let invoice_id = inv.id.clone(); let mut counter = counter.clone(); move |_| {
+                                onclick: { let api = use_auth().api; let mut toast = toast.clone(); let show = show_return_modal.clone(); let items = return_items.clone(); let invoice_id = inv.id.clone(); let counter = counter.clone(); move |_| {
                                     let returnData: Vec<serde_json::Value> = items.read().iter().filter_map(|item| {
                                         let qty: f64 = item.return_quantity.parse().ok().unwrap_or(0.0);
                                         if qty > 0.0 && qty <= item.max_quantity {

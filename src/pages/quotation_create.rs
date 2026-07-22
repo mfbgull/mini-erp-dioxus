@@ -217,7 +217,7 @@ pub fn QuotationCreatePage() -> Element {
         }
     };
 
-    let filled_count = items
+    let _filled_count = items
         .read()
         .iter()
         .filter(|li| !li.item_code.is_empty())
@@ -261,16 +261,16 @@ pub fn QuotationCreatePage() -> Element {
     let save_quotation = {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
-        let mut c_code = customer_code.clone();
+        let c_code = customer_code.clone();
         let c_name = customer_name.clone();
-        let mut its = items.clone();
+        let its = items.clone();
         let mut dirty = is_dirty.clone();
         let navigator = navigator.clone();
         let inv_date = quote_date.clone();
         let v_until = valid_until.clone();
         let nts = notes.clone();
-        let disc_pct = discount_pct.clone();
-        let tax_str = tax_rate_str.clone();
+        let _disc_pct = discount_pct.clone();
+        let _tax_str = tax_rate_str.clone();
         let api = auth_api.clone();
         let cust_map = customer_map.clone();
         let it_map = item_map.clone();

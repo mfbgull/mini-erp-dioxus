@@ -84,7 +84,7 @@ pub fn ShortcutsHelp() -> Element {
                     let ctrl = mods.ctrl() || mods.meta();
                     let is_q = matches!(&key, Key::Character(s) if s == "?");
                     let is_k = matches!(&key, Key::Character(s) if s == "k");
-                    let is_esc = matches!(&key, Key::Escape);
+                    let _is_esc = matches!(&key, Key::Escape);
                     if is_q || (ctrl && is_k) {
                         show_help.set(true);
                     }

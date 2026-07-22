@@ -191,7 +191,7 @@ pub fn CustomerCreatePage() -> Element {
     // ── Save ──
     let save_customer = {
         let mut saving = saving.clone();
-        let mut dirty = dirty.clone();
+        let dirty = dirty.clone();
         let mut toast = toast.clone();
         let nav = navigator.clone();
         move |_| {
@@ -230,17 +230,17 @@ pub fn CustomerCreatePage() -> Element {
     // ── Save & New ──
     let save_and_new = {
         let mut saving = saving.clone();
-        let mut dirty = dirty.clone();
+        let dirty = dirty.clone();
         let mut toast = toast.clone();
-        let mut cc = customer_code.clone();
-        let mut cn = customer_name.clone();
-        let mut em = email.clone();
-        let mut ph = phone.clone();
-        let mut ba = billing_address.clone();
-        let mut sa = shipping_address.clone();
-        let mut cl = credit_limit.clone();
-        let mut ob = opening_balance.clone();
-        let mut pt = payment_terms.clone();
+        let cc = customer_code.clone();
+        let cn = customer_name.clone();
+        let em = email.clone();
+        let ph = phone.clone();
+        let ba = billing_address.clone();
+        let sa = shipping_address.clone();
+        let cl = credit_limit.clone();
+        let ob = opening_balance.clone();
+        let pt = payment_terms.clone();
         move |_| {
             saving.set(true);
             let form = build_form();

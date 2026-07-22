@@ -81,7 +81,7 @@ pub fn WarehouseEditPage(id: String) -> Element {
 
     let save = {
         let api = api.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let nav = navigator.clone();
         let mut saving = saving.clone();
         let wc = warehouse_code.clone();

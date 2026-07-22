@@ -141,8 +141,8 @@ pub fn PhysicalCountCreatePage() -> Element {
 
     // UI state
     let is_saving = use_signal(|| false);
-    let mut is_dirty = use_signal(|| false);
-    let mut show_discard_modal = use_signal(|| false);
+    let is_dirty = use_signal(|| false);
+    let show_discard_modal = use_signal(|| false);
     let errors = use_signal(HashMap::<&'static str, String>::new);
 
     // ── Validation ──
@@ -195,7 +195,7 @@ pub fn PhysicalCountCreatePage() -> Element {
     let save_count = {
         let api = api.clone();
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let nav = navigator.clone();
         let wh = warehouse.clone();
         let nts = notes.clone();
@@ -242,7 +242,7 @@ pub fn PhysicalCountCreatePage() -> Element {
     let save_and_new = {
         let api = api.clone();
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let mut wh = warehouse.clone();
         let mut nts = notes.clone();
         let mut validate = validate.clone();

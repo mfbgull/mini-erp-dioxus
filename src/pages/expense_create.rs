@@ -82,14 +82,14 @@ pub fn ExpenseCreatePage() -> Element {
     let notes = use_signal(String::new);
 
     let is_saving = use_signal(|| false);
-    let mut is_dirty = use_signal(|| false);
+    let is_dirty = use_signal(|| false);
     let mut show_discard_modal = use_signal(|| false);
     let errors = use_signal(HashMap::<&'static str, String>::new);
 
     let validate = {
-        let mut cat = category.clone();
-        let mut desc = description.clone();
-        let mut amt = amount.clone();
+        let cat = category.clone();
+        let desc = description.clone();
+        let amt = amount.clone();
         let mut toast = toast.clone();
         move || -> bool {
             let mut errs = HashMap::<&'static str, String>::new();
@@ -178,14 +178,14 @@ pub fn ExpenseCreatePage() -> Element {
 
     let save = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
-        let mut nav = navigator.clone();
-        let mut cat = category.clone();
-        let mut desc = description.clone();
-        let mut amt = amount.clone();
-        let mut dt = expense_date.clone();
+        let toast = toast.clone();
+        let nav = navigator.clone();
+        let cat = category.clone();
+        let desc = description.clone();
+        let amt = amount.clone();
+        let dt = expense_date.clone();
         let mut validate = validate.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let api = use_auth().api;
         move |_| {
             if !validate() {
@@ -226,19 +226,19 @@ pub fn ExpenseCreatePage() -> Element {
 
     let save_and_new = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
-        let mut cat = category.clone();
-        let mut desc = description.clone();
-        let mut amt = amount.clone();
+        let toast = toast.clone();
+        let cat = category.clone();
+        let desc = description.clone();
+        let amt = amount.clone();
         let mut validate = validate.clone();
-        let mut i_cat = category.clone();
-        let mut i_desc = description.clone();
-        let mut i_amt = amount.clone();
-        let mut i_date = expense_date.clone();
-        let mut i_paid = paid_to.clone();
-        let mut i_method = payment_method.clone();
-        let mut i_notes = notes.clone();
-        let mut dirty = is_dirty.clone();
+        let i_cat = category.clone();
+        let i_desc = description.clone();
+        let i_amt = amount.clone();
+        let i_date = expense_date.clone();
+        let i_paid = paid_to.clone();
+        let i_method = payment_method.clone();
+        let i_notes = notes.clone();
+        let dirty = is_dirty.clone();
         let api = use_auth().api;
         move |_| {
             if !validate() {
@@ -295,8 +295,8 @@ pub fn ExpenseCreatePage() -> Element {
 
     let open_discard = {
         let mut modal = show_discard_modal.clone();
-        let mut dirty = is_dirty.clone();
-        let mut nav = navigator.clone();
+        let dirty = is_dirty.clone();
+        let nav = navigator.clone();
         move |_| {
             if *dirty.read() {
                 modal.set(true);
@@ -306,7 +306,7 @@ pub fn ExpenseCreatePage() -> Element {
         }
     };
 
-    let cat_err = errors.read().get("cat").cloned();
+    let _cat_err = errors.read().get("cat").cloned();
     let desc_err = errors.read().get("desc").cloned();
     let amt_err = errors.read().get("amt").cloned();
 

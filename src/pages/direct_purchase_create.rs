@@ -210,12 +210,12 @@ pub fn DirectPurchaseCreatePage() -> Element {
     let save = {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
-        let mut c_code = supplier_code.clone();
+        let c_code = supplier_code.clone();
         let c_name = supplier_name.clone();
         let its = line_items.clone();
         let p_date = purchase_date.clone();
         let nts = notes.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let nav = navigator.clone();
         let api = api.clone();
         move |_| {
@@ -292,7 +292,7 @@ pub fn DirectPurchaseCreatePage() -> Element {
         let nts = notes.clone();
         let mut disc_pct = discount_pct.clone();
         let mut tr = tax_rate_str.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
         move |_| {
             if c_code.read().is_empty() {

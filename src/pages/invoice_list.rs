@@ -297,7 +297,7 @@ pub fn InvoiceListPage() -> Element {
     // Row click: navigate to invoice detail
     let on_row_click = {
         let nav = use_navigator();
-        move |(idx, inv): (usize, Invoice)| {
+        move |(_idx, inv): (usize, Invoice)| {
             nav.push(format!("/sales/invoices/{}", inv.id));
         }
     };

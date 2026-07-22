@@ -2,8 +2,8 @@
 
 use crate::auth::use_auth;
 use crate::components::data_grid::{
-    BadgeColor, CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
-    RowHeight, SelectionMode, TextAlign,
+    CellRenderer, ColumnDef, ColumnWidth, DataGrid, FilterType, PaginationMode,
+    RowHeight, SelectionMode,
 };
 use dioxus::prelude::*;
 use std::collections::HashSet;
@@ -21,7 +21,7 @@ pub struct GoodsReceiptRow {
 
 #[component]
 pub fn GoodsReceiptListPage() -> Element {
-    let navigator = use_navigator();
+    let _navigator = use_navigator();
     let refresh_counter = use_signal(|| 0u32);
     let api = use_auth().api;
 

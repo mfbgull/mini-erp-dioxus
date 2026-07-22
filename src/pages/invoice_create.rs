@@ -391,9 +391,9 @@ pub fn InvoiceCreatePage() -> Element {
     let show_discard_modal = use_signal(|| false);
 
     // ── Payment state ──
-    let mut record_payment = use_signal(|| false);
-    let mut payment_amount = use_signal(String::new);
-    let mut payment_method = use_signal(|| "Cash".to_string());
+    let record_payment = use_signal(|| false);
+    let payment_amount = use_signal(String::new);
+    let payment_method = use_signal(|| "Cash".to_string());
 
     // ── API-loaded data ──
     let customer_map = use_signal(HashMap::<String, Customer>::new);
@@ -465,7 +465,7 @@ pub fn InvoiceCreatePage() -> Element {
     };
 
     // ── Derive items count ──
-    let filled_count = items
+    let _filled_count = items
         .read()
         .iter()
         .filter(|li| !li.item_code.is_empty())
@@ -532,9 +532,9 @@ pub fn InvoiceCreatePage() -> Element {
     let save_invoice = {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
-        let mut c_code = customer_code.clone();
+        let c_code = customer_code.clone();
         let c_name = customer_name.clone();
-        let mut its = items.clone();
+        let its = items.clone();
         let mut dirty = is_dirty.clone();
         let navigator = navigator.clone();
         let source_type = source_type.clone();
@@ -747,7 +747,7 @@ pub fn InvoiceCreatePage() -> Element {
                 deleted_payment_ids: None,
             };
 
-            let item_count = its
+            let _item_count = its
                 .read()
                 .iter()
                 .filter(|li| !li.item_code.is_empty())

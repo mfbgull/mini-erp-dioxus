@@ -51,7 +51,7 @@ pub fn UserEditPage(id: String) -> Element {
     let role_id = use_signal(String::new);
     let is_active = use_signal(|| true);
     let saving = use_signal(|| false);
-    let mut is_dirty = use_signal(|| false);
+    let is_dirty = use_signal(|| false);
     let data_loaded = use_signal(|| false);
 
     // Populate form when user data arrives
@@ -88,7 +88,7 @@ pub fn UserEditPage(id: String) -> Element {
     let roles = use_signal(Vec::<(i64, String)>::new);
     {
         let api = api.clone();
-        let mut roles = roles.clone();
+        let roles = roles.clone();
         use_effect(move || {
             let api = api.clone();
             let mut roles = roles.clone();
@@ -173,17 +173,17 @@ pub fn UserEditPage(id: String) -> Element {
 
     let save_changes = {
         let api = api.clone();
-        let mut toast = toast.clone();
-        let mut nav = navigator.clone();
-        let mut u = username.clone();
-        let mut n = full_name.clone();
-        let mut e = email.clone();
-        let mut p = password.clone();
-        let mut r = role_id.clone();
-        let mut a = is_active.clone();
+        let toast = toast.clone();
+        let nav = navigator.clone();
+        let u = username.clone();
+        let n = full_name.clone();
+        let e = email.clone();
+        let p = password.clone();
+        let r = role_id.clone();
+        let a = is_active.clone();
         let mut saving = saving.clone();
         let mut validate = validate.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let user_id = parsed_id;
         move |_| {
             if !validate() {
@@ -204,7 +204,7 @@ pub fn UserEditPage(id: String) -> Element {
             }
             let api = api.clone();
             let mut toast = toast.clone();
-            let mut nav = nav.clone();
+            let nav = nav.clone();
             let mut saving = saving.clone();
             let mut dirty = dirty.clone();
             spawn(async move {

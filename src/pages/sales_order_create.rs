@@ -249,11 +249,11 @@ pub fn SalesOrderCreatePage() -> Element {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
         let c_code = customer_code.clone();
-        let c_name = customer_name.clone();
+        let _c_name = customer_name.clone();
         let its = items.clone();
         let o_date = order_date.clone();
         let nts = notes.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let navigator = navigator.clone();
         let api = api.clone();
         let cust_map = customer_map.clone();
@@ -340,7 +340,7 @@ pub fn SalesOrderCreatePage() -> Element {
         let mut nts = notes.clone();
         let mut disc_pct = discount_pct.clone();
         let mut tax_str = tax_rate_str.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
         let cust_map = customer_map.clone();
         let it_map = item_map.clone();

@@ -141,7 +141,7 @@ pub fn ItemEditPage(id: String) -> Element {
 
     let save = {
         let api = api.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let nav = navigator.clone();
         let mut saving = is_saving.clone();
         let code = item_code.clone();

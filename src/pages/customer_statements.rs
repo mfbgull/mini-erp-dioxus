@@ -4,7 +4,6 @@ use crate::auth::use_auth;
 use crate::components::common::{
     use_toast, Button, ButtonVariant, SearchableSelect, SelectOption, StatCard, StatCardVariant,
 };
-use crate::models;
 use dioxus::prelude::*;
 
 const PAGE_CSS: &str = r##"
@@ -68,7 +67,7 @@ pub fn CustomerStatementsPage() -> Element {
     // Load customer list on mount
     {
         let api = api.clone();
-        let mut cust_opts = customer_options.clone();
+        let cust_opts = customer_options.clone();
         use_effect(move || {
             let api = api.clone();
             let mut cust_opts = cust_opts.clone();
@@ -91,8 +90,8 @@ pub fn CustomerStatementsPage() -> Element {
     // Load statement when customer or date range changes
     {
         let api = api.clone();
-        let mut cust_info = cust_info.clone();
-        let mut statement = statement.clone();
+        let cust_info = cust_info.clone();
+        let statement = statement.clone();
         use_effect(move || {
             let api = api.clone();
             let mut cust_info = cust_info.clone();

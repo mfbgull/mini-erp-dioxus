@@ -220,7 +220,7 @@ pub fn ProductionDetailPage(id: String) -> Element {
 
     let is_loading = detail_resource.read().is_none();
     let detail_opt = detail_resource.read().as_ref().cloned().flatten();
-    let mut show_delete_modal = use_signal(|| false);
+    let show_delete_modal = use_signal(|| false);
     let show_complete_modal = use_signal(|| false);
     let show_cancel_modal = use_signal(|| false);
 
@@ -268,7 +268,7 @@ pub fn ProductionDetailPage(id: String) -> Element {
 
     let on_update_progress = {
         let mut toast = toast.clone();
-        let mut d = detail.clone();
+        let _d = detail.clone();
         move |_| {
             toast.info("Update Progress", "Update progress feature coming soon.");
         }

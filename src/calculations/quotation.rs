@@ -90,13 +90,6 @@ pub fn filter_sellable_items(items: &[ItemFlags]) -> Vec<ItemFlags> {
         .collect()
 }
 
-/// Filter out empty/incomplete form rows (where item_id or name is empty).
-///
-/// A row is considered "filled" if its `is_filled` flag is true.
-pub fn filter_filled_items<T: HasFilled>(items: &[T]) -> Vec<&T> {
-    items.iter().filter(|i| i.is_filled()).collect()
-}
-
 /// Minimal item flags used by `filter_sellable_items`.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ItemFlags {
@@ -104,18 +97,6 @@ pub struct ItemFlags {
     pub is_finished_good: bool,
     pub is_purchased: bool,
     pub is_manufactured: bool,
-}
-
-/// Trait for items that can report whether they are "filled" (i.e., have data).
-pub trait HasFilled {
-    fn is_filled(&self) -> bool;
-}
-
-impl HasFilled for ItemFlags {
-    fn is_filled(&self) -> bool {
-        // All item flags are "filled" — this trait is for form rows.
-        true
-    }
 }
 
 /// Create an empty quotation item row (default zeroed).
@@ -128,12 +109,6 @@ pub struct QuotationFormItem {
     pub discount_type: String,
     pub discount_value: f64,
     pub tax_rate: f64,
-}
-
-impl HasFilled for QuotationFormItem {
-    fn is_filled(&self) -> bool {
-        self.item_id.is_some() && !self.item_name.is_empty()
-    }
 }
 
 /// Create a new empty quotation form row.
@@ -229,24 +204,6 @@ mod tests {
         ];
         let sellable = filter_sellable_items(&items);
         assert_eq!(sellable.len(), 2);
-    }
-
-    #[test]
-    fn test_filter_filled_items() {
-        let items = vec![
-            QuotationFormItem {
-                item_id: Some(1),
-                item_name: "Widget".to_string(),
-                ..Default::default()
-            },
-            QuotationFormItem {
-                item_id: None,
-                item_name: "".to_string(),
-                ..Default::default()
-            },
-        ];
-        let filled = filter_filled_items(&items);
-        assert_eq!(filled.len(), 1);
     }
 
     #[test]

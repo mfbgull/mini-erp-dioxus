@@ -84,7 +84,7 @@ pub fn SupplierEditPage(id: String) -> Element {
 
     let save = {
         let api = api.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let nav = navigator.clone();
         let mut saving = saving.clone();
         let sc = supplier_code.clone();

@@ -21,7 +21,7 @@ pub struct PurchaseReturn {
 
 #[component]
 pub fn PurchaseReturnListPage() -> Element {
-    let navigator = use_navigator();
+    let _navigator = use_navigator();
     let refresh_counter = use_signal(|| 0u32);
     // ponytail: no returns list endpoint -- add when server exposes one
     let resource = use_resource(move || async move {

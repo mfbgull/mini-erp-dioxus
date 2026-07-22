@@ -221,7 +221,7 @@ pub fn CustomerDetailPage(id: String) -> Element {
 
     // ── Tab state ──
     let active_tab = use_signal(|| 0usize);
-    let mut show_delete_modal = use_signal(|| false);
+    let show_delete_modal = use_signal(|| false);
     let show_payment_modal = use_signal(|| false);
     let is_saving = use_signal(|| false);
     // invoice_id -> amount-to-pay input (as string for editable fields)

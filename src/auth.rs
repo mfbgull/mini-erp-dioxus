@@ -519,8 +519,8 @@ pub fn LoginPage() -> Element {
     // ── Form state ──
     let mut username = use_signal(|| String::new());
     let mut password = use_signal(|| String::new());
-    let mut error = use_signal(|| Option::<String>::None);
-    let mut is_submitting = use_signal(|| false);
+    let error = use_signal(|| Option::<String>::None);
+    let is_submitting = use_signal(|| false);
     let mut show_password = use_signal(|| false);
     let mut remember_me = use_signal(|| true);
 

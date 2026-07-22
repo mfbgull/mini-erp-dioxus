@@ -139,7 +139,7 @@ pub fn SettingsPage() -> Element {
     // ── Save Handler ──
     let on_save = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let api = api.clone();
         move |_| {
             saving.set(true);

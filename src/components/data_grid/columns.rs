@@ -181,8 +181,8 @@ fn render_filter_dropdown(
                             }
                         },
                         onkeydown: {
-                            let key = col_key_clone;
-                            let cb = on_filter_change.clone();
+                            let _key = col_key_clone;
+                            let _cb = on_filter_change.clone();
                             move |e| {
                                 if e.key() == dioxus::prelude::Key::Escape {
                                     // Close handled by parent
@@ -516,7 +516,7 @@ pub fn render_header_row<T: 'static + Clone>(
                 let on_filter_change = on_filter_change.clone();
                 let filter_type = col.filter_type.clone();
                 let is_resizable = col.resizable;
-                let pinned_cls = match col.pinned {
+                let _pinned_cls = match col.pinned {
                     Some(PinnedPosition::Left) => " dg-pinned-left",
                     Some(PinnedPosition::Right) => " dg-pinned-right",
                     None => "",

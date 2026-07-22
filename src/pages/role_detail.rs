@@ -517,7 +517,7 @@ pub fn RoleDetailPage(id: String) -> Element {
     let role_opt = role_resource.read().as_ref().cloned().flatten();
 
     // ── Modal state ──
-    let mut show_delete_modal = use_signal(|| false);
+    let show_delete_modal = use_signal(|| false);
 
     // ── Handlers ──
     let on_back = move |_: Event<MouseData>| {

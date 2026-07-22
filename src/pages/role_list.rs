@@ -139,7 +139,7 @@ pub fn RoleListPage() -> Element {
     let mut show_create_modal = use_signal(|| false);
     let mut new_role_name = use_signal(|| String::new());
     let mut new_role_desc = use_signal(|| String::new());
-    let mut is_creating = use_signal(|| false);
+    let is_creating = use_signal(|| false);
     let mut name_error = use_signal(|| String::new());
     let toast = use_toast();
 

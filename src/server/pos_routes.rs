@@ -19,7 +19,7 @@ async fn create_pos_sale(
     State(_state): State<AppState>,
     Json(form): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    let customer_name = form
+    let _customer_name = form
         .get("customer_name")
         .and_then(|v| v.as_str())
         .unwrap_or("Walk-in Customer");

@@ -93,7 +93,7 @@ fn status_class(s: &str) -> &'static str {
 
 #[component]
 pub fn PurchaseOrderDetailPage(id: String) -> Element {
-    let mut toast = use_toast();
+    let toast = use_toast();
     let navigator = use_navigator();
 
     let id_display = id.clone();
@@ -146,10 +146,10 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
     let loading = resource.read().is_none();
     let detail_opt = resource.read().as_ref().and_then(|d| d.clone());
     let mut show_delete_modal = use_signal(|| false);
-    let mut show_receive_modal = use_signal(|| false);
+    let show_receive_modal = use_signal(|| false);
     let mut receive_notes = use_signal(String::new);
-    let mut receive_saving = use_signal(|| false);
-    let mut receive_qtys = use_signal(Vec::<f64>::new);
+    let receive_saving = use_signal(|| false);
+    let receive_qtys = use_signal(Vec::<f64>::new);
     let detail_ready = detail_opt.is_some();
 
     let on_back = move |_| {
@@ -206,7 +206,7 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
     };
 
     let confirm_receive = {
-        let mut show = show_receive_modal.clone();
+        let show = show_receive_modal.clone();
         let mut saving = receive_saving.clone();
         let notes_sig = receive_notes.clone();
         let qtys_sig = receive_qtys.clone();

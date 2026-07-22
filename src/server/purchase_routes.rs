@@ -993,7 +993,7 @@ async fn create_goods_receipt(
 async fn return_receipt(
     State(_state): State<AppState>,
     Path(id): Path<i64>,
-    Json(form): Json<serde_json::Value>,
+    Json(_form): Json<serde_json::Value>,
 ) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 

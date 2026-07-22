@@ -216,7 +216,7 @@ pub fn BomDetailPage(id: String) -> Element {
 
     let is_loading = detail_resource.read().is_none();
     let detail_opt = detail_resource.read().as_ref().cloned().flatten();
-    let mut show_delete_modal = use_signal(|| false);
+    let show_delete_modal = use_signal(|| false);
 
     if detail_opt.is_none() && !is_loading {
         return rsx! {
@@ -257,7 +257,7 @@ pub fn BomDetailPage(id: String) -> Element {
     };
     let on_copy = {
         let mut toast = toast.clone();
-        let mut d = detail.clone();
+        let _d = detail.clone();
         move |_| {
             toast.info("Copy BOM", "BOM duplicated. Redirecting to edit...");
         }

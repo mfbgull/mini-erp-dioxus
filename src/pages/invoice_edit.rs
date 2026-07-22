@@ -335,9 +335,9 @@ pub fn InvoiceEditPage(id: String) -> Element {
     let save_invoice = {
         let mut saving = is_saving.clone();
         let mut toast = toast.clone();
-        let mut c_code = customer_code.clone();
+        let c_code = customer_code.clone();
         let c_name = customer_name.clone();
-        let mut its = items.clone();
+        let its = items.clone();
         let navigator = navigator.clone();
         let source_type = source_type.clone();
         let inv_date = invoice_date.clone();
@@ -631,7 +631,7 @@ pub fn InvoiceEditPage(id: String) -> Element {
                                             td { style: "padding: 8px 6px; text-align: right; font-weight: 600; font-family: monospace;", "PKR {p.amount:.0}" }
                                             td { style: "padding: 8px 6px;", "{p.payment_method}" }
                                             td { style: "padding: 8px 6px; color: var(--text-secondary);",
-                                                {let ref_str = p.reference.as_deref().unwrap_or("-"); "{ref_str}"}
+                                                {let ref_str = p.reference.as_deref().unwrap_or("-"); format!("{ref_str}")}
                                             }
                                             td { style: "padding: 8px 6px; text-align: center;",
                                                 button {

@@ -150,7 +150,7 @@ fn populate_from_config(
 
 #[component]
 pub fn ForecastModelConfigPage() -> Element {
-    let mut toast = use_toast();
+    let toast = use_toast();
     let api = use_auth().api;
 
     // Config list — loaded on mount via use_resource
@@ -173,9 +173,9 @@ pub fn ForecastModelConfigPage() -> Element {
     let mut training_end = use_signal(|| "2026-06-27".to_string());
     let mut auto_tune = use_signal(|| true);
     let mut seasonality = use_signal(|| true);
-    let mut is_saving = use_signal(|| false);
-    let mut is_testing = use_signal(|| false);
-    let mut status = use_signal(|| "ready".to_string());
+    let is_saving = use_signal(|| false);
+    let is_testing = use_signal(|| false);
+    let status = use_signal(|| "ready".to_string());
 
     let mut arima_p = use_signal(|| "2".to_string());
     let mut arima_d = use_signal(|| "1".to_string());

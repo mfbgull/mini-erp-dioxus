@@ -149,7 +149,7 @@ pub fn SeasonalEventsPage() -> Element {
     let on_save_event = {
         let mut show = show_add_modal.clone();
         let mut events = events.clone();
-        let mut f = form_event.clone();
+        let f = form_event.clone();
         let mut t = toast.clone();
         move |_| {
             let mut new_event = f.read().clone();

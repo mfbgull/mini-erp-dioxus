@@ -5,6 +5,7 @@ pub mod customer_routes;
 pub mod dashboard_routes;
 pub mod db;
 pub mod forecast_routes;
+pub mod seed_data;
 pub mod inventory_routes;
 pub mod invoice_routes;
 pub mod manufacturing_routes;

@@ -37,7 +37,7 @@ pub struct SearchableSelectProps {
 pub fn SearchableSelect(props: SearchableSelectProps) -> Element {
     let mut is_open = use_signal(|| false);
     let mut search_text = use_signal(String::new);
-    let mut highlighted_idx = use_signal(|| 0usize);
+    let highlighted_idx = use_signal(|| 0usize);
 
     // Clone handlers before closures
     let on_select = props.on_select.clone();

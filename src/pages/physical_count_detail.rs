@@ -146,11 +146,11 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
 
     // State
     let mut show_edit_modal = use_signal(|| false);
-    let mut editing_item = use_signal(|| None::<CountedItem>);
+    let editing_item = use_signal(|| None::<CountedItem>);
     let mut edit_value = use_signal(|| String::new());
     let mut edit_notes = use_signal(|| String::new());
     let mut show_delete_modal = use_signal(|| false);
-    let mut counter = use_signal(|| 0u32);
+    let counter = use_signal(|| 0u32);
 
     // Fetch count + items
     let resource = use_resource(move || {
@@ -257,7 +257,7 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
             let api = api.clone();
             let mut toast = toast.clone();
             let item_id = item.id;
-            let n = notes.read().clone();
+            let _n = notes.read().clone();
             spawn(async move {
                 let client = api.read().clone();
                 match client
@@ -279,14 +279,14 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
     // Complete handler
     let complete_count = {
         let api = use_auth().api;
-        let mut toast = toast.clone();
-        let mut navigator = navigator.clone();
-        let mut counter = counter.clone();
+        let toast = toast.clone();
+        let navigator = navigator.clone();
+        let counter = counter.clone();
         let count_id: i64 = id_for_complete.parse().unwrap_or(0);
         move |_| {
             let api = api.clone();
             let mut toast = toast.clone();
-            let mut nav = navigator.clone();
+            let _nav = navigator.clone();
             let mut counter = counter.clone();
             spawn(async move {
                 let client = api.read().clone();
@@ -308,8 +308,8 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
     // Cancel handler
     let cancel_count = {
         let api = use_auth().api;
-        let mut toast = toast.clone();
-        let mut counter = counter.clone();
+        let toast = toast.clone();
+        let counter = counter.clone();
         let count_id: i64 = id_for_cancel.parse().unwrap_or(0);
         move |_| {
             let api = api.clone();
@@ -332,14 +332,14 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
     // Delete handler
     let confirm_delete = {
         let api = use_auth().api;
-        let mut toast = toast.clone();
-        let mut nav = navigator.clone();
-        let mut show = show_delete_modal.clone();
+        let toast = toast.clone();
+        let nav = navigator.clone();
+        let show = show_delete_modal.clone();
         let count_id: i64 = id_for_delete.parse().unwrap_or(0);
         move |_| {
             let api = api.clone();
             let mut toast = toast.clone();
-            let mut nav = nav.clone();
+            let nav = nav.clone();
             let mut show = show.clone();
             spawn(async move {
                 let client = api.read().clone();
@@ -369,7 +369,7 @@ pub fn PhysicalCountDetailPage(id: String) -> Element {
                 let counted_items = items.iter().filter(|i| i.counted_quantity.is_some()).count();
                 let variance_items = items.iter().filter(|i| i.variance.map(|v| v != 0.0).unwrap_or(false)).count();
                 let total_variance_value: f64 = items.iter().filter_map(|i| i.variance_value).sum();
-                let total_system: f64 = items.iter().map(|i| i.system_quantity).sum();
+                let _total_system: f64 = items.iter().map(|i| i.system_quantity).sum();
 
                 rsx! {
                     // Header

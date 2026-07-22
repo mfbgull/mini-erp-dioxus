@@ -101,7 +101,7 @@ pub fn CompactCardList(props: CompactCardListProps) -> Element {
     let placeholder = props
         .search_placeholder
         .unwrap_or_else(|| "Search…".to_string());
-    let empty_msg = props
+    let _empty_msg = props
         .empty_message
         .unwrap_or_else(|| "No items found.".to_string());
 

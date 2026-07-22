@@ -122,7 +122,7 @@ macro_rules! query_report {
 
 async fn report_ar_aging(State(_state): State<AppState>) -> impl IntoResponse {
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
-    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let _today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let items = query_report!(db,
         "SELECT c.id, c.customer_name, c.current_balance,
             SUM(CASE WHEN i.due_date >= ?1 THEN i.balance_amount ELSE 0 END) as current,

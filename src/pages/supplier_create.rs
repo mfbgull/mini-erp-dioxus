@@ -23,7 +23,7 @@ const SUPPLIER_CREATE_CSS: &str = r#"
 
 #[component]
 pub fn SupplierCreatePage() -> Element {
-    let mut toast = use_toast();
+    let toast = use_toast();
     let navigator = use_navigator();
     let api = use_auth().api;
 
@@ -32,7 +32,7 @@ pub fn SupplierCreatePage() -> Element {
     let email = use_signal(String::new);
     let phone = use_signal(String::new);
     let address = use_signal(String::new);
-    let mut saving = use_signal(|| false);
+    let saving = use_signal(|| false);
 
     // ── Input handlers ──
     let on_code_change = {
@@ -104,7 +104,7 @@ pub fn SupplierCreatePage() -> Element {
         let navigator = navigator.clone();
         let mut saving = saving.clone();
         let mut validate = validate.clone();
-        let mut build_form = build_form.clone();
+        let build_form = build_form.clone();
         move |_: MouseEvent| {
             if !validate() {
                 return;
@@ -136,10 +136,10 @@ pub fn SupplierCreatePage() -> Element {
 
     let save_and_new = {
         let api = api.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let mut saving = saving.clone();
         let mut validate = validate.clone();
-        let mut build_form = build_form.clone();
+        let build_form = build_form.clone();
         let mut supplier_code = supplier_code.clone();
         let mut supplier_name = supplier_name.clone();
         let mut email = email.clone();

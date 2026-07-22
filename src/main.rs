@@ -22,6 +22,7 @@ use components::rbac::{use_rbac, ProtectedRoute, RbacContext};
 /// Helper macro to wrap a page component with a permission check.
 /// Usage: protected_page!("inventory:read", pages::item_list::ItemListPage())
 /// expands to: rsx! { ProtectedRoute { permission: "inventory:read".to_string(), pages::item_list::ItemListPage() } }
+#[allow(unused_macros)]
 macro_rules! protected_page {
     ($perm:expr, $page:expr) => {
         rsx! {
@@ -337,6 +338,7 @@ fn main() {
 
 static MAIN_CSS: &str = include_str!("../assets/main.css");
 
+#[allow(non_snake_case)]
 fn App() -> Element {
     let auth = use_auth_provider();
     use_context_provider(|| auth.clone());

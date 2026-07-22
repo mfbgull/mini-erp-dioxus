@@ -136,9 +136,9 @@ pub fn BomCreatePage() -> Element {
 
     {
         let api = api.clone();
-        let mut item_map = item_map.clone();
-        let mut item_opts = item_options_signal.clone();
-        let mut code_map = item_map_by_code.clone();
+        let item_map = item_map.clone();
+        let item_opts = item_options_signal.clone();
+        let code_map = item_map_by_code.clone();
         use_effect(move || {
             let client = api.read().clone();
             let mut item_map = item_map.clone();
@@ -183,9 +183,9 @@ pub fn BomCreatePage() -> Element {
     let next_line_id = use_signal(|| 2usize);
 
     let is_saving = use_signal(|| false);
-    let mut is_dirty = use_signal(|| false);
-    let mut show_discard_modal = use_signal(|| false);
-    let errors = use_signal(HashMap::<&'static str, String>::new);
+    let is_dirty = use_signal(|| false);
+    let show_discard_modal = use_signal(|| false);
+    let _errors = use_signal(HashMap::<&'static str, String>::new);
 
     let total_cost = component_lines
         .read()
@@ -197,8 +197,8 @@ pub fn BomCreatePage() -> Element {
         .sum::<f64>();
 
     let validate = {
-        let mut fi = finished_item.clone();
-        let mut cls = component_lines.clone();
+        let fi = finished_item.clone();
+        let cls = component_lines.clone();
         let mut toast = toast.clone();
         move || -> bool {
             let mut errs = HashMap::<&'static str, String>::new();
@@ -270,15 +270,15 @@ pub fn BomCreatePage() -> Element {
 
     let save_bom = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
-        let mut nav = navigator.clone();
+        let toast = toast.clone();
+        let nav = navigator.clone();
         let bc = bom_code.clone();
         let desc = description.clone();
         let fi = finished_item.clone();
         let qty = quantity_produced.clone();
         let cls = component_lines.clone();
         let mut validate = validate.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
 
         move |_| {
@@ -338,15 +338,15 @@ pub fn BomCreatePage() -> Element {
 
     let save_and_new = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let bc = bom_code.clone();
         let desc = description.clone();
         let fi = finished_item.clone();
         let qty = quantity_produced.clone();
-        let mut lines = component_lines.clone();
-        let mut nid = next_line_id.clone();
+        let lines = component_lines.clone();
+        let nid = next_line_id.clone();
         let mut validate = validate.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
 
         move |_| {
@@ -425,8 +425,8 @@ pub fn BomCreatePage() -> Element {
 
     let open_discard = {
         let mut modal = show_discard_modal.clone();
-        let mut dirty = is_dirty.clone();
-        let mut nav = navigator.clone();
+        let dirty = is_dirty.clone();
+        let nav = navigator.clone();
         move |_| {
             if *dirty.read() {
                 modal.set(true);
@@ -437,7 +437,7 @@ pub fn BomCreatePage() -> Element {
     };
 
     let confirm_discard = {
-        let mut nav = navigator.clone();
+        let nav = navigator.clone();
         let mut modal = show_discard_modal.clone();
         move |_| {
             modal.set(false);

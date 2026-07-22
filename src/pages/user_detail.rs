@@ -45,7 +45,7 @@ const PAGE_CSS: &str = r##"
 
 #[component]
 pub fn UserDetailPage(id: String) -> Element {
-    let mut toast = use_toast();
+    let toast = use_toast();
     let navigator = use_navigator();
 
     // ── Async fetch ──
@@ -82,7 +82,7 @@ pub fn UserDetailPage(id: String) -> Element {
     let user_opt = user_resource.read().as_ref().cloned().flatten();
 
     // ── Modal state ──
-    let mut show_delete_modal = use_signal(|| false);
+    let show_delete_modal = use_signal(|| false);
 
     // ── Handlers ──
 
@@ -102,9 +102,9 @@ pub fn UserDetailPage(id: String) -> Element {
 
     let on_reset_password = {
         let api = api.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let u = user_opt.clone();
-        let mut show_reset_modal = use_signal(|| false);
+        let _show_reset_modal = use_signal(|| false);
         move |_| {
             if let Some(ref user) = u {
                 let api = api.clone();
@@ -123,7 +123,7 @@ pub fn UserDetailPage(id: String) -> Element {
 
     let on_toggle_status = {
         let api = api.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let u = user_opt.clone();
         move |_| {
             if let Some(ref user) = u {
@@ -159,14 +159,14 @@ pub fn UserDetailPage(id: String) -> Element {
         let api = api.clone();
         let mut modal = show_delete_modal.clone();
         let nav = navigator.clone();
-        let mut toast = toast.clone();
+        let toast = toast.clone();
         let u = user_opt.clone();
         move |_| {
             modal.set(false);
             if let Some(ref user) = u {
                 let api = api.clone();
                 let mut toast = toast.clone();
-                let mut nav = nav.clone();
+                let nav = nav.clone();
                 let uid = user.id;
                 spawn(async move {
                     let client = api.read().clone();

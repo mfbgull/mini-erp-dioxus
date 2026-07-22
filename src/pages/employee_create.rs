@@ -143,9 +143,9 @@ pub fn EmployeeCreatePage() -> Element {
     let errors = use_signal(HashMap::<&'static str, String>::new);
 
     let validate = {
-        let mut name = full_name.clone();
-        let mut dept = department.clone();
-        let mut desig = designation.clone();
+        let name = full_name.clone();
+        let dept = department.clone();
+        let desig = designation.clone();
         let mut toast = toast.clone();
         move || -> bool {
             let mut errs = HashMap::<&'static str, String>::new();
@@ -222,15 +222,15 @@ pub fn EmployeeCreatePage() -> Element {
 
     let save_emp = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
-        let mut nav = navigator.clone();
-        let mut name = full_name.clone();
-        let mut eml = email.clone();
-        let mut ph = phone.clone();
-        let mut dept = department.clone();
-        let mut desig = designation.clone();
-        let mut etype = employment_type.clone();
-        let mut dirty = is_dirty.clone();
+        let toast = toast.clone();
+        let nav = navigator.clone();
+        let name = full_name.clone();
+        let eml = email.clone();
+        let ph = phone.clone();
+        let dept = department.clone();
+        let desig = designation.clone();
+        let _etype = employment_type.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
         let mut validate = validate.clone();
         move |_| {
@@ -289,17 +289,17 @@ pub fn EmployeeCreatePage() -> Element {
 
     let save_and_new = {
         let mut saving = is_saving.clone();
-        let mut toast = toast.clone();
-        let mut name = full_name.clone();
-        let mut eml = email.clone();
-        let mut ph = phone.clone();
-        let mut dept = department.clone();
-        let mut desig = designation.clone();
-        let mut etype = employment_type.clone();
-        let mut join = join_date.clone();
-        let mut active = is_active.clone();
-        let mut code = emp_code.clone();
-        let mut dirty = is_dirty.clone();
+        let toast = toast.clone();
+        let name = full_name.clone();
+        let eml = email.clone();
+        let ph = phone.clone();
+        let dept = department.clone();
+        let desig = designation.clone();
+        let etype = employment_type.clone();
+        let join = join_date.clone();
+        let active = is_active.clone();
+        let code = emp_code.clone();
+        let dirty = is_dirty.clone();
         let api = api.clone();
         let mut validate = validate.clone();
         move |_| {
@@ -374,8 +374,8 @@ pub fn EmployeeCreatePage() -> Element {
 
     let open_discard = {
         let mut modal = show_discard_modal.clone();
-        let mut dirty = is_dirty.clone();
-        let mut nav = navigator.clone();
+        let dirty = is_dirty.clone();
+        let nav = navigator.clone();
         move |_| {
             if *dirty.read() {
                 modal.set(true);
@@ -387,8 +387,8 @@ pub fn EmployeeCreatePage() -> Element {
 
     let type_options = ["Permanent", "Contract", "Intern"];
     let name_err = errors.read().get("name").cloned();
-    let dept_err = errors.read().get("dept").cloned();
-    let desig_err = errors.read().get("desig").cloned();
+    let _dept_err = errors.read().get("dept").cloned();
+    let _desig_err = errors.read().get("desig").cloned();
 
     rsx! {
         style { "{PAGE_CSS}" }

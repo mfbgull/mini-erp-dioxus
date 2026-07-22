@@ -63,7 +63,7 @@ pub fn UserProfilePage() -> Element {
     let confirm_password = use_signal(String::new);
     let saving_profile = use_signal(|| false);
     let saving_password = use_signal(|| false);
-    let mut is_dirty = use_signal(|| false);
+    let is_dirty = use_signal(|| false);
 
     // Profile save
     let save_profile = {
@@ -72,7 +72,7 @@ pub fn UserProfilePage() -> Element {
         let n = full_name.clone();
         let e = email.clone();
         let mut saving = saving_profile.clone();
-        let mut dirty = is_dirty.clone();
+        let dirty = is_dirty.clone();
         let user_id = user.as_ref().map(|u| u.id).unwrap_or(0);
         move |_| {
             if n.read().trim().is_empty() {

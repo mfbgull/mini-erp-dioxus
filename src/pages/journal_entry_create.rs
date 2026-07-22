@@ -156,7 +156,7 @@ pub fn JournalEntryCreatePage() -> Element {
 
         let api = api.clone();
         let mut toast = toast.clone();
-        let mut nav = navigator.clone();
+        let nav = navigator.clone();
         spawn(async move {
             let client = api.read().clone();
             match client
@@ -269,7 +269,7 @@ pub fn JournalEntryCreatePage() -> Element {
                                 }
                                 td {
                                     if lines.read().len() > 2 {
-                                        button { class: "remove-btn", r#type: "button", onclick: { let mut lines = lines.clone(); move |_| remove_line(idx) }, "✕" }
+                                        button { class: "remove-btn", r#type: "button", onclick: { let _lines = lines.clone(); move |_| remove_line(idx) }, "✕" }
                                     }
                                 }
                             }}
