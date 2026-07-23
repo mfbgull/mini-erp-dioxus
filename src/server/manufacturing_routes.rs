@@ -547,6 +547,11 @@ async fn create_production(
                     tracing::error!("Failed to update input stock balance: {}", e);
                     return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to update input stock balance." })));
                 }
+                let available: f64 = db.query_row("SELECT current_stock FROM items WHERE id = ?1", [input.item_id], |r| r.get(0)).unwrap_or(0.0);
+                if available < input.quantity {
+                    let _ = db.execute_batch("ROLLBACK");
+                    return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Insufficient stock for production input." })));
+                }
                 if let Err(e) = db.execute("UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
                     rusqlite::params![input.quantity, input.item_id]) {
                     let _ = db.execute_batch("ROLLBACK");

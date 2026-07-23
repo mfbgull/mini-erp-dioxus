@@ -140,18 +140,6 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
     let on_back = move |_| {
         navigator.push("/purchases/direct");
     };
-    let on_edit = {
-        let mut t = toast.clone();
-        move |_| t.info("Edit Mode", "Direct purchase editing coming soon.")
-    };
-    let on_receipt = {
-        let mut t = toast.clone();
-        move |_| t.info("Goods Receipt", "Record receipt coming soon.")
-    };
-    let on_print = {
-        let mut t = toast.clone();
-        move |_| t.info("Print", "Print view coming soon.")
-    };
     let on_delete_prompt = {
         let mut m = show_delete_modal.clone();
         move |_| m.set(true)
@@ -211,9 +199,6 @@ pub fn DirectPurchaseDetailPage(id: String) -> Element {
         detail_data,
         sc,
         on_back,
-        on_edit,
-        on_receipt,
-        on_print,
         on_delete_prompt,
         confirm_delete,
         show_delete_modal,
@@ -224,9 +209,6 @@ fn render_detail(
     d: PurchaseDetail,
     sc: &'static str,
     on_back: impl FnMut(Event<MouseData>) + 'static,
-    on_edit: impl FnMut(Event<MouseData>) + 'static,
-    on_receipt: impl FnMut(Event<MouseData>) + 'static,
-    on_print: impl FnMut(Event<MouseData>) + 'static,
     on_delete_prompt: impl FnMut(Event<MouseData>) + 'static,
     confirm_delete: impl FnMut(Event<MouseData>) + 'static,
     mut show_delete_modal: Signal<bool>,
@@ -299,8 +281,6 @@ fn render_detail(
 
         div { class: "dp-actions",
             div { class: "dp-actions-left",
-                Button { variant: ButtonVariant::Primary, onclick: on_edit, icon: Some("✏️".to_string()), "Edit" }
-                Button { variant: ButtonVariant::Secondary, onclick: on_receipt, icon: Some("📦".to_string()), "Record Receipt" }
                 if d.status != "Returned" {
                     Button { variant: ButtonVariant::Warning, onclick: { let api = use_auth().api; let purchase_id = d.id.clone(); move |_| {
                         let api = api.clone();
@@ -319,7 +299,6 @@ fn render_detail(
                 }
             }
             div { class: "dp-actions-right",
-                Button { variant: ButtonVariant::Ghost, onclick: on_print, icon: Some("🖨".to_string()), "Print" }
                 Button { variant: ButtonVariant::Ghost, onclick: on_delete_prompt, icon: Some("🗑".to_string()), "Delete" }
             }
         }

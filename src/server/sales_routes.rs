@@ -437,6 +437,11 @@ async fn convert_sales_order(
                     tracing::error!("Failed to update stock_balances: {}", e);
                     return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "success": false, "error": "Failed to convert SO (transaction rolled back)." })));
                 }
+                let available: f64 = db.query_row("SELECT current_stock FROM items WHERE id = ?1", [item_id], |r| r.get(0)).unwrap_or(0.0);
+                if available < *quantity {
+                    let _ = db.execute_batch("ROLLBACK");
+                    return (StatusCode::BAD_REQUEST, Json(json!({ "success": false, "error": "Insufficient stock for item." })));
+                }
                 if let Err(e) = db.execute(
                     "UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
                     rusqlite::params![quantity, item_id],

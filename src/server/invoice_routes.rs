@@ -282,6 +282,12 @@ async fn create_invoice(
                 }
 
                 // Update items.current_stock
+                let available: f64 = db.query_row("SELECT current_stock FROM items WHERE id = ?1", [item.item_id], |r| r.get(0)).unwrap_or(0.0);
+                if available < item.quantity {
+                    tracing::error!("Insufficient stock for item {}: have {}, need {}", item.item_id, available, item.quantity);
+                    txn_ok = false;
+                    break;
+                }
                 if let Err(e) = db.execute(
                     "UPDATE items SET current_stock = current_stock - ?1, updated_at = datetime('now') WHERE id = ?2",
                     rusqlite::params![item.quantity, item.item_id],

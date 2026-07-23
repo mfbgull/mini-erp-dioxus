@@ -524,13 +524,6 @@ pub fn RoleDetailPage(id: String) -> Element {
         navigator.push("/roles");
     };
 
-    let on_edit = {
-        let mut toast = toast.clone();
-        move |_| {
-            toast.info("Edit Role", "Role editing is not yet available.");
-        }
-    };
-
     let on_delete = {
         let mut modal = show_delete_modal.clone();
         move |_| {
@@ -581,7 +574,6 @@ pub fn RoleDetailPage(id: String) -> Element {
     let role = role_opt.as_ref().unwrap();
     let permissions = role_permissions(&role.role_name);
     let users = users_resource.read().cloned().unwrap_or_default();
-    let can_edit = !role.is_system;
     let is_system_str = if role.is_system {
         "System Role"
     } else {
@@ -715,13 +707,6 @@ pub fn RoleDetailPage(id: String) -> Element {
             // ── Action Bar ──
             div { class: "role-detail-actions",
                 div { class: "role-detail-actions-left",
-                    Button {
-                        variant: ButtonVariant::Primary,
-                        onclick: on_edit,
-                        disabled: !can_edit,
-                        icon: Some("✏️".to_string()),
-                        if can_edit { "Edit" } else { "System Role" }
-                    }
                 }
                 div { class: "role-detail-actions-right",
                     Button {

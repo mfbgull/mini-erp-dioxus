@@ -136,19 +136,6 @@ impl BatchConsumption {
     }
 }
 
-/// Aggregated customer metrics.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CustomerMetrics {
-    pub total_invoiced: f64,
-    pub total_paid: f64,
-    pub total_outstanding: f64,
-    pub credit_limit: f64,
-    pub credit_utilization: f64,
-    pub overdue_invoices: usize,
-    pub average_days_to_pay: f64,
-    pub current_balance: f64,
-}
-
 /// Minimal invoice slice used by AR aging / customer calculations.
 #[derive(Debug, Clone)]
 pub struct InvoiceSummary {
@@ -165,9 +152,4 @@ pub struct LedgerEntry {
     pub credit: f64,
 }
 
-/// Minimal customer profile used by metrics computation.
-#[derive(Debug, Clone)]
-pub struct CustomerProfile {
-    pub credit_limit: f64,
-    pub current_balance: f64,
-}
+

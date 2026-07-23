@@ -185,10 +185,6 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
             show.set(true);
         }
     };
-    let on_print = {
-        let mut t = toast.clone();
-        move |_| t.info("Print", "Print coming soon.")
-    };
     let toast_for_receive = toast.clone();
     let confirm_delete = {
         let nav = navigator.clone();
@@ -368,7 +364,6 @@ pub fn PurchaseOrderDetailPage(id: String) -> Element {
             Button { variant: ButtonVariant::Secondary, onclick: on_receive, icon: Some("📦".to_string()), "Receive Goods" }
             }
             div { class: "po-actions-right",
-            Button { variant: ButtonVariant::Ghost, onclick: on_print, icon: Some("🖨".to_string()), "Print" }
             Button { variant: ButtonVariant::Ghost, onclick: on_delete, icon: Some("🗑".to_string()), "Delete" }
             }
             }

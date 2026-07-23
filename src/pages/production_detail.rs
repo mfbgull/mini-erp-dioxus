@@ -256,24 +256,6 @@ pub fn ProductionDetailPage(id: String) -> Element {
         navigator.push("/manufacturing/production");
     };
 
-    let mut t_edit = toast.clone();
-    let on_edit = {
-        let nav = navigator.clone();
-        let id = id.clone();
-        move |_| {
-            nav.push(format!("/manufacturing/production/{}", id));
-            t_edit.info("Edit Mode", "Editing coming soon.");
-        }
-    };
-
-    let on_update_progress = {
-        let mut toast = toast.clone();
-        let _d = detail.clone();
-        move |_| {
-            toast.info("Update Progress", "Update progress feature coming soon.");
-        }
-    };
-
     let on_complete = {
         let mut modal = show_complete_modal.clone();
         move |_| {
@@ -474,8 +456,6 @@ pub fn ProductionDetailPage(id: String) -> Element {
 
             div { class: "prd-detail-actions",
                 div { class: "prd-detail-actions-left",
-                    Button { variant: ButtonVariant::Primary, onclick: on_edit, icon: Some("✏️".to_string()), "Edit" }
-                    Button { variant: ButtonVariant::Secondary, onclick: on_update_progress, icon: Some("📊".to_string()), "Update Progress" }
                     if detail.status != "Completed" && detail.status != "Cancelled" {
                         Button { variant: ButtonVariant::Success, onclick: on_complete, icon: Some("✅".to_string()), "Complete" }
                     }

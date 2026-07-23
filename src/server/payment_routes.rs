@@ -102,6 +102,23 @@ async fn create_payment(
     }
     let db = db::get_db().lock().unwrap_or_else(|e| e.into_inner());
 
+    // Check payment doesn't exceed invoice balance
+    if let Some(inv_id) = form.invoice_id {
+        let balance: f64 = db
+            .query_row(
+                "SELECT balance_amount FROM invoices WHERE id = ?1",
+                [inv_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0.0);
+        if form.amount > balance {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "success": false, "error": "Payment exceeds invoice balance." })),
+            );
+        }
+    }
+
     if let Err(e) = db.execute_batch("BEGIN IMMEDIATE") {
         tracing::error!("Failed to begin transaction: {}", e);
         return (

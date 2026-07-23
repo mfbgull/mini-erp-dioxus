@@ -6,7 +6,7 @@
 use chrono::NaiveDate;
 
 use crate::calculations::{
-    round_money, AgingBuckets, CustomerMetrics, CustomerProfile, InvoiceSummary, LedgerEntry,
+    round_money, AgingBuckets, InvoiceSummary, LedgerEntry,
 };
 
 // ---------------------------------------------------------------------------
@@ -101,27 +101,6 @@ pub fn calculate_overdue_invoices(
         .collect()
 }
 
-/// Calculate the weighted-average days to pay from ledger entries.
-///
-/// This approximates DPO by looking at the time between debit (invoice) and
-/// subsequent credit (payment). Without date data on each entry, we return
-/// a simplified estimate: assumes a 30-day average payment cycle.
-///
-/// For production, pass actual payment-against-invoice date pairs and compute
-/// `(payment_date - invoice_date)` per invoice, then take the weighted average.
-pub fn calculate_average_days_to_pay(invoices: &[InvoiceSummary]) -> f64 {
-    let paid_count = invoices
-        .iter()
-        .filter(|inv| inv.balance_amount < 0.01)
-        .count();
-    if paid_count == 0 {
-        return 0.0;
-    }
-    // TODO: Replace with actual date-based calculation using payment allocations
-    // In production, compute: SUM(payment_date - invoice_date) / paid_count
-    30.0
-}
-
 // ---------------------------------------------------------------------------
 // AR Aging
 // ---------------------------------------------------------------------------
@@ -198,38 +177,6 @@ pub fn calculate_dso(receivables: f64, credit_sales: f64, days: i64) -> f64 {
 // ---------------------------------------------------------------------------
 // Computed metrics
 // ---------------------------------------------------------------------------
-
-/// Compute all customer-level metrics in one call.
-///
-/// Aggregates ledger entries, invoices, and payments into a single
-/// [`CustomerMetrics`] struct for dashboard or detail-page display.
-///
-/// The caller provides `as_of_date` for AR aging calculations (avoids
-/// implicit system-clock side effects in this pure function).
-pub fn compute_customer_metrics(
-    customer: &CustomerProfile,
-    entries: &[LedgerEntry],
-    invoices: &[InvoiceSummary],
-    as_of_date: NaiveDate,
-) -> CustomerMetrics {
-    let (total_invoiced, total_paid, _balance) = calculate_ledger_totals(entries);
-    let total_outstanding = calculate_total_outstanding(invoices);
-    let overdue = calculate_overdue_invoices(invoices, as_of_date);
-    let credit_utilization =
-        calculate_credit_utilization(customer.current_balance, customer.credit_limit);
-    let avg_days = calculate_average_days_to_pay(invoices);
-
-    CustomerMetrics {
-        total_invoiced,
-        total_paid,
-        total_outstanding,
-        credit_limit: customer.credit_limit,
-        credit_utilization,
-        overdue_invoices: overdue.len(),
-        average_days_to_pay: avg_days,
-        current_balance: customer.current_balance,
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -374,29 +321,6 @@ mod tests {
     fn test_credit_utilization_percent() {
         let pct = calculate_credit_utilization_percent(250_000.0, 500_000.0);
         assert_eq!(pct, "50.0%");
-    }
-
-    #[test]
-    fn test_compute_customer_metrics() {
-        let customer = CustomerProfile {
-            credit_limit: 500_000.0,
-            current_balance: 125_000.0,
-        };
-        let entries = vec![
-            LedgerEntry {
-                debit: 200_000.0,
-                credit: 0.0,
-            },
-            LedgerEntry {
-                debit: 0.0,
-                credit: 75_000.0,
-            },
-        ];
-        let invoices = vec![];
-        let as_of = NaiveDate::from_ymd_opt(2026, 7, 1).unwrap();
-        let m = compute_customer_metrics(&customer, &entries, &invoices, as_of);
-        assert!((m.total_invoiced - 200_000.0).abs() < 0.01);
-        assert!((m.total_paid - 75_000.0).abs() < 0.01);
     }
 
     #[test]
