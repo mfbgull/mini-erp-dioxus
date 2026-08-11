@@ -15,3 +15,6 @@ node_modules/
 .trae/
 # Added by code-review-graph
 .code-review-graph/
+
+# FUSE temp artifacts (mounted drive)
+.fuse_hidden*
