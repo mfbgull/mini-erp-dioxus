@@ -14,6 +14,7 @@ pub fn create_router(state: AppState) -> Router {
             "http://127.0.0.1:3000".parse::<HeaderValue>().unwrap(),
             "http://localhost:3001".parse::<HeaderValue>().unwrap(),
             "http://127.0.0.1:3001".parse::<HeaderValue>().unwrap(),
+            "http://127.0.0.1:34567".parse::<HeaderValue>().unwrap(),
         ])
         .allow_methods(AllowMethods::any())
         .allow_headers(
